@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Topic, Urgency } from "@/lib/types";
 import TopicCard from "./TopicCard";
+import { eventBus } from "@/lib/events";
 
 export default function TopicGrid() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -24,6 +25,19 @@ export default function TopicGrid() {
     }
     setLoading(true);
     fetchTopics();
+  }, [urgencyFilter]);
+
+  // Listen for refresh events
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe("ui-refresh", () => {
+      setLoading(true);
+      fetch(`/api/topics${urgencyFilter ? `?urgency=${urgencyFilter}` : ""}`)
+        .then((r) => r.json())
+        .then((data) => setTopics(data.topics || []))
+        .catch(() => setTopics([]))
+        .finally(() => setLoading(false));
+    });
+    return unsubscribe;
   }, [urgencyFilter]);
 
   const filters: { label: string; value: Urgency | null }[] = [

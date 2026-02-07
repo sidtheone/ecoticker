@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { TickerItem } from "@/lib/types";
+import { eventBus } from "@/lib/events";
 
 export default function TickerBar() {
   const [items, setItems] = useState<TickerItem[]>([]);
@@ -17,9 +18,20 @@ export default function TickerBar() {
         // Silently fail — ticker is non-critical
       }
     }
+
+    // Initial fetch
     fetchTicker();
+
+    // Auto-refresh every 5 minutes
     const interval = setInterval(fetchTicker, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Listen for manual refresh events
+    const unsubscribe = eventBus.subscribe("ui-refresh", fetchTicker);
+
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
   }, []);
 
   if (items.length === 0) return null;

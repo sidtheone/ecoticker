@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { changeColor, formatChange } from "@/lib/utils";
+import { eventBus } from "@/lib/events";
 
 interface Mover {
   name: string;
@@ -15,13 +16,22 @@ export default function BiggestMovers() {
   const [movers, setMovers] = useState<Mover[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchMovers = useCallback(() => {
+    setLoading(true);
     fetch("/api/movers")
       .then((r) => r.json())
       .then((data) => setMovers(data.movers || []))
       .catch(() => setMovers([]))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchMovers();
+
+    // Listen for refresh events
+    const unsubscribe = eventBus.subscribe("ui-refresh", fetchMovers);
+    return unsubscribe;
+  }, [fetchMovers]);
 
   if (loading) return <div data-testid="movers-loading" className="text-gray-500 text-sm">Loading movers...</div>;
   if (movers.length === 0) return null;

@@ -4,6 +4,7 @@ import "./globals.css";
 import TickerBar from "@/components/TickerBar";
 import ThemeProvider from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
+import RefreshButton from "@/components/RefreshButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +40,8 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <TickerBar />
-          <div className="fixed top-12 right-4 z-50">
+          <div className="fixed top-12 right-4 z-50 flex gap-2">
+            <RefreshButton />
             <ThemeToggle />
           </div>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">

@@ -7,6 +7,9 @@ const config: Config = {
       testMatch: ["<rootDir>/tests/**/*.test.ts"],
       transform: { "^.+\\.tsx?$": "ts-jest" },
       testEnvironment: "node",
+      moduleNameMapper: {
+        "^@/(.*)$": "<rootDir>/src/$1",
+      },
     },
     {
       displayName: "react",

@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { POST as seedPOST } from '@/app/api/seed/route';
 
 /**
  * Cron endpoint for triggering the batch job
  *
  * This endpoint allows external cron services (like cron-job.org or Railway Cron)
- * to trigger the batch data processing script.
+ * to trigger database seeding with demo data.
  *
  * Usage:
  * 1. Set CRON_SECRET environment variable in Railway
@@ -17,6 +14,9 @@ const execAsync = promisify(exec);
  *    Authorization: Bearer <CRON_SECRET>
  *
  * Schedule: 0 6 * * * (daily at 6am UTC)
+ *
+ * Note: Currently calls /api/seed internally. For real data, use the batch script
+ * locally: npx tsx scripts/batch.ts with NEWSAPI_KEY and OPENROUTER_API_KEY set.
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized runs
@@ -43,21 +43,27 @@ export async function GET(request: NextRequest) {
     console.log('Starting batch job via cron endpoint...');
     const startTime = Date.now();
 
-    // Use node with tsx loader (works in standalone Next.js builds)
-    const { stdout, stderr } = await execAsync('node node_modules/tsx/dist/cli.mjs scripts/batch.ts', {
-      timeout: 600000, // 10 minute timeout
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for output
+    // Call /api/seed internally to populate database
+    const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
+      method: 'POST',
     });
+
+    const seedResponse = await seedPOST(seedRequest);
+    const seedData = await seedResponse.json();
 
     const duration = Date.now() - startTime;
     console.log(`Batch job completed in ${duration}ms`);
+
+    if (!seedResponse.ok) {
+      throw new Error(seedData.error || 'Seed endpoint failed');
+    }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       durationMs: duration,
-      stdout: stdout.substring(0, 2000), // Truncate for response
-      stderr: stderr ? stderr.substring(0, 1000) : null,
+      stats: seedData.stats,
+      message: seedData.message,
     });
   } catch (error) {
     console.error('Batch job failed:', error);
@@ -92,18 +98,24 @@ export async function POST(request: NextRequest) {
 
     console.log(`Manual batch job trigger (force: ${force})`);
 
-    // Could add force flag handling to batch.ts if needed
-    const { stdout, stderr } = await execAsync('node node_modules/tsx/dist/cli.mjs scripts/batch.ts', {
-      timeout: 600000,
-      maxBuffer: 10 * 1024 * 1024,
+    // Call /api/seed internally to populate database
+    const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
+      method: 'POST',
     });
+
+    const seedResponse = await seedPOST(seedRequest);
+    const seedData = await seedResponse.json();
+
+    if (!seedResponse.ok) {
+      throw new Error(seedData.error || 'Seed endpoint failed');
+    }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       manual: true,
-      stdout: stdout.substring(0, 2000),
-      stderr: stderr ? stderr.substring(0, 1000) : null,
+      stats: seedData.stats,
+      message: seedData.message,
     });
   } catch (error) {
     console.error('Manual batch job failed:', error);

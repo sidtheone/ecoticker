@@ -12,6 +12,19 @@ export async function POST(request: NextRequest) {
 
     console.log('Seeding database with demo data...');
 
+    // Clear existing seed data to make this operation idempotent
+    // This removes all topics (and cascades to articles/scores via FK constraints)
+    // Note: This only works if ON DELETE CASCADE is set, otherwise we delete selectively
+    const existingTopicsCount = db.prepare('SELECT COUNT(*) as count FROM topics').get() as { count: number };
+    if (existingTopicsCount.count > 0) {
+      console.log(`Clearing ${existingTopicsCount.count} existing topics...`);
+      // Delete in reverse FK order to avoid constraint errors
+      db.prepare('DELETE FROM topic_keywords').run();
+      db.prepare('DELETE FROM score_history').run();
+      db.prepare('DELETE FROM articles').run();
+      db.prepare('DELETE FROM topics').run();
+    }
+
     // Sample topics
     const topics = [
       {
@@ -97,10 +110,17 @@ export async function POST(request: NextRequest) {
     ];
 
     const insertTopic = db.prepare(`
-      INSERT OR REPLACE INTO topics (
+      INSERT INTO topics (
         name, slug, category, region, current_score, previous_score,
         urgency, impact_summary, article_count, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(slug) DO UPDATE SET
+        current_score = excluded.current_score,
+        previous_score = excluded.previous_score,
+        urgency = excluded.urgency,
+        impact_summary = excluded.impact_summary,
+        article_count = excluded.article_count,
+        updated_at = datetime('now')
     `);
 
     const insertArticle = db.prepare(`

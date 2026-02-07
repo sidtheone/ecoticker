@@ -16,6 +16,10 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Install su-exec for switching users in entrypoint
+RUN apk add --no-cache su-exec
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
@@ -37,7 +41,9 @@ COPY --from=builder /app/package.json ./package.json
 
 RUN mkdir -p /data && chown nextjs:nodejs /data
 
-USER nextjs
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV DATABASE_PATH=/data/ecoticker.db
 ENV HOSTNAME=0.0.0.0
@@ -49,4 +55,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/ticker', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"
 
+# Use entrypoint to fix permissions, then switch to nextjs user
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

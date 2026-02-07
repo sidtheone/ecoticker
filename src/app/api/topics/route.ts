@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import type { TopicRow } from "@/lib/types";
 
+/**
+ * Topics API
+ * GET - List topics with optional filtering
+ * DELETE - Batch delete topics by IDs
+ */
+
 export async function GET(request: NextRequest) {
   const db = getDb();
   const urgency = request.nextUrl.searchParams.get("urgency");
@@ -95,4 +101,68 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
     }
   });
+}
+
+/**
+ * DELETE /api/topics
+ *
+ * Batch delete topics
+ * Body: { ids: [1, 2, 3] } - Delete specific topic IDs
+ * Body: { articleCount: 0 } - Delete topics with 0 articles
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { ids, articleCount } = body;
+
+    if (!ids && articleCount === undefined) {
+      return NextResponse.json(
+        { error: 'Must provide either ids array or articleCount filter' },
+        { status: 400 }
+      );
+    }
+
+    const db = getDb();
+    let deletedCount = 0;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      // Delete specific topic IDs
+      const placeholders = ids.map(() => '?').join(',');
+
+      // Delete in FK order: keywords → scores → articles → topics
+      db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...ids);
+      db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...ids);
+      db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...ids);
+      const result = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...ids);
+      deletedCount = result.changes;
+    } else if (articleCount !== undefined) {
+      // Delete topics with specific article count
+      const topicsToDelete = db.prepare('SELECT id FROM topics WHERE article_count = ?').all(articleCount) as { id: number }[];
+      const topicIds = topicsToDelete.map(t => t.id);
+
+      if (topicIds.length > 0) {
+        const placeholders = topicIds.map(() => '?').join(',');
+        db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...topicIds);
+        db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...topicIds);
+        db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...topicIds);
+        const result = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...topicIds);
+        deletedCount = result.changes;
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      deleted: deletedCount,
+      message: `Deleted ${deletedCount} topic(s)`,
+    });
+  } catch (error) {
+    console.error('Failed to delete topics:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to delete topics',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }

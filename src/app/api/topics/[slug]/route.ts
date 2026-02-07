@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import type { TopicRow, ArticleRow, ScoreHistoryRow } from "@/lib/types";
 
 export async function GET(
   _request: NextRequest,
@@ -14,7 +15,7 @@ export async function GET(
       (current_score - previous_score) as change,
       urgency, impact_summary, image_url, article_count, updated_at
     FROM topics WHERE slug = ?
-  `).get(slug) as Record<string, unknown> | undefined;
+  `).get(slug) as TopicRow | undefined;
 
   if (!topicRow) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
@@ -23,12 +24,12 @@ export async function GET(
   const articles = db.prepare(`
     SELECT id, topic_id, title, url, source, summary, image_url, published_at
     FROM articles WHERE topic_id = ? ORDER BY published_at DESC
-  `).all(topicRow.id) as Record<string, unknown>[];
+  `).all(topicRow.id) as ArticleRow[];
 
   const scoreHistory = db.prepare(`
     SELECT score, health_score, eco_score, econ_score, impact_summary, recorded_at
     FROM score_history WHERE topic_id = ? ORDER BY recorded_at ASC
-  `).all(topicRow.id) as Record<string, unknown>[];
+  `).all(topicRow.id) as ScoreHistoryRow[];
 
   return NextResponse.json({
     topic: {
@@ -64,5 +65,9 @@ export async function GET(
       impactSummary: s.impact_summary,
       date: s.recorded_at,
     })),
+  }, {
+    headers: {
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
+    }
   });
 }

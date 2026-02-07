@@ -47,3 +47,5 @@ CREATE INDEX IF NOT EXISTS idx_articles_topic ON articles(topic_id);
 CREATE INDEX IF NOT EXISTS idx_score_history_topic ON score_history(topic_id);
 CREATE INDEX IF NOT EXISTS idx_score_history_date ON score_history(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_topic_keywords_topic ON topic_keywords(topic_id);
+CREATE INDEX IF NOT EXISTS idx_topics_urgency ON topics(urgency);
+CREATE INDEX IF NOT EXISTS idx_topics_category ON topics(category);

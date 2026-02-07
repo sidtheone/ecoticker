@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import type { TopicRow } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   const db = getDb();
@@ -43,14 +44,34 @@ export async function GET(request: NextRequest) {
   }
   query += " ORDER BY current_score DESC";
 
-  const rows = db.prepare(query).all(...params) as Record<string, unknown>[];
+  // Single query with LEFT JOIN to fetch topics and sparklines together
+  const sparklineQuery = `
+    SELECT
+      t.id, t.name, t.slug, t.category, t.region,
+      t.current_score, t.previous_score,
+      (t.current_score - t.previous_score) as change,
+      t.urgency, t.impact_summary, t.image_url, t.article_count, t.updated_at,
+      GROUP_CONCAT(sh.score) as sparkline_scores
+    FROM (${query}) as t
+    LEFT JOIN (
+      SELECT topic_id, score, recorded_at,
+        ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY recorded_at DESC) as rn
+      FROM score_history
+    ) sh ON sh.topic_id = t.id AND sh.rn <= 7
+    GROUP BY t.id, t.name, t.slug, t.category, t.region,
+      t.current_score, t.previous_score, t.urgency,
+      t.impact_summary, t.image_url, t.article_count, t.updated_at
+    ORDER BY t.current_score DESC
+  `;
 
-  const sparklineStmt = db.prepare(
-    `SELECT score FROM score_history WHERE topic_id = ? ORDER BY recorded_at DESC LIMIT 7`
-  );
+  const rows = db.prepare(sparklineQuery).all(...params) as TopicRow[];
 
   const topics = rows.map((r) => {
-    const history = sparklineStmt.all(r.id as number) as { score: number }[];
+    const sparklineStr = r.sparkline_scores as string | null;
+    const sparkline = sparklineStr
+      ? sparklineStr.split(',').map(s => Number(s)).reverse()
+      : [];
+
     return {
       id: r.id,
       name: r.name,
@@ -65,9 +86,13 @@ export async function GET(request: NextRequest) {
       imageUrl: r.image_url,
       articleCount: r.article_count,
       updatedAt: r.updated_at,
-      sparkline: history.map((h) => h.score).reverse(),
+      sparkline,
     };
   });
 
-  return NextResponse.json({ topics });
+  return NextResponse.json({ topics }, {
+    headers: {
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
+    }
+  });
 }

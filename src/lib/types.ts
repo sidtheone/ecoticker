@@ -61,3 +61,50 @@ export interface TopicDetail {
   articles: Article[];
   scoreHistory: ScoreHistoryEntry[];
 }
+
+// Database row types (snake_case from SQLite)
+export interface TopicRow {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  region: string | null;
+  current_score: number;
+  previous_score: number;
+  change: number;
+  urgency: string;
+  impact_summary: string | null;
+  image_url: string | null;
+  article_count: number;
+  updated_at: string;
+  sparkline_scores?: string | null;
+}
+
+export interface ArticleRow {
+  id: number;
+  topic_id: number;
+  title: string;
+  url: string;
+  source: string | null;
+  summary: string | null;
+  image_url: string | null;
+  published_at: string | null;
+}
+
+export interface ScoreHistoryRow {
+  score: number;
+  health_score: number | null;
+  eco_score: number | null;
+  econ_score: number | null;
+  impact_summary: string | null;
+  recorded_at: string;
+}
+
+export interface MoverRow {
+  name: string;
+  slug: string;
+  current_score: number;
+  previous_score: number;
+  change: number;
+  urgency: string;
+}

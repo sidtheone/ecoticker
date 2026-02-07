@@ -60,12 +60,29 @@ async function fetchNews(): Promise<NewsArticle[]> {
   }
 
   for (const query of keywordGroups) {
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWSAPI_KEY}`;
+    // Use searchIn=title to only match articles where keywords are in the title
+    // This filters out articles that only mention keywords tangentially in the body
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&searchIn=title&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWSAPI_KEY}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
       const data = await res.json();
+
+      if (data.status === 'error') {
+        console.error(`NewsAPI error for "${query}":`, data.message);
+        continue;
+      }
+
       if (data.articles) {
-        allArticles.push(...data.articles);
+        // Filter out articles from low-quality or non-news sources
+        const filteredArticles = data.articles.filter((a: NewsArticle) => {
+          const source = a.source?.name?.toLowerCase() || '';
+          // Exclude auction sites, marketplaces, etc.
+          return !source.includes('bringatrailer') &&
+                 !source.includes('auction') &&
+                 !source.includes('ebay') &&
+                 a.title && a.description;
+        });
+        allArticles.push(...filteredArticles);
       }
     } catch (err) {
       console.error(`Failed to fetch news for "${query}":`, err);
@@ -123,30 +140,48 @@ async function classifyArticles(
   const titlesList = articles.map((a, i) => `${i}. ${a.title}`).join('\n');
 
   const prompt = `You are an environmental news classifier. Group these articles into environmental topics.
+
+IMPORTANT: Only classify articles that are genuinely about environmental issues like:
+- Climate change, global warming, carbon emissions
+- Pollution (air, water, soil, ocean, plastic)
+- Deforestation, habitat loss, biodiversity
+- Natural disasters (hurricanes, floods, wildfires)
+- Renewable energy, sustainability
+- Wildlife conservation, endangered species
+
+SKIP any articles about:
+- Cars, vehicles, or auctions (unless specifically about electric vehicles/emissions)
+- General business news (unless directly about environmental impact)
+- Sports, entertainment, politics (unless environmental policy)
+
 Use existing topics where they match. Create new topic names only when no existing topic fits.
 Each topic should be a clear environmental issue (e.g. "Amazon Deforestation", "Delhi Air Quality Crisis").
 
 Existing topics:
 ${topicsList || '(none yet)'}
 
-Articles:
+Articles to classify:
 ${titlesList}
 
-Respond with ONLY valid JSON, no other text:
+Respond with ONLY valid JSON, no other text. Use empty array if no environmental articles:
 {"classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...]}`;
 
   const response = await callLLM(prompt);
+  console.log('LLM Classification Response:', response.substring(0, 500));
+
   const parsed = extractJSON(response) as { classifications?: Classification[] } | null;
 
-  if (parsed?.classifications) return parsed.classifications;
+  if (parsed?.classifications) {
+    console.log(`Successfully classified ${parsed.classifications.length} articles`);
+    return parsed.classifications;
+  }
 
-  // Fallback: assign all to a generic topic
-  console.warn('Classification LLM failed, using fallback grouping');
-  return articles.map((_, i) => ({
-    articleIndex: i,
-    topicName: 'Environmental News',
-    isNew: true,
-  }));
+  // Fallback: return empty if classification completely fails
+  // This prevents non-environmental articles from being added
+  console.error('Classification LLM failed to return valid JSON');
+  console.error('LLM Response was:', response.substring(0, 1000));
+  console.warn('Skipping these articles due to classification failure');
+  return [];
 }
 
 // --- Pass 2: Scoring ---

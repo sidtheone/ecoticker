@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 # Setup git hooks for EcoTicker project
 
 echo "Setting up git hooks..."
 
 # Copy pre-commit hook
 cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/bash
+#!/bin/sh
 
 echo "🔨 Running pre-commit checks..."
 echo ""

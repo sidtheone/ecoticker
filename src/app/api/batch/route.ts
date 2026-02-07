@@ -18,7 +18,7 @@ import slugify from 'slugify';
 // --- Config ---
 const NEWSAPI_KEY = process.env.NEWSAPI_KEY || '';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openrouter/free';
 const KEYWORDS = (process.env.BATCH_KEYWORDS || 'climate change,pollution,deforestation,wildfire,flood').split(',');
 
 // --- Types ---

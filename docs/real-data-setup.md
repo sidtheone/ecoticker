@@ -26,7 +26,7 @@ You'll need API keys from two services:
 3. Go to "Keys" section
 4. Create a new API key
 5. Copy the key (starts with `sk-or-...`)
-6. Free models available (recommended: `meta-llama/llama-3.1-8b-instruct:free`)
+6. Free models available (recommended: `openrouter/free`)
 
 ## Step 2: Add Keys to Railway
 
@@ -44,7 +44,7 @@ OPENROUTER_API_KEY=sk-or-your_openrouter_key_here
 
 ```bash
 # OpenRouter model to use (defaults to free llama-3.1-8b)
-OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
+OPENROUTER_MODEL=openrouter/free
 
 # Keywords to search for (comma-separated)
 BATCH_KEYWORDS=climate change,pollution,deforestation,wildfire,flood,ocean acidification
@@ -160,7 +160,7 @@ command = "curl -H 'Authorization: Bearer $CRON_SECRET' http://localhost:3000/ap
 - Cost: $0/month
 
 **OpenRouter (Free Model):**
-- `meta-llama/llama-3.1-8b-instruct:free`
+- `openrouter/free`
 - ~10 LLM calls per batch
 - Cost: $0/month
 

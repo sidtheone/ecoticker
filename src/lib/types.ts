@@ -1,0 +1,63 @@
+export type Urgency = "breaking" | "critical" | "moderate" | "informational";
+
+export type Category =
+  | "air_quality"
+  | "deforestation"
+  | "ocean"
+  | "climate"
+  | "pollution"
+  | "biodiversity"
+  | "wildlife"
+  | "energy"
+  | "waste"
+  | "water";
+
+export interface Topic {
+  id: number;
+  name: string;
+  slug: string;
+  category: Category;
+  region: string | null;
+  currentScore: number;
+  previousScore: number;
+  change: number;
+  urgency: Urgency;
+  impactSummary: string | null;
+  imageUrl: string | null;
+  articleCount: number;
+  updatedAt: string;
+  sparkline: number[];
+}
+
+export interface Article {
+  id: number;
+  topicId: number;
+  title: string;
+  url: string;
+  source: string | null;
+  summary: string | null;
+  imageUrl: string | null;
+  publishedAt: string | null;
+}
+
+export interface ScoreHistoryEntry {
+  score: number;
+  healthScore: number | null;
+  ecoScore: number | null;
+  econScore: number | null;
+  impactSummary: string | null;
+  date: string;
+}
+
+export interface TickerItem {
+  name: string;
+  slug: string;
+  score: number;
+  change: number;
+}
+
+export interface TopicDetail {
+  topic: Topic;
+  articles: Article[];
+  scoreHistory: ScoreHistoryEntry[];
+}

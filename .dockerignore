@@ -1,0 +1,14 @@
+node_modules
+.next
+db/*.db
+tests
+*.test.ts
+*.test.tsx
+jest.config.ts
+.git
+.env
+.env.local
+README.md
+docker-compose.yml
+nginx.conf
+crontab

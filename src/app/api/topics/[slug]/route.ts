@@ -1,0 +1,68 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+  const db = getDb();
+
+  const topicRow = db.prepare(`
+    SELECT id, name, slug, category, region,
+      current_score, previous_score,
+      (current_score - previous_score) as change,
+      urgency, impact_summary, image_url, article_count, updated_at
+    FROM topics WHERE slug = ?
+  `).get(slug) as Record<string, unknown> | undefined;
+
+  if (!topicRow) {
+    return NextResponse.json({ error: "Topic not found" }, { status: 404 });
+  }
+
+  const articles = db.prepare(`
+    SELECT id, topic_id, title, url, source, summary, image_url, published_at
+    FROM articles WHERE topic_id = ? ORDER BY published_at DESC
+  `).all(topicRow.id) as Record<string, unknown>[];
+
+  const scoreHistory = db.prepare(`
+    SELECT score, health_score, eco_score, econ_score, impact_summary, recorded_at
+    FROM score_history WHERE topic_id = ? ORDER BY recorded_at ASC
+  `).all(topicRow.id) as Record<string, unknown>[];
+
+  return NextResponse.json({
+    topic: {
+      id: topicRow.id,
+      name: topicRow.name,
+      slug: topicRow.slug,
+      category: topicRow.category,
+      region: topicRow.region,
+      currentScore: topicRow.current_score,
+      previousScore: topicRow.previous_score,
+      change: topicRow.change,
+      urgency: topicRow.urgency,
+      impactSummary: topicRow.impact_summary,
+      imageUrl: topicRow.image_url,
+      articleCount: topicRow.article_count,
+      updatedAt: topicRow.updated_at,
+    },
+    articles: articles.map((a) => ({
+      id: a.id,
+      topicId: a.topic_id,
+      title: a.title,
+      url: a.url,
+      source: a.source,
+      summary: a.summary,
+      imageUrl: a.image_url,
+      publishedAt: a.published_at,
+    })),
+    scoreHistory: scoreHistory.map((s) => ({
+      score: s.score,
+      healthScore: s.health_score,
+      ecoScore: s.eco_score,
+      econScore: s.econ_score,
+      impactSummary: s.impact_summary,
+      date: s.recorded_at,
+    })),
+  });
+}

@@ -1,0 +1,16 @@
+# Railway Configuration for EcoTicker
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/api/ticker"
+healthcheckTimeout = 10
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+# Environment variables (set in Railway dashboard)
+# NEWSAPI_KEY, OPENROUTER_API_KEY, DATABASE_PATH, etc.

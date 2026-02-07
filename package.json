@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "railway:seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { POST as seedPOST } from '@/app/api/seed/route';
+import { POST as batchPOST } from '@/app/api/batch/route';
 
 /**
  * Cron endpoint for triggering the batch job
  *
  * This endpoint allows external cron services (like cron-job.org or Railway Cron)
- * to trigger database seeding with demo data.
+ * to trigger batch processing.
  *
  * Usage:
  * 1. Set CRON_SECRET environment variable in Railway
@@ -15,8 +16,9 @@ import { POST as seedPOST } from '@/app/api/seed/route';
  *
  * Schedule: 0 6 * * * (daily at 6am UTC)
  *
- * Note: Currently calls /api/seed internally. For real data, use the batch script
- * locally: npx tsx scripts/batch.ts with NEWSAPI_KEY and OPENROUTER_API_KEY set.
+ * Behavior:
+ * - If NEWSAPI_KEY and OPENROUTER_API_KEY are set: Fetches real news and processes with LLM
+ * - Otherwise: Seeds database with demo data
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized runs
@@ -43,27 +45,41 @@ export async function GET(request: NextRequest) {
     console.log('Starting batch job via cron endpoint...');
     const startTime = Date.now();
 
-    // Call /api/seed internally to populate database
-    const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
-      method: 'POST',
-    });
+    // Check if API keys are configured for real data processing
+    const hasApiKeys = process.env.NEWSAPI_KEY && process.env.OPENROUTER_API_KEY;
 
-    const seedResponse = await seedPOST(seedRequest);
-    const seedData = await seedResponse.json();
+    let response;
+    if (hasApiKeys) {
+      console.log('API keys detected - using real batch processing');
+      // Call /api/batch to fetch and process real news
+      const batchRequest = new NextRequest(new URL('/api/batch', request.url), {
+        method: 'POST',
+      });
+      response = await batchPOST(batchRequest);
+    } else {
+      console.log('No API keys - using demo seed data');
+      // Call /api/seed to populate with demo data
+      const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
+        method: 'POST',
+      });
+      response = await seedPOST(seedRequest);
+    }
 
+    const data = await response.json();
     const duration = Date.now() - startTime;
     console.log(`Batch job completed in ${duration}ms`);
 
-    if (!seedResponse.ok) {
-      throw new Error(seedData.error || 'Seed endpoint failed');
+    if (!response.ok) {
+      throw new Error(data.error || 'Batch endpoint failed');
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       durationMs: duration,
-      stats: seedData.stats,
-      message: seedData.message,
+      mode: hasApiKeys ? 'real-data' : 'demo-data',
+      stats: data.stats,
+      message: data.message,
     });
   } catch (error) {
     console.error('Batch job failed:', error);
@@ -98,24 +114,37 @@ export async function POST(request: NextRequest) {
 
     console.log(`Manual batch job trigger (force: ${force})`);
 
-    // Call /api/seed internally to populate database
-    const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
-      method: 'POST',
-    });
+    // Check if API keys are configured for real data processing
+    const hasApiKeys = process.env.NEWSAPI_KEY && process.env.OPENROUTER_API_KEY;
 
-    const seedResponse = await seedPOST(seedRequest);
-    const seedData = await seedResponse.json();
+    let response;
+    if (hasApiKeys) {
+      console.log('API keys detected - using real batch processing');
+      const batchRequest = new NextRequest(new URL('/api/batch', request.url), {
+        method: 'POST',
+      });
+      response = await batchPOST(batchRequest);
+    } else {
+      console.log('No API keys - using demo seed data');
+      const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
+        method: 'POST',
+      });
+      response = await seedPOST(seedRequest);
+    }
 
-    if (!seedResponse.ok) {
-      throw new Error(seedData.error || 'Seed endpoint failed');
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Batch endpoint failed');
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       manual: true,
-      stats: seedData.stats,
-      message: seedData.message,
+      mode: hasApiKeys ? 'real-data' : 'demo-data',
+      stats: data.stats,
+      message: data.message,
     });
   } catch (error) {
     console.error('Manual batch job failed:', error);

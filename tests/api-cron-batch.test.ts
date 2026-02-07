@@ -1,13 +1,19 @@
 import { GET, POST } from '@/app/api/cron/batch/route';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Mock the seed endpoint
+// Mock the seed and batch endpoints
 jest.mock('@/app/api/seed/route', () => ({
   POST: jest.fn(),
 }));
 
+jest.mock('@/app/api/batch/route', () => ({
+  POST: jest.fn(),
+}));
+
 import { POST as seedPOST } from '@/app/api/seed/route';
+import { POST as batchPOST } from '@/app/api/batch/route';
 const mockSeedPOST = seedPOST as jest.MockedFunction<typeof seedPOST>;
+const mockBatchPOST = batchPOST as jest.MockedFunction<typeof batchPOST>;
 
 describe('/api/cron/batch', () => {
   const ORIGINAL_ENV = process.env;
@@ -81,8 +87,10 @@ describe('/api/cron/batch', () => {
       expect(data).toEqual({ error: 'Unauthorized' });
     });
 
-    it('should execute batch job successfully with valid auth', async () => {
+    it('should execute batch job with demo data when no API keys', async () => {
       process.env.CRON_SECRET = 'test-secret';
+      delete process.env.NEWSAPI_KEY;
+      delete process.env.OPENROUTER_API_KEY;
 
       mockSeedPOST.mockResolvedValue(
         NextResponse.json({
@@ -106,11 +114,48 @@ describe('/api/cron/batch', () => {
         success: true,
         timestamp: expect.any(String),
         durationMs: expect.any(Number),
+        mode: 'demo-data',
         stats: { topics: 10, articles: 40, scoreHistory: 70 },
         message: 'Database seeded successfully',
       });
 
       expect(mockSeedPOST).toHaveBeenCalled();
+      expect(mockBatchPOST).not.toHaveBeenCalled();
+    });
+
+    it('should execute batch job with real data when API keys present', async () => {
+      process.env.CRON_SECRET = 'test-secret';
+      process.env.NEWSAPI_KEY = 'fake-newsapi-key';
+      process.env.OPENROUTER_API_KEY = 'fake-openrouter-key';
+
+      mockBatchPOST.mockResolvedValue(
+        NextResponse.json({
+          success: true,
+          message: 'Batch processing completed successfully',
+          stats: { topicsProcessed: 5, articlesAdded: 15, scoresRecorded: 5, totalTopics: 5, totalArticles: 15 },
+          timestamp: '2026-02-07T22:00:00.000Z',
+        })
+      );
+
+      const req = new NextRequest('http://localhost:3000/api/cron/batch', {
+        method: 'GET',
+        headers: { authorization: 'Bearer test-secret' },
+      });
+
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data).toMatchObject({
+        success: true,
+        timestamp: expect.any(String),
+        durationMs: expect.any(Number),
+        mode: 'real-data',
+        message: 'Batch processing completed successfully',
+      });
+
+      expect(mockBatchPOST).toHaveBeenCalled();
+      expect(mockSeedPOST).not.toHaveBeenCalled();
     });
 
     it('should include stats from seed endpoint', async () => {

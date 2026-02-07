@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
     console.log('Starting batch job via cron endpoint...');
     const startTime = Date.now();
 
-    const { stdout, stderr } = await execAsync('npx tsx scripts/batch.ts', {
+    // Use node with tsx loader (works in standalone Next.js builds)
+    const { stdout, stderr } = await execAsync('node node_modules/tsx/dist/cli.mjs scripts/batch.ts', {
       timeout: 600000, // 10 minute timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for output
     });
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     console.log(`Manual batch job trigger (force: ${force})`);
 
     // Could add force flag handling to batch.ts if needed
-    const { stdout, stderr } = await execAsync('npx tsx scripts/batch.ts', {
+    const { stdout, stderr } = await execAsync('node node_modules/tsx/dist/cli.mjs scripts/batch.ts', {
       timeout: 600000,
       maxBuffer: 10 * 1024 * 1024,
     });

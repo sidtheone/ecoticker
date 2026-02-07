@@ -37,7 +37,6 @@ export function getDb(): Database.Database {
       console.error(`Failed to open database at: ${DB_PATH}`, err);
       console.error(`DATABASE_PATH env var: ${process.env.DATABASE_PATH}`);
       console.error(`Directory exists: ${fs.existsSync(dbDir)}`);
-      console.error(`Directory writable: ${fs.accessSync ? 'checking...' : 'unknown'}`);
       throw err;
     }
   }

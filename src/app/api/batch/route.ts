@@ -62,7 +62,8 @@ async function fetchNews(): Promise<NewsArticle[]> {
   for (const query of keywordGroups) {
     // Use searchIn=title to only match articles where keywords are in the title
     // This filters out articles that only mention keywords tangentially in the body
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&searchIn=title&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWSAPI_KEY}`;
+    // Reduced pageSize to 10 to avoid LLM timeouts on free tier
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&searchIn=title&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
       const data = await res.json();
@@ -102,7 +103,7 @@ async function fetchNews(): Promise<NewsArticle[]> {
 async function callLLM(prompt: string): Promise<string> {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(60000), // Increased to 60s for free tier
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
@@ -280,9 +281,30 @@ export async function POST(request: NextRequest) {
       keywords: t.keywords ? t.keywords.split(',') : [],
     }));
 
-    // Step 2: Classify articles into topics
+    // Step 2: Classify articles into topics (in batches to avoid timeouts)
     console.log('\n[2/4] Classifying articles into topics...');
-    const classifications = await classifyArticles(articles, topicsWithKeywords);
+    const allClassifications: Classification[] = [];
+
+    // Process articles in batches of 10 to avoid LLM timeouts
+    const batchSize = 10;
+    for (let i = 0; i < articles.length; i += batchSize) {
+      const batch = articles.slice(i, i + batchSize);
+      console.log(`  Classifying batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(articles.length / batchSize)} (${batch.length} articles)...`);
+
+      try {
+        const batchClassifications = await classifyArticles(batch, topicsWithKeywords);
+        // Adjust article indices for the batch offset
+        const adjustedClassifications = batchClassifications.map(c => ({
+          ...c,
+          articleIndex: c.articleIndex + i
+        }));
+        allClassifications.push(...adjustedClassifications);
+      } catch (err) {
+        console.error(`  Failed to classify batch ${Math.floor(i / batchSize) + 1}:`, err);
+      }
+    }
+
+    const classifications = allClassifications;
     console.log(`Classified into ${new Set(classifications.map((c) => c.topicName)).size} topics`);
 
     // Group articles by topic name

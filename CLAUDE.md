@@ -26,7 +26,7 @@ docker compose up -d      # Start production stack
 ## Project Structure
 
 - `src/app/` — Pages (dashboard, topic detail) + API routes (topics, ticker, movers)
-- `src/components/` — TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
+- `src/components/` — ThemeProvider, ThemeToggle, TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
 - `src/lib/` — db.ts (SQLite singleton), types.ts, utils.ts
 - `scripts/` — batch.ts (daily pipeline), seed.ts (demo data)
 - `db/schema.sql` — 4 tables: topics, articles, score_history, topic_keywords
@@ -37,7 +37,9 @@ docker compose up -d      # Start production stack
 - API routes return camelCase JSON, DB uses snake_case columns
 - Topic scores 0-100 with urgency: breaking (80+), critical (60-79), moderate (30-59), informational (<30)
 - Colors: red=breaking/worsening, orange=critical, yellow=moderate, green=informational/improving
-- Batch pipeline: 2-pass LLM (classify articles → score topics)
+- Theme: class-based dark mode (`@custom-variant dark`), warm cream/beige light theme, localStorage persistence, OS preference fallback
+- API input validation: urgency/category params validated against allowed enums (400 on invalid)
+- Batch pipeline: 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
 - SQLite dedup: UNIQUE on articles.url with INSERT OR IGNORE
 - Topic upsert rotates previous_score before updating current_score
 
@@ -54,4 +56,9 @@ docker compose up -d      # Start production stack
 - Multi-stage Dockerfile with `output: "standalone"` in next.config.ts
 - Named volume `ecoticker-data` shared between app and cron containers for SQLite
 - Alpine crond for daily batch at 6AM UTC
-- Nginx reverse proxy on :80 with gzip and static asset caching
+- Nginx reverse proxy on :80 with gzip, static asset caching, and security headers (CSP, X-Frame-Options, etc.)
+
+## CI/CD
+
+- GitHub Actions workflow (`.github/workflows/security.yml`) runs on push/PR to main
+- Jobs: dependency audit, security linting (secrets, eval, SQL injection patterns), Dockerfile checks, full test suite

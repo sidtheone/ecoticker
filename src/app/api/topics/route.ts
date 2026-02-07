@@ -6,6 +6,19 @@ export async function GET(request: NextRequest) {
   const urgency = request.nextUrl.searchParams.get("urgency");
   const category = request.nextUrl.searchParams.get("category");
 
+  const validUrgencies = ["breaking", "critical", "moderate", "informational"];
+  if (urgency && !validUrgencies.includes(urgency)) {
+    return NextResponse.json({ error: "Invalid urgency value" }, { status: 400 });
+  }
+
+  const validCategories = [
+    "air_quality", "deforestation", "ocean", "climate", "pollution",
+    "biodiversity", "wildlife", "energy", "waste", "water",
+  ];
+  if (category && !validCategories.includes(category)) {
+    return NextResponse.json({ error: "Invalid category value" }, { status: 400 });
+  }
+
   let query = `
     SELECT id, name, slug, category, region,
       current_score, previous_score,

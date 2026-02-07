@@ -1,0 +1,102 @@
+name: Security Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev
+
+  lint-security:
+    name: Security Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Check for hardcoded secrets
+        run: |
+          echo "Scanning for potential secrets..."
+          PATTERNS='(api[_-]?key|secret|password|token)\s*[:=]\s*["\x27][a-zA-Z0-9]{16,}'
+          if grep -rEi "$PATTERNS" src/ scripts/ --include='*.ts' --include='*.tsx' | grep -v 'process\.env\.' | grep -v '\.test\.' | grep -v 'your_'; then
+            echo "::error::Potential hardcoded secrets found"
+            exit 1
+          fi
+          echo "No hardcoded secrets found"
+      - name: Check for dangerous patterns
+        run: |
+          echo "Scanning for dangerous patterns..."
+          FOUND=0
+          # Check for eval usage
+          if grep -rn 'eval(' src/ scripts/ --include='*.ts' --include='*.tsx'; then
+            echo "::warning::eval() usage found"
+            FOUND=1
+          fi
+          # Check for innerHTML (outside layout theme script)
+          if grep -rn 'dangerouslySetInnerHTML' src/ --include='*.tsx' --include='*.ts' | grep -v 'layout.tsx'; then
+            echo "::warning::dangerouslySetInnerHTML found outside layout.tsx"
+            FOUND=1
+          fi
+          # Check for SQL string concatenation
+          if grep -rPn '(exec|prepare|query)\s*\(' src/ scripts/ --include='*.ts' | grep -E '\$\{|` *\+'; then
+            echo "::error::Possible SQL injection via string interpolation"
+            FOUND=1
+          fi
+          if [ $FOUND -eq 1 ]; then
+            echo "::error::Dangerous patterns detected"
+            exit 1
+          fi
+          echo "No dangerous patterns found"
+      - name: Check .env files not committed
+        run: |
+          if git ls-files --cached | grep -E '^\.env($|\.)' | grep -v '.example'; then
+            echo "::error::.env files should not be committed"
+            exit 1
+          fi
+          echo "No .env files in repo"
+
+  docker-security:
+    name: Dockerfile Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Dockerfile runs as non-root
+        run: |
+          if ! grep -q 'USER' Dockerfile; then
+            echo "::error::Dockerfile does not specify a non-root USER"
+            exit 1
+          fi
+          echo "Dockerfile uses non-root user"
+      - name: Check no secrets in Dockerfile
+        run: |
+          if grep -iE '(ARG|ENV).*(KEY|SECRET|PASSWORD|TOKEN).*=' Dockerfile | grep -v 'DATABASE_PATH' | grep -v 'HOSTNAME' | grep -v 'PORT' | grep -v 'NODE_ENV'; then
+            echo "::warning::Potential secret in Dockerfile build args/env"
+          fi
+          echo "Dockerfile secrets check passed"
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx jest --ci

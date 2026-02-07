@@ -41,7 +41,7 @@ async function fetchNews(): Promise<NewsArticle[]> {
   for (const query of keywordGroups) {
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWSAPI_KEY}`;
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
       const data = await res.json();
       if (data.articles) {
         allArticles.push(...data.articles);
@@ -64,6 +64,7 @@ async function fetchNews(): Promise<NewsArticle[]> {
 async function callLLM(prompt: string): Promise<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
+    signal: AbortSignal.timeout(30000),
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",

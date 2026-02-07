@@ -1,0 +1,164 @@
+# EcoTicker — Deployment Guide
+
+## Prerequisites
+
+- A Linux VM (2-core, 4GB RAM minimum)
+- Docker and Docker Compose installed
+- SSH access to the server
+- API keys for NewsAPI and OpenRouter
+
+## Step 1: Clone and Configure
+
+```bash
+# Clone the repository
+git clone <your-repo-url> ecoticker
+cd ecoticker
+
+# Create environment file from template
+cp .env.example .env
+```
+
+Edit `.env` with your API keys:
+
+```env
+NEWSAPI_KEY=your_newsapi_key        # https://newsapi.org
+OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
+OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
+DATABASE_PATH=/data/ecoticker.db
+BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
+```
+
+## Step 2: Build and Start
+
+```bash
+# Build all Docker images
+docker compose build
+
+# Start all services in detached mode
+docker compose up -d
+```
+
+This starts three services:
+
+| Service | Role | Details |
+|---------|------|---------|
+| **app** | Next.js server | Port 3000 (internal), 1GB memory limit |
+| **nginx** | Reverse proxy | Port 80 (public), gzip, static caching |
+| **cron** | Batch pipeline | Runs daily at 6AM UTC |
+
+## Step 3: Seed Initial Data
+
+The database is empty on first deploy. Run the batch pipeline manually to populate it:
+
+```bash
+docker compose exec app npx tsx scripts/batch.ts
+```
+
+Or use the seed script for demo data:
+
+```bash
+docker compose exec app npx tsx scripts/seed.ts
+```
+
+## Step 4: Verify
+
+```bash
+# Check all services are running
+docker compose ps
+
+# Check app logs
+docker compose logs app
+
+# Check cron logs
+docker compose logs cron
+
+# Test the API
+curl http://localhost/api/topics
+curl http://localhost/api/ticker
+```
+
+Visit `http://<your-server-ip>` in a browser to see the dashboard.
+
+## Architecture
+
+```
+Internet → :80 → Nginx → :3000 → Next.js App
+                                      ↕
+                              SQLite (named volume)
+                                      ↕
+                              Cron → batch.ts (daily 6AM)
+```
+
+- **Named volume** `ecoticker-data` persists the SQLite database across container restarts and rebuilds
+- Both `app` and `cron` share the same volume so cron writes and the app reads the same database
+
+## HTTPS Setup (Optional)
+
+To enable HTTPS with Let's Encrypt:
+
+1. Install Certbot on the host
+2. Obtain certificates:
+   ```bash
+   certbot certonly --standalone -d yourdomain.com
+   ```
+3. Update `nginx.conf` to add SSL:
+   ```nginx
+   server {
+       listen 443 ssl;
+       server_name yourdomain.com;
+       ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+       # ... existing proxy config ...
+   }
+   server {
+       listen 80;
+       return 301 https://$host$request_uri;
+   }
+   ```
+4. Mount the certs into the nginx container by adding to `docker-compose.yml`:
+   ```yaml
+   nginx:
+     volumes:
+       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+       - /etc/letsencrypt:/etc/letsencrypt:ro
+     ports:
+       - "80:80"
+       - "443:443"
+   ```
+5. Restart: `docker compose restart nginx`
+
+## Common Operations
+
+```bash
+# Restart all services
+docker compose restart
+
+# Rebuild after code changes
+docker compose build && docker compose up -d
+
+# View real-time logs
+docker compose logs -f
+
+# Run batch manually
+docker compose exec app npx tsx scripts/batch.ts
+
+# Stop everything
+docker compose down
+
+# Stop and remove data volume (destructive)
+docker compose down -v
+
+# Check database size
+docker compose exec app ls -lh /data/ecoticker.db
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| App not reachable on :80 | Check `docker compose ps` — nginx must be running |
+| Empty dashboard | Run batch manually: `docker compose exec app npx tsx scripts/batch.ts` |
+| Cron not running | Check logs: `docker compose logs cron` |
+| Database locked errors | Only one writer at a time — check if batch is running during heavy reads |
+| Out of memory | Increase `mem_limit` in `docker-compose.yml` |
+| Port 80 in use | Change nginx port mapping: `"8080:80"` in `docker-compose.yml` |

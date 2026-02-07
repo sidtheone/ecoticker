@@ -43,8 +43,8 @@ export default function TopicGrid() {
             onClick={() => setUrgencyFilter(f.value)}
             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               urgencyFilter === f.value
-                ? "bg-white text-gray-900"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                ? "bg-stone-800 dark:bg-white text-white dark:text-gray-900"
+                : "bg-[#e8dfd3] dark:bg-gray-800 text-stone-500 dark:text-gray-400 hover:bg-[#ddd3c4] dark:hover:bg-gray-700 hover:text-stone-700 dark:hover:text-gray-200"
             }`}
             data-testid={`filter-${f.label.toLowerCase()}`}
           >

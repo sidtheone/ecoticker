@@ -8,16 +8,18 @@ Generated: 2026-02-07
 ecoticker/
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx                # Root layout with TickerBar, dark theme, Geist fonts
+│   │   ├── layout.tsx                # Root layout: ThemeProvider + TickerBar + ThemeToggle + FOUC script
 │   │   ├── page.tsx                  # Dashboard: heading + BiggestMovers + TopicGrid
-│   │   ├── globals.css               # Tailwind, ticker-scroll keyframes animation
+│   │   ├── globals.css               # Tailwind, @custom-variant dark, CSS vars, ticker animation
 │   │   ├── topic/[slug]/page.tsx     # Topic detail: score chart, impact summary, articles
 │   │   └── api/
-│   │       ├── topics/route.ts       # GET /api/topics — filtered list with sparklines
+│   │       ├── topics/route.ts       # GET /api/topics — filtered list with sparklines + input validation
 │   │       ├── topics/[slug]/route.ts # GET /api/topics/[slug] — detail + articles + history
 │   │       ├── ticker/route.ts       # GET /api/ticker — top 15, lightweight payload
 │   │       └── movers/route.ts       # GET /api/movers — top 5 by abs(change)
 │   ├── components/
+│   │   ├── ThemeProvider.tsx          # Dark/light context + useTheme() hook + localStorage
+│   │   ├── ThemeToggle.tsx           # Sun/moon icon button, fixed top-right
 │   │   ├── TickerBar.tsx             # Sticky scrolling marquee, auto-refresh 5min
 │   │   ├── TopicGrid.tsx             # Filterable grid (All/Breaking/Critical/Moderate/Info)
 │   │   ├── TopicCard.tsx             # Card: score, change, urgency badge, sparkline, region
@@ -54,10 +56,12 @@ ecoticker/
 │   └── TopicDetail.test.tsx          # 9 tests — loading, error, score, chart, articles
 ├── Dockerfile                        # Multi-stage: deps → build → slim production
 ├── docker-compose.yml                # 3 services: app, nginx, cron + named volume
-├── nginx.conf                        # Reverse proxy to app:3000, gzip, static cache
+├── nginx.conf                        # Reverse proxy, gzip, static cache, security headers
 ├── crontab                           # Daily batch at 6AM UTC
 ├── .env.example                      # Environment variable template
+├── .github/workflows/security.yml    # CI: dependency audit, security lint, Dockerfile check, tests
 ├── .dockerignore                     # Excludes node_modules, .next, tests, db/*.db
+├── deployment.md                     # Production deployment guide
 ├── jest.config.ts                    # Two projects: node (.test.ts) + react/jsdom (.test.tsx)
 ├── next.config.ts                    # output: "standalone" for Docker
 ├── package.json                      # Next.js 16, React 19, better-sqlite3, recharts, slugify
@@ -76,7 +80,7 @@ ecoticker/
 
 | Endpoint | Params | Response |
 |----------|--------|----------|
-| `GET /api/topics` | `?urgency=`, `?category=` | `{ topics: Topic[] }` with sparkline arrays |
+| `GET /api/topics` | `?urgency=`, `?category=` (validated) | `{ topics: Topic[] }` with sparkline arrays |
 | `GET /api/topics/[slug]` | — | `{ topic, articles, scoreHistory }` or 404 |
 | `GET /api/ticker` | — | `{ items: TickerItem[] }` top 15 |
 | `GET /api/movers` | — | `{ movers[] }` top 5 by abs(change) |
@@ -115,3 +119,22 @@ Volume: `ecoticker-data` (SQLite persistence, shared between app + cron)
 ## Build Status
 
 All 4 phases complete. 114 tests passing, 98.6% coverage. Docker builds successfully.
+
+## Theme System
+
+- Class-based dark mode via Tailwind v4 `@custom-variant dark`
+- `ThemeProvider` context with `useTheme()` hook
+- Inline `<script>` in layout prevents FOUC (flash of unstyled content)
+- Priority: localStorage → OS `prefers-color-scheme` → light default
+- All components use `dark:` Tailwind variants for dual-theme support
+- ScoreChart uses `useTheme()` for Recharts color props (not Tailwind-driven)
+- Light theme: warm cream/beige palette (#faf7f2 bg, #f5f0e8 cards, stone-* text)
+
+## Security
+
+- Nginx security headers: X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy, Permissions-Policy
+- API input validation: urgency/category enum whitelist (400 on invalid)
+- Batch script: 15s timeout (NewsAPI), 30s timeout (OpenRouter)
+- All SQL queries use parameterized statements
+- No cookies, no auth (public read-only data)
+- GitHub Actions CI: dependency audit, secret scanning, dangerous pattern detection, Dockerfile checks

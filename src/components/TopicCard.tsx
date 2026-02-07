@@ -24,11 +24,11 @@ export default function TopicCard({ topic }: { topic: Topic }) {
   return (
     <Link
       href={`/topic/${topic.slug}`}
-      className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 hover:shadow-lg transition-all"
+      className="block bg-[#f5f0e8] dark:bg-gray-900 border border-[#e8dfd3] dark:border-gray-800 rounded-lg p-4 hover:border-stone-400 dark:hover:border-gray-600 hover:shadow-lg transition-all"
       data-testid="topic-card"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-gray-100 leading-tight">{topic.name}</h3>
+        <h3 className="text-sm font-semibold text-stone-800 dark:text-gray-100 leading-tight">{topic.name}</h3>
         <UrgencyBadge urgency={topic.urgency} />
       </div>
 

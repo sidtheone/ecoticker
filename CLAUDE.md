@@ -4,6 +4,33 @@
 
 Environmental news impact tracker. Aggregates news via NewsAPI, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.
 
+## ⚠️ CRITICAL: Pre-Commit Requirements
+
+**ALWAYS build and check for errors before committing:**
+
+1. **Automated (Recommended):** Git hooks run automatically after `npm install`
+   ```bash
+   # Hooks auto-installed via postinstall script
+   # Pre-commit checks: TypeScript, Build, Lint
+   ```
+
+2. **Manual:** If hooks aren't installed:
+   ```bash
+   npm run setup:hooks
+   ```
+
+3. **Before Every Commit:**
+   - ✅ TypeScript type check passes
+   - ✅ Build completes successfully
+   - ✅ No linting errors
+
+4. **Bypass (Emergency Only):**
+   ```bash
+   git commit --no-verify  # Use sparingly!
+   ```
+
+**Why:** Prevents broken builds from reaching Railway/production.
+
 ## Tech Stack
 
 - **Next.js 16** (App Router, TypeScript, Tailwind CSS 4)

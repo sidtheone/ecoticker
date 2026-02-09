@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, initDb, buildInClause } from '@/lib/db';
 import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
 import { createErrorResponse } from '@/lib/errors';
 import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Cleanup endpoint - removes demo/seed data, keeps only real news
- *
- * Identifies demo data by:
- * - Topics with exactly 4 articles (seed script pattern)
- * - Articles from example.com (seed script URLs)
- *
- * Usage: POST /api/cleanup
- * Optional: Add ?dryRun=true to preview what will be deleted
- * Requires: X-API-Key header with valid admin API key
  */
 export async function POST(request: NextRequest) {
   if (!requireAdminKey(request)) {
@@ -23,90 +15,90 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const dryRun = searchParams.get('dryRun') === 'true';
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    // Find demo topics (those with exactly 4 articles, characteristic of seed data)
-    const demoTopics = db
-      .prepare('SELECT id, name, article_count FROM topics WHERE article_count = 4')
-      .all() as { id: number; name: string; article_count: number }[];
+    // Find demo topics
+    const { rows: demoTopics } = await pool.query(
+      'SELECT id, name, article_count FROM topics WHERE article_count = 4'
+    );
 
-    // Also find articles from example.com (seed data)
-    const demoArticles = db
-      .prepare("SELECT id, title, topic_id FROM articles WHERE url LIKE '%example.com%'")
-      .all() as { id: number; title: string; topic_id: number }[];
+    // Also find articles from example.com
+    const { rows: demoArticles } = await pool.query(
+      "SELECT id, title, topic_id FROM articles WHERE url LIKE '%example.com%'"
+    );
 
     // Get topic IDs from demo articles
-    const demoTopicIds = new Set(demoArticles.map((a) => a.topic_id));
-    demoTopics.forEach((t) => demoTopicIds.add(t.id));
+    const demoTopicIds = new Set<number>(demoArticles.map((a: { topic_id: number }) => a.topic_id));
+    demoTopics.forEach((t: { id: number }) => demoTopicIds.add(t.id));
 
     const topicIdsToDelete = Array.from(demoTopicIds);
 
     if (dryRun) {
-      // Preview what will be deleted
-      const placeholders = topicIdsToDelete.map(() => '?').join(',');
-      const topicsToDelete = db
-        .prepare(`SELECT id, name, article_count FROM topics WHERE id IN (${placeholders})`)
-        .all(...topicIdsToDelete);
+      if (topicIdsToDelete.length === 0) {
+        return NextResponse.json({
+          dryRun: true,
+          preview: { topicsToDelete: [], articleCount: 0, message: 'No demo data found' },
+        });
+      }
 
-      const articlesCount = db
-        .prepare(`SELECT COUNT(*) as count FROM articles WHERE topic_id IN (${placeholders})`)
-        .get(...topicIdsToDelete) as { count: number };
+      const { placeholders } = buildInClause(topicIdsToDelete);
+      const { rows: topicsToDelete } = await pool.query(
+        `SELECT id, name, article_count FROM topics WHERE id IN (${placeholders})`,
+        topicIdsToDelete
+      );
+
+      const { rows: [articlesCount] } = await pool.query(
+        `SELECT COUNT(*) as count FROM articles WHERE topic_id IN (${placeholders})`,
+        topicIdsToDelete
+      );
 
       return NextResponse.json({
         dryRun: true,
         preview: {
-          topicsToDelete: topicsToDelete,
-          articleCount: articlesCount.count,
+          topicsToDelete,
+          articleCount: parseInt(articlesCount.count),
           message: 'Add ?dryRun=false or call without dryRun to actually delete',
         },
       });
     }
 
-    // Actually delete the demo data
     if (topicIdsToDelete.length === 0) {
       return NextResponse.json({
         success: true,
         message: 'No demo data found to delete',
-        deleted: {
-          topics: 0,
-          articles: 0,
-          scores: 0,
-          keywords: 0,
-        },
+        deleted: { topics: 0, articles: 0, scores: 0, keywords: 0 },
       });
     }
 
-    // Delete in reverse FK order using parameterized queries
-    const placeholders = topicIdsToDelete.map(() => '?').join(',');
-    const keywordsDeleted = db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
-    const scoresDeleted = db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
-    const articlesDeleted = db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
-    const topicsDeleted = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...topicIdsToDelete);
+    const { placeholders } = buildInClause(topicIdsToDelete);
+    const keywordsDeleted = await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
+    const scoresDeleted = await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
+    const articlesDeleted = await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
+    const topicsDeleted = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, topicIdsToDelete);
 
-    // Get remaining counts
-    const remainingTopics = (db.prepare('SELECT COUNT(*) as count FROM topics').get() as { count: number }).count;
-    const remainingArticles = (db.prepare('SELECT COUNT(*) as count FROM articles').get() as { count: number }).count;
+    const { rows: [remainingTopicsRow] } = await pool.query('SELECT COUNT(*) as count FROM topics');
+    const { rows: [remainingArticlesRow] } = await pool.query('SELECT COUNT(*) as count FROM articles');
 
-    // Log successful cleanup
     logSuccess(request, 'cleanup_data', {
-      topicsDeleted: topicsDeleted.changes,
-      articlesDeleted: articlesDeleted.changes,
-      scoresDeleted: scoresDeleted.changes,
-      keywordsDeleted: keywordsDeleted.changes,
+      topicsDeleted: topicsDeleted.rowCount,
+      articlesDeleted: articlesDeleted.rowCount,
+      scoresDeleted: scoresDeleted.rowCount,
+      keywordsDeleted: keywordsDeleted.rowCount,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Demo data cleaned up successfully',
       deleted: {
-        topics: topicsDeleted.changes,
-        articles: articlesDeleted.changes,
-        scores: scoresDeleted.changes,
-        keywords: keywordsDeleted.changes,
+        topics: topicsDeleted.rowCount,
+        articles: articlesDeleted.rowCount,
+        scores: scoresDeleted.rowCount,
+        keywords: keywordsDeleted.rowCount,
       },
       remaining: {
-        topics: remainingTopics,
-        articles: remainingArticles,
+        topics: parseInt(remainingTopicsRow.count),
+        articles: parseInt(remainingArticlesRow.count),
       },
       timestamp: new Date().toISOString(),
     });

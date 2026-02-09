@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, initDb, buildInClause } from '@/lib/db';
 import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
 import { articleCreateSchema, articleDeleteSchema, validateRequest } from '@/lib/validation';
 import { createErrorResponse } from '@/lib/errors';
@@ -7,10 +7,6 @@ import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Articles CRUD API
- *
- * GET /api/articles - List all articles with optional filtering
- * POST /api/articles - Create new article (admin only)
- * DELETE /api/articles - Batch delete articles by IDs or filter (admin only)
  */
 
 interface Article {
@@ -25,16 +21,6 @@ interface Article {
   fetched_at: string;
 }
 
-/**
- * GET /api/articles
- *
- * Query params:
- * - topicId: Filter by topic ID
- * - source: Filter by source name
- * - url: Filter by URL pattern (supports LIKE with %)
- * - limit: Max results (default 50, max 500)
- * - offset: Pagination offset
- */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -44,25 +30,25 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500);
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    // Build dynamic query
     const conditions: string[] = [];
     const params: any[] = [];
+    let paramIndex = 1;
 
     if (topicId) {
-      conditions.push('topic_id = ?');
+      conditions.push(`topic_id = $${paramIndex++}`);
       params.push(topicId);
     }
 
     if (source) {
-      conditions.push('source = ?');
+      conditions.push(`source = $${paramIndex++}`);
       params.push(source);
     }
 
     if (urlPattern) {
-      // Use exact match instead of LIKE to prevent SQL wildcard exploitation
-      conditions.push('url = ?');
+      conditions.push(`url = $${paramIndex++}`);
       params.push(urlPattern);
     }
 
@@ -72,17 +58,18 @@ export async function GET(request: NextRequest) {
       SELECT * FROM articles
       ${whereClause}
       ORDER BY published_at DESC, fetched_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
 
     params.push(limit, offset);
 
-    const articles = db.prepare(query).all(...params) as Article[];
+    const { rows: articles } = await pool.query(query, params);
 
     // Get total count
     const countQuery = `SELECT COUNT(*) as total FROM articles ${whereClause}`;
-    const countParams = params.slice(0, -2); // Remove limit and offset
-    const { total } = db.prepare(countQuery).get(...countParams) as { total: number };
+    const countParams = params.slice(0, -2);
+    const { rows: [countRow] } = await pool.query(countQuery, countParams);
+    const total = parseInt(countRow.total);
 
     return NextResponse.json({
       articles,
@@ -98,13 +85,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/articles
- *
- * Create a new article
- * Body: { topicId, title, url, source?, summary?, imageUrl?, publishedAt? }
- * Requires: X-API-Key header with valid admin API key
- */
 export async function POST(request: NextRequest) {
   if (!requireAdminKey(request)) {
     return getUnauthorizedResponse();
@@ -113,7 +93,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate request body with Zod
     const validation = validateRequest(articleCreateSchema, body);
     if (!validation.success) {
       return NextResponse.json(
@@ -124,37 +103,38 @@ export async function POST(request: NextRequest) {
 
     const { topicId, title, url, source, summary, imageUrl, publishedAt } = validation.data;
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
     // Check if topic exists
-    const topic = db.prepare('SELECT id FROM topics WHERE id = ?').get(topicId);
-    if (!topic) {
+    const { rows: topicRows } = await pool.query('SELECT id FROM topics WHERE id = $1', [topicId]);
+    if (topicRows.length === 0) {
       return NextResponse.json(
         { error: 'Topic not found' },
         { status: 404 }
       );
     }
 
-    // Insert article (OR IGNORE to handle duplicate URLs)
-    const result = db.prepare(`
-      INSERT OR IGNORE INTO articles (topic_id, title, url, source, summary, image_url, published_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(topicId, title, url, source || null, summary || null, imageUrl || null, publishedAt || null);
+    // Insert article (ON CONFLICT DO NOTHING to handle duplicate URLs)
+    const result = await pool.query(`
+      INSERT INTO articles (topic_id, title, url, source, summary, image_url, published_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (url) DO NOTHING
+      RETURNING *
+    `, [topicId, title, url, source || null, summary || null, imageUrl || null, publishedAt || null]);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return NextResponse.json(
         { error: 'Article with this URL already exists' },
         { status: 409 }
       );
     }
 
-    // Get the created article
-    const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(result.lastInsertRowid) as Article;
+    const article = result.rows[0] as Article;
 
     // Update topic article count
-    db.prepare('UPDATE topics SET article_count = article_count + 1 WHERE id = ?').run(topicId);
+    await pool.query('UPDATE topics SET article_count = article_count + 1 WHERE id = $1', [topicId]);
 
-    // Log successful article creation
     logSuccess(request, 'create_article', {
       articleId: article.id,
       topicId,
@@ -171,17 +151,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * DELETE /api/articles
- *
- * Batch delete articles
- * Body options:
- * 1. { ids: [1, 2, 3] } - Delete specific article IDs
- * 2. { url: "%example.com%" } - Delete by URL pattern (LIKE query)
- * 3. { topicId: 5 } - Delete all articles for a topic
- * 4. { source: "Example Source" } - Delete all articles from a source
- * Requires: X-API-Key header with valid admin API key
- */
 export async function DELETE(request: NextRequest) {
   if (!requireAdminKey(request)) {
     return getUnauthorizedResponse();
@@ -190,7 +159,6 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate request body with Zod
     const validation = validateRequest(articleDeleteSchema, body);
     if (!validation.success) {
       return NextResponse.json(
@@ -201,48 +169,43 @@ export async function DELETE(request: NextRequest) {
 
     const { ids, url, topicId, source } = validation.data;
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
     let deletedCount = 0;
     const affectedTopics = new Set<number>();
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      // Delete by IDs
-      const placeholders = ids.map(() => '?').join(',');
+      const { placeholders } = buildInClause(ids);
 
-      // Get topic IDs before deleting
-      const articles = db.prepare(`SELECT topic_id FROM articles WHERE id IN (${placeholders})`).all(...ids) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      const { rows: articles } = await pool.query(`SELECT topic_id FROM articles WHERE id IN (${placeholders})`, ids);
+      articles.forEach((a: { topic_id: number }) => affectedTopics.add(a.topic_id));
 
-      const result = db.prepare(`DELETE FROM articles WHERE id IN (${placeholders})`).run(...ids);
-      deletedCount = result.changes;
+      const result = await pool.query(`DELETE FROM articles WHERE id IN (${placeholders})`, ids);
+      deletedCount = result.rowCount ?? 0;
     } else if (url) {
-      // Delete by URL pattern
-      const articles = db.prepare('SELECT topic_id FROM articles WHERE url LIKE ?').all(url) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      const { rows: articles } = await pool.query('SELECT topic_id FROM articles WHERE url LIKE $1', [url]);
+      articles.forEach((a: { topic_id: number }) => affectedTopics.add(a.topic_id));
 
-      const result = db.prepare('DELETE FROM articles WHERE url LIKE ?').run(url);
-      deletedCount = result.changes;
+      const result = await pool.query('DELETE FROM articles WHERE url LIKE $1', [url]);
+      deletedCount = result.rowCount ?? 0;
     } else if (topicId) {
-      // Delete by topic ID
       affectedTopics.add(topicId);
-      const result = db.prepare('DELETE FROM articles WHERE topic_id = ?').run(topicId);
-      deletedCount = result.changes;
+      const result = await pool.query('DELETE FROM articles WHERE topic_id = $1', [topicId]);
+      deletedCount = result.rowCount ?? 0;
     } else if (source) {
-      // Delete by source
-      const articles = db.prepare('SELECT topic_id FROM articles WHERE source = ?').all(source) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      const { rows: articles } = await pool.query('SELECT topic_id FROM articles WHERE source = $1', [source]);
+      articles.forEach((a: { topic_id: number }) => affectedTopics.add(a.topic_id));
 
-      const result = db.prepare('DELETE FROM articles WHERE source = ?').run(source);
-      deletedCount = result.changes;
+      const result = await pool.query('DELETE FROM articles WHERE source = $1', [source]);
+      deletedCount = result.rowCount ?? 0;
     }
 
     // Update article counts for affected topics
-    for (const topicId of affectedTopics) {
-      const count = db.prepare('SELECT COUNT(*) as count FROM articles WHERE topic_id = ?').get(topicId) as { count: number };
-      db.prepare('UPDATE topics SET article_count = ? WHERE id = ?').run(count.count, topicId);
+    for (const tid of affectedTopics) {
+      const { rows: [countRow] } = await pool.query('SELECT COUNT(*) as count FROM articles WHERE topic_id = $1', [tid]);
+      await pool.query('UPDATE topics SET article_count = $1 WHERE id = $2', [parseInt(countRow.count), tid]);
     }
 
-    // Log successful article deletion
     logSuccess(request, 'delete_articles', {
       deletedCount,
       affectedTopics: Array.from(affectedTopics).length,

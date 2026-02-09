@@ -1,39 +1,32 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
+import { Pool } from "pg";
 import { execSync } from "child_process";
-import os from "os";
+
+const DATABASE_URL = process.env.TEST_DATABASE_URL || "postgresql://ecoticker:ecoticker@localhost:5432/ecoticker_test";
 
 describe("Seed Script", () => {
-  const testDbPath = path.join(os.tmpdir(), `ecoticker-seed-test-${Date.now()}.db`);
-
-  afterAll(() => {
-    try { fs.unlinkSync(testDbPath); } catch {}
-  });
-
-  test("seed script populates database with expected data", () => {
-    // Run seed script with a test DB path
+  test("seed script populates database with expected data", async () => {
+    // Run seed script with a test DB URL
     execSync(`npx tsx scripts/seed.ts`, {
       cwd: process.cwd(),
-      env: { ...process.env, DATABASE_PATH: testDbPath },
+      env: { ...process.env, DATABASE_URL },
     });
 
-    const db = new Database(testDbPath);
+    const pool = new Pool({ connectionString: DATABASE_URL });
 
-    const topicCount = (db.prepare("SELECT COUNT(*) as c FROM topics").get() as { c: number }).c;
-    expect(topicCount).toBe(12);
+    const { rows: [topicCount] } = await pool.query("SELECT COUNT(*) as c FROM topics");
+    expect(parseInt(topicCount.c)).toBe(12);
 
-    const articleCount = (db.prepare("SELECT COUNT(*) as c FROM articles").get() as { c: number }).c;
-    expect(articleCount).toBe(36); // 12 topics * 3 articles each
+    const { rows: [articleCount] } = await pool.query("SELECT COUNT(*) as c FROM articles");
+    expect(parseInt(articleCount.c)).toBe(36);
 
-    const scoreCount = (db.prepare("SELECT COUNT(*) as c FROM score_history").get() as { c: number }).c;
-    expect(scoreCount).toBe(84); // 12 topics * 7 days each
+    const { rows: [scoreCount] } = await pool.query("SELECT COUNT(*) as c FROM score_history");
+    expect(parseInt(scoreCount.c)).toBe(84);
 
-    const keywordCount = (db.prepare("SELECT COUNT(*) as c FROM topic_keywords").get() as { c: number }).c;
-    expect(keywordCount).toBeGreaterThan(0);
+    const { rows: [keywordCount] } = await pool.query("SELECT COUNT(*) as c FROM topic_keywords");
+    expect(parseInt(keywordCount.c)).toBeGreaterThan(0);
 
     // Verify topics have expected fields populated
-    const topics = db.prepare("SELECT * FROM topics").all() as Record<string, unknown>[];
+    const { rows: topics } = await pool.query("SELECT * FROM topics");
     for (const t of topics) {
       expect(t.name).toBeTruthy();
       expect(t.slug).toBeTruthy();
@@ -46,11 +39,11 @@ describe("Seed Script", () => {
     }
 
     // Verify score_history has sub-scores
-    const scores = db.prepare("SELECT * FROM score_history LIMIT 1").get() as Record<string, unknown>;
+    const { rows: [scores] } = await pool.query("SELECT * FROM score_history LIMIT 1");
     expect(scores.health_score).toBeDefined();
     expect(scores.eco_score).toBeDefined();
     expect(scores.econ_score).toBeDefined();
 
-    db.close();
+    await pool.end();
   });
 });

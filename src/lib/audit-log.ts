@@ -19,22 +19,16 @@ export interface AuditLogEntry {
 
 /**
  * Log an API operation to the audit log
- *
- * @param request - Next.js request object
- * @param action - Descriptive action name (e.g., "seed_database", "create_article")
- * @param success - Whether the operation succeeded
- * @param details - Optional additional details to log
- * @param errorMessage - Optional error message if operation failed
  */
-export function logAuditEvent(
+export async function logAuditEvent(
   request: NextRequest,
   action: string,
   success: boolean,
   details?: Record<string, unknown>,
   errorMessage?: string
-): void {
+): Promise<void> {
   try {
-    const db = getDb();
+    const pool = getDb();
 
     const ipAddress = request.headers.get('x-forwarded-for') ||
                       request.headers.get('x-real-ip') ||
@@ -43,12 +37,12 @@ export function logAuditEvent(
     const method = request.method;
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    db.prepare(`
+    await pool.query(`
       INSERT INTO audit_logs (
         ip_address, endpoint, method, action, success,
         error_message, details, user_agent
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [
       ipAddress,
       endpoint,
       method,
@@ -57,10 +51,9 @@ export function logAuditEvent(
       errorMessage || null,
       details ? JSON.stringify(details) : null,
       userAgent
-    );
+    ]);
   } catch (error) {
     // Don't let audit logging failures break the main operation
-    // Just log to console for debugging
     console.error('Failed to write audit log:', error);
   }
 }
@@ -90,24 +83,20 @@ export function logFailure(
 
 /**
  * Get recent audit log entries
- *
- * @param limit - Maximum number of entries to return
- * @param offset - Pagination offset
- * @returns Array of audit log entries
  */
-export function getAuditLogs(limit: number = 100, offset: number = 0) {
-  const db = getDb();
+export async function getAuditLogs(limit: number = 100, offset: number = 0) {
+  const pool = getDb();
 
-  const logs = db.prepare(`
+  const { rows: logs } = await pool.query(`
     SELECT
       id, timestamp, ip_address, endpoint, method, action,
       success, error_message, details, user_agent, created_at
     FROM audit_logs
     ORDER BY timestamp DESC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset);
+    LIMIT $1 OFFSET $2
+  `, [limit, offset]);
 
-  const total = db.prepare('SELECT COUNT(*) as count FROM audit_logs').get() as { count: number };
+  const { rows: [totalRow] } = await pool.query('SELECT COUNT(*) as count FROM audit_logs');
 
   return {
     logs: logs.map((log: any) => ({
@@ -115,17 +104,17 @@ export function getAuditLogs(limit: number = 100, offset: number = 0) {
       success: Boolean(log.success),
       details: log.details ? JSON.parse(log.details) : null,
     })),
-    total: total.count,
+    total: parseInt(totalRow.count),
   };
 }
 
 /**
  * Get audit log statistics
  */
-export function getAuditStats() {
-  const db = getDb();
+export async function getAuditStats() {
+  const pool = getDb();
 
-  const stats = db.prepare(`
+  const { rows: [stats] } = await pool.query(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
@@ -133,39 +122,33 @@ export function getAuditStats() {
       COUNT(DISTINCT ip_address) as unique_ips,
       COUNT(DISTINCT action) as unique_actions
     FROM audit_logs
-  `).get() as {
-    total: number;
-    successful: number;
-    failed: number;
-    unique_ips: number;
-    unique_actions: number;
-  };
+  `);
 
-  const recentFailures = db.prepare(`
+  const { rows: recentFailures } = await pool.query(`
     SELECT action, COUNT(*) as count
     FROM audit_logs
     WHERE success = 0
-      AND timestamp > datetime('now', '-24 hours')
+      AND timestamp > NOW() - INTERVAL '24 hours'
     GROUP BY action
     ORDER BY count DESC
     LIMIT 5
-  `).all();
+  `);
 
-  const topActions = db.prepare(`
+  const { rows: topActions } = await pool.query(`
     SELECT action, COUNT(*) as count
     FROM audit_logs
-    WHERE timestamp > datetime('now', '-7 days')
+    WHERE timestamp > NOW() - INTERVAL '7 days'
     GROUP BY action
     ORDER BY count DESC
     LIMIT 10
-  `).all();
+  `);
 
   return {
-    total: stats.total,
-    successful: stats.successful,
-    failed: stats.failed,
-    uniqueIPs: stats.unique_ips,
-    uniqueActions: stats.unique_actions,
+    total: parseInt(stats.total),
+    successful: parseInt(stats.successful || '0'),
+    failed: parseInt(stats.failed || '0'),
+    uniqueIPs: parseInt(stats.unique_ips),
+    uniqueActions: parseInt(stats.unique_actions),
     recentFailures,
     topActions,
   };

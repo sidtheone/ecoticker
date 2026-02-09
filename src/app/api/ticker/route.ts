@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, initDb } from "@/lib/db";
 
 export async function GET() {
   try {
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    const rows = db.prepare(`
+    const { rows } = await pool.query(`
       SELECT name, slug, current_score as score,
         (current_score - previous_score) as change
       FROM topics
       ORDER BY current_score DESC
       LIMIT 15
-    `).all() as { name: string; slug: string; score: number; change: number }[];
+    `);
 
     return NextResponse.json({ items: rows }, {
       headers: {

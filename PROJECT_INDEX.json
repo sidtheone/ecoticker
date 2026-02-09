@@ -11,7 +11,7 @@
     "runtime": "React 19.2.3",
     "language": "TypeScript 5",
     "styling": "Tailwind CSS 4",
-    "database": "SQLite (better-sqlite3)",
+    "database": "PostgreSQL (pg/node-postgres)",
     "charts": "Recharts 3.7",
     "validation": "Zod 4.3.6",
     "containerization": "Docker + Docker Compose"
@@ -81,7 +81,7 @@
     "src/lib": {
       "purpose": "Core utilities and business logic",
       "modules": {
-        "db.ts": "SQLite singleton with WAL mode, auto-schema",
+        "db.ts": "PostgreSQL Pool singleton with auto-schema",
         "types.ts": "TypeScript type definitions",
         "utils.ts": "Color/format utilities for scores",
         "auth.ts": "API key authentication",
@@ -224,8 +224,8 @@
     ]
   },
   "database": {
-    "type": "SQLite",
-    "mode": "WAL",
+    "type": "PostgreSQL",
+    "connection": "DATABASE_URL env var",
     "tables": {
       "topics": {
         "key_columns": ["slug (UQ)", "current_score", "previous_score", "urgency", "category", "region"],
@@ -233,7 +233,7 @@
       },
       "articles": {
         "key_columns": ["topic_id (FK)", "url (UQ)", "title", "source", "summary"],
-        "notes": "INSERT OR IGNORE for deduplication"
+        "notes": "ON CONFLICT DO NOTHING for deduplication"
       },
       "score_history": {
         "key_columns": ["topic_id (FK)", "score", "health_score", "eco_score", "econ_score", "recorded_at"],
@@ -317,10 +317,15 @@
         "image": "Dockerfile (crond)",
         "schedule": "Daily at 6AM UTC",
         "description": "Batch pipeline automation"
+      },
+      "postgres": {
+        "image": "postgres:16-alpine",
+        "port": 5432,
+        "description": "PostgreSQL database with healthcheck"
       }
     },
     "volumes": {
-      "ecoticker-data": "SQLite persistence, shared between app + cron"
+      "pgdata": "PostgreSQL data persistence"
     }
   },
   "ci_cd": {

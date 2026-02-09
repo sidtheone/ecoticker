@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, initDb, buildInClause } from "@/lib/db";
 import type { TopicRow } from "@/lib/types";
 import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
 import { topicDeleteSchema, validateRequest } from "@/lib/validation";
@@ -13,7 +13,8 @@ import { logSuccess, logFailure } from "@/lib/audit-log";
  */
 
 export async function GET(request: NextRequest) {
-  const db = getDb();
+  await initDb();
+  const pool = getDb();
   const urgency = request.nextUrl.searchParams.get("urgency");
   const category = request.nextUrl.searchParams.get("category");
 
@@ -39,13 +40,14 @@ export async function GET(request: NextRequest) {
   `;
   const conditions: string[] = [];
   const params: string[] = [];
+  let paramIndex = 1;
 
   if (urgency) {
-    conditions.push("urgency = ?");
+    conditions.push(`urgency = $${paramIndex++}`);
     params.push(urgency);
   }
   if (category) {
-    conditions.push("category = ?");
+    conditions.push(`category = $${paramIndex++}`);
     params.push(category);
   }
 
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
       t.current_score, t.previous_score,
       (t.current_score - t.previous_score) as change,
       t.urgency, t.impact_summary, t.image_url, t.article_count, t.updated_at,
-      GROUP_CONCAT(sh.score) as sparkline_scores
+      STRING_AGG(sh.score::TEXT, ',') as sparkline_scores
     FROM (${query}) as t
     LEFT JOIN (
       SELECT topic_id, score, recorded_at,
@@ -74,9 +76,9 @@ export async function GET(request: NextRequest) {
     ORDER BY t.current_score DESC
   `;
 
-  const rows = db.prepare(sparklineQuery).all(...params) as TopicRow[];
+  const { rows } = await pool.query(sparklineQuery, params);
 
-  const topics = rows.map((r) => {
+  const topics = (rows as TopicRow[]).map((r) => {
     const sparklineStr = r.sparkline_scores as string | null;
     const sparkline = sparklineStr
       ? sparklineStr.split(',').map(s => Number(s)).reverse()
@@ -109,11 +111,6 @@ export async function GET(request: NextRequest) {
 
 /**
  * DELETE /api/topics
- *
- * Batch delete topics
- * Body: { ids: [1, 2, 3] } - Delete specific topic IDs
- * Body: { articleCount: 0 } - Delete topics with 0 articles
- * Requires: X-API-Key header with valid admin API key
  */
 export async function DELETE(request: NextRequest) {
   if (!requireAdminKey(request)) {
@@ -123,7 +120,6 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate request body with Zod
     const validation = validateRequest(topicDeleteSchema, body);
     if (!validation.success) {
       return NextResponse.json(
@@ -134,35 +130,32 @@ export async function DELETE(request: NextRequest) {
 
     const { ids, articleCount } = validation.data;
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
     let deletedCount = 0;
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      // Delete specific topic IDs
-      const placeholders = ids.map(() => '?').join(',');
+      const { placeholders } = buildInClause(ids);
 
-      // Delete in FK order: keywords → scores → articles → topics
-      db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...ids);
-      db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...ids);
-      db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...ids);
-      const result = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...ids);
-      deletedCount = result.changes;
+      await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, ids);
+      await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, ids);
+      await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, ids);
+      const result = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, ids);
+      deletedCount = result.rowCount ?? 0;
     } else if (articleCount !== undefined) {
-      // Delete topics with specific article count
-      const topicsToDelete = db.prepare('SELECT id FROM topics WHERE article_count = ?').all(articleCount) as { id: number }[];
-      const topicIds = topicsToDelete.map(t => t.id);
+      const { rows: topicsToDelete } = await pool.query('SELECT id FROM topics WHERE article_count = $1', [articleCount]);
+      const topicIds = topicsToDelete.map((t: { id: number }) => t.id);
 
       if (topicIds.length > 0) {
-        const placeholders = topicIds.map(() => '?').join(',');
-        db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...topicIds);
-        db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...topicIds);
-        db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...topicIds);
-        const result = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...topicIds);
-        deletedCount = result.changes;
+        const { placeholders } = buildInClause(topicIds);
+        await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, topicIds);
+        await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, topicIds);
+        await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, topicIds);
+        const result = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, topicIds);
+        deletedCount = result.rowCount ?? 0;
       }
     }
 
-    // Log successful topic deletion
     logSuccess(request, 'delete_topics', {
       deletedCount,
       filters: { ids: !!ids, articleCount: articleCount !== undefined },

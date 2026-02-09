@@ -1,23 +1,21 @@
-import Database from "better-sqlite3";
+import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
 import slugify from "slugify";
 
 // --- Config ---
-const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "db", "ecoticker.db");
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://ecoticker:ecoticker@localhost:5432/ecoticker";
 const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
 const KEYWORDS = (process.env.BATCH_KEYWORDS || "climate change,pollution,deforestation,wildfire,flood").split(",");
 
 // --- DB Setup ---
-function initDb() {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+async function initDb() {
+  const pool = new Pool({ connectionString: DATABASE_URL });
   const schema = fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf-8");
-  db.exec(schema);
-  return db;
+  await pool.query(schema);
+  return pool;
 }
 
 // --- NewsAPI ---
@@ -32,7 +30,6 @@ interface NewsArticle {
 
 async function fetchNews(): Promise<NewsArticle[]> {
   const allArticles: NewsArticle[] = [];
-  // Batch keywords into 2-3 requests to stay well under 100/day limit
   const keywordGroups = [];
   for (let i = 0; i < KEYWORDS.length; i += 4) {
     keywordGroups.push(KEYWORDS.slice(i, i + 4).join(" OR "));
@@ -51,7 +48,6 @@ async function fetchNews(): Promise<NewsArticle[]> {
     }
   }
 
-  // Deduplicate by URL
   const seen = new Set<string>();
   return allArticles.filter((a) => {
     if (!a.url || seen.has(a.url)) return false;
@@ -80,7 +76,6 @@ async function callLLM(prompt: string): Promise<string> {
 }
 
 function extractJSON(text: string): unknown {
-  // Try to find JSON in the response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
   try {
@@ -125,7 +120,6 @@ Respond with ONLY valid JSON, no other text:
 
   if (parsed?.classifications) return parsed.classifications;
 
-  // Fallback: assign all to a generic topic
   console.warn("Classification LLM failed, using fallback grouping");
   return articles.map((_, i) => ({
     articleIndex: i,
@@ -178,7 +172,6 @@ Valid categories: air_quality, deforestation, ocean, climate, pollution, biodive
 
   if (parsed?.score !== undefined) return parsed;
 
-  // Fallback
   console.warn(`Scoring LLM failed for "${topicName}", using defaults`);
   return {
     score: 50,
@@ -198,7 +191,7 @@ async function main() {
   console.log("=== EcoTicker Batch Pipeline ===");
   console.log(`Time: ${new Date().toISOString()}`);
 
-  const db = initDb();
+  const pool = await initDb();
 
   // Step 1: Fetch news
   console.log("\n[1/4] Fetching news...");
@@ -207,22 +200,20 @@ async function main() {
 
   if (articles.length === 0) {
     console.log("No articles found, exiting.");
-    db.close();
+    await pool.end();
     return;
   }
 
   // Load existing topics + keywords
-  const existingTopics = db
-    .prepare(
-      `SELECT t.id, t.name, t.current_score,
-        GROUP_CONCAT(tk.keyword) as keywords
-       FROM topics t
-       LEFT JOIN topic_keywords tk ON tk.topic_id = t.id
-       GROUP BY t.id`
-    )
-    .all() as { id: number; name: string; current_score: number; keywords: string | null }[];
+  const { rows: existingTopics } = await pool.query(`
+    SELECT t.id, t.name, t.current_score,
+      STRING_AGG(tk.keyword, ',') as keywords
+    FROM topics t
+    LEFT JOIN topic_keywords tk ON tk.topic_id = t.id
+    GROUP BY t.id
+  `);
 
-  const topicsWithKeywords = existingTopics.map((t) => ({
+  const topicsWithKeywords = existingTopics.map((t: any) => ({
     ...t,
     keywords: t.keywords ? t.keywords.split(",") : [],
   }));
@@ -244,39 +235,6 @@ async function main() {
 
   // Step 3: Score each topic
   console.log("\n[3/4] Scoring topics...");
-  const insertTopic = db.prepare(`
-    INSERT INTO topics (name, slug, category, region, current_score, previous_score, urgency, impact_summary, image_url, article_count)
-    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-    ON CONFLICT(slug) DO UPDATE SET
-      previous_score = topics.current_score,
-      current_score = excluded.current_score,
-      urgency = excluded.urgency,
-      impact_summary = excluded.impact_summary,
-      image_url = COALESCE(excluded.image_url, topics.image_url),
-      category = excluded.category,
-      region = excluded.region,
-      article_count = topics.article_count + excluded.article_count,
-      updated_at = CURRENT_TIMESTAMP
-  `);
-
-  const insertArticle = db.prepare(`
-    INSERT OR IGNORE INTO articles (topic_id, title, url, source, summary, image_url, published_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertScore = db.prepare(`
-    INSERT INTO score_history (topic_id, score, health_score, eco_score, econ_score, impact_summary)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertKeyword = db.prepare(`
-    INSERT INTO topic_keywords (topic_id, keyword)
-    SELECT ?, ? WHERE NOT EXISTS (
-      SELECT 1 FROM topic_keywords WHERE topic_id = ? AND keyword = ?
-    )
-  `);
-
-  const getTopicBySlug = db.prepare(`SELECT id FROM topics WHERE slug = ?`);
 
   for (const [topicName, topicArticles] of topicGroups) {
     const scoreResult = await scoreTopic(topicName, topicArticles);
@@ -286,49 +244,64 @@ async function main() {
     console.log(`  ${topicName}: score=${scoreResult.score}, urgency=${scoreResult.urgency}`);
 
     // Upsert topic
-    insertTopic.run(
-      topicName,
-      slug,
-      scoreResult.category,
-      scoreResult.region,
-      scoreResult.score,
-      scoreResult.urgency,
-      scoreResult.impactSummary,
-      imageUrl,
-      topicArticles.length
-    );
+    await pool.query(`
+      INSERT INTO topics (name, slug, category, region, current_score, previous_score, urgency, impact_summary, image_url, article_count)
+      VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8, $9)
+      ON CONFLICT(slug) DO UPDATE SET
+        previous_score = topics.current_score,
+        current_score = EXCLUDED.current_score,
+        urgency = EXCLUDED.urgency,
+        impact_summary = EXCLUDED.impact_summary,
+        image_url = COALESCE(EXCLUDED.image_url, topics.image_url),
+        category = EXCLUDED.category,
+        region = EXCLUDED.region,
+        article_count = topics.article_count + EXCLUDED.article_count,
+        updated_at = NOW()
+    `, [
+      topicName, slug, scoreResult.category, scoreResult.region,
+      scoreResult.score, scoreResult.urgency, scoreResult.impactSummary,
+      imageUrl, topicArticles.length
+    ]);
 
-    const topicRow = getTopicBySlug.get(slug) as { id: number } | undefined;
-    if (!topicRow) continue;
-    const topicId = topicRow.id;
+    const { rows: topicRows } = await pool.query("SELECT id FROM topics WHERE slug = $1", [slug]);
+    if (topicRows.length === 0) continue;
+    const topicId = topicRows[0].id;
 
     // Insert articles
     for (const a of topicArticles) {
-      insertArticle.run(topicId, a.title, a.url, a.source?.name, a.description, a.urlToImage, a.publishedAt);
+      await pool.query(`
+        INSERT INTO articles (topic_id, title, url, source, summary, image_url, published_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (url) DO NOTHING
+      `, [topicId, a.title, a.url, a.source?.name, a.description, a.urlToImage, a.publishedAt]);
     }
 
     // Insert score history
-    insertScore.run(
-      topicId,
-      scoreResult.score,
-      scoreResult.healthScore,
-      scoreResult.ecoScore,
-      scoreResult.econScore,
-      scoreResult.impactSummary
-    );
+    await pool.query(`
+      INSERT INTO score_history (topic_id, score, health_score, eco_score, econ_score, impact_summary)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      topicId, scoreResult.score, scoreResult.healthScore,
+      scoreResult.ecoScore, scoreResult.econScore, scoreResult.impactSummary
+    ]);
 
     // Insert keywords
     for (const kw of scoreResult.keywords) {
-      insertKeyword.run(topicId, kw.toLowerCase(), topicId, kw.toLowerCase());
+      await pool.query(`
+        INSERT INTO topic_keywords (topic_id, keyword)
+        SELECT $1, $2 WHERE NOT EXISTS (
+          SELECT 1 FROM topic_keywords WHERE topic_id = $1 AND keyword = $2
+        )
+      `, [topicId, kw.toLowerCase()]);
     }
   }
 
   // Step 4: Summary
-  const topicCount = (db.prepare("SELECT COUNT(*) as c FROM topics").get() as { c: number }).c;
-  const articleCount = (db.prepare("SELECT COUNT(*) as c FROM articles").get() as { c: number }).c;
-  console.log(`\n[4/4] Done! ${topicCount} topics, ${articleCount} articles in database.`);
+  const { rows: [topicCount] } = await pool.query("SELECT COUNT(*) as c FROM topics");
+  const { rows: [articleCount] } = await pool.query("SELECT COUNT(*) as c FROM articles");
+  console.log(`\n[4/4] Done! ${topicCount.c} topics, ${articleCount.c} articles in database.`);
 
-  db.close();
+  await pool.end();
 }
 
 main().catch((err) => {

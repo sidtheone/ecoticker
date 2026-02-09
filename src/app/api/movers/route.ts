@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, initDb } from "@/lib/db";
 import type { MoverRow } from "@/lib/types";
 
 export async function GET() {
   try {
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    const rows = db.prepare(`
+    const { rows } = await pool.query(`
       SELECT name, slug, current_score, previous_score,
         (current_score - previous_score) as change,
         urgency
@@ -14,9 +15,9 @@ export async function GET() {
       WHERE current_score != previous_score
       ORDER BY ABS(current_score - previous_score) DESC
       LIMIT 5
-    `).all() as MoverRow[];
+    `);
 
-    const movers = rows.map((r) => ({
+    const movers = (rows as MoverRow[]).map((r) => ({
       name: r.name,
       slug: r.slug,
       currentScore: r.current_score,

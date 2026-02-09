@@ -36,7 +36,7 @@ ecoticker/
 │   │   ├── ArticleList.tsx           # External article links with source, date, summary
 │   │   └── UrgencyBadge.tsx          # Color-coded urgency pill
 │   └── lib/
-│       ├── db.ts                     # SQLite singleton (better-sqlite3, WAL, auto-schema)
+│       ├── db.ts                     # PostgreSQL Pool singleton (pg, auto-schema)
 │       ├── types.ts                  # Topic, Article, ScoreHistoryEntry, TickerItem, TopicDetail
 │       ├── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
 │       ├── auth.ts                   # requireAdminKey(), getUnauthorizedResponse() — API key auth
@@ -67,7 +67,7 @@ ecoticker/
 │   ├── ArticleList.test.tsx          # 7 tests — titles, source, links, empty
 │   └── TopicDetail.test.tsx          # 9 tests — loading, error, score, chart, articles
 ├── Dockerfile                        # Multi-stage: deps → build → slim production
-├── docker-compose.yml                # 3 services: app, nginx, cron + named volume
+├── docker-compose.yml                # 4 services: app, nginx, cron, postgres
 ├── nginx.conf                        # Reverse proxy, gzip, static cache, security headers
 ├── crontab                           # Daily batch at 6AM UTC
 ├── .env.example                      # Environment variable template
@@ -76,7 +76,7 @@ ecoticker/
 ├── deployment.md                     # Production deployment guide
 ├── jest.config.ts                    # Two projects: node (.test.ts) + react/jsdom (.test.tsx)
 ├── next.config.ts                    # output: "standalone" for Docker
-├── package.json                      # Next.js 16, React 19, better-sqlite3, recharts, slugify
+├── package.json                      # Next.js 16, React 19, pg, recharts, slugify
 └── tsconfig.json                     # Path alias @/* → src/*
 ```
 
@@ -118,7 +118,7 @@ ecoticker/
 | Table | Key Columns | Notes |
 |-------|-------------|-------|
 | topics | slug (UQ), current_score, previous_score, urgency, category, region | Upsert rotates previous_score |
-| articles | topic_id (FK), url (UQ), title, source, summary | INSERT OR IGNORE dedup |
+| articles | topic_id (FK), url (UQ), title, source, summary | ON CONFLICT DO NOTHING dedup |
 | score_history | topic_id (FK), score, health/eco/econ_score, recorded_at | Daily sub-score snapshots |
 | topic_keywords | topic_id (FK), keyword | LLM-generated aliases for cross-batch matching |
 | audit_logs | timestamp, ip_address, endpoint, method, action, success, details | Tracks all write operations |
@@ -132,7 +132,7 @@ ecoticker/
 
 ## Dependencies
 
-**Runtime**: next 16.1.6, react 19.2.3, better-sqlite3, recharts 3.7, slugify, zod 3.24
+**Runtime**: next 16.1.6, react 19.2.3, pg 8.13, recharts 3.7, slugify, zod 4.3
 **Dev**: typescript 5, jest 30, ts-jest, @testing-library/react, tailwindcss 4, tsx, eslint
 
 ## Docker Services
@@ -141,9 +141,10 @@ ecoticker/
 |---------|-------|---------|
 | app | Dockerfile (standalone) | Next.js on :3000, mem_limit 1g |
 | nginx | nginx:alpine | Reverse proxy :80, gzip, static cache |
-| cron | Dockerfile (crond) | Daily batch at 6AM, shared volume |
+| cron | Dockerfile (crond) | Daily batch at 6AM |
+| postgres | postgres:16-alpine | PostgreSQL database with healthcheck |
 
-Volume: `ecoticker-data` (SQLite persistence, shared between app + cron)
+Volume: `pgdata` (PostgreSQL data persistence)
 
 ## Build Status
 

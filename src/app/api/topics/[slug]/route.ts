@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, initDb } from "@/lib/db";
 import type { TopicRow, ArticleRow, ScoreHistoryRow } from "@/lib/types";
 
 export async function GET(
@@ -7,29 +7,32 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const db = getDb();
+  await initDb();
+  const pool = getDb();
 
-  const topicRow = db.prepare(`
+  const { rows: topicRows } = await pool.query(`
     SELECT id, name, slug, category, region,
       current_score, previous_score,
       (current_score - previous_score) as change,
       urgency, impact_summary, image_url, article_count, updated_at
-    FROM topics WHERE slug = ?
-  `).get(slug) as TopicRow | undefined;
+    FROM topics WHERE slug = $1
+  `, [slug]);
+
+  const topicRow = topicRows[0] as TopicRow | undefined;
 
   if (!topicRow) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
 
-  const articles = db.prepare(`
+  const { rows: articles } = await pool.query(`
     SELECT id, topic_id, title, url, source, summary, image_url, published_at
-    FROM articles WHERE topic_id = ? ORDER BY published_at DESC
-  `).all(topicRow.id) as ArticleRow[];
+    FROM articles WHERE topic_id = $1 ORDER BY published_at DESC
+  `, [topicRow.id]);
 
-  const scoreHistory = db.prepare(`
+  const { rows: scoreHistory } = await pool.query(`
     SELECT score, health_score, eco_score, econ_score, impact_summary, recorded_at
-    FROM score_history WHERE topic_id = ? ORDER BY recorded_at ASC
-  `).all(topicRow.id) as ScoreHistoryRow[];
+    FROM score_history WHERE topic_id = $1 ORDER BY recorded_at ASC
+  `, [topicRow.id]);
 
   return NextResponse.json({
     topic: {
@@ -47,7 +50,7 @@ export async function GET(
       articleCount: topicRow.article_count,
       updatedAt: topicRow.updated_at,
     },
-    articles: articles.map((a) => ({
+    articles: (articles as ArticleRow[]).map((a) => ({
       id: a.id,
       topicId: a.topic_id,
       title: a.title,
@@ -57,7 +60,7 @@ export async function GET(
       imageUrl: a.image_url,
       publishedAt: a.published_at,
     })),
-    scoreHistory: scoreHistory.map((s) => ({
+    scoreHistory: (scoreHistory as ScoreHistoryRow[]).map((s) => ({
       score: s.score,
       healthScore: s.health_score,
       ecoScore: s.eco_score,

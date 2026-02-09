@@ -12,7 +12,7 @@
     "postinstall": "test -d .git && sh scripts/setup-git-hooks.sh || echo 'Skipping git hooks (not a git repo)'"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
+    "pg": "^8.13.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -24,7 +24,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.11.11",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",

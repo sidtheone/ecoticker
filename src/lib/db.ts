@@ -1,44 +1,39 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { Pool } from "pg";
 import fs from "fs";
+import path from "path";
 
-const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "db", "ecoticker.db");
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://ecoticker:ecoticker@localhost:5432/ecoticker";
 
-let db: Database.Database | null = null;
+let pool: Pool | null = null;
+let initialized = false;
 
-export function getDb(): Database.Database {
-  if (!db) {
-    // Ensure directory exists
-    const dbDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dbDir)) {
-      try {
-        fs.mkdirSync(dbDir, { recursive: true });
-        console.log(`Created database directory: ${dbDir}`);
-      } catch (err) {
-        console.error(`Failed to create database directory: ${dbDir}`, err);
-        throw new Error(`Cannot create database directory: ${dbDir}. Check volume mount path.`);
-      }
-    }
-
-    try {
-      db = new Database(DB_PATH);
-      db.pragma("journal_mode = WAL");
-      db.pragma("foreign_keys = ON");
-
-      // Run schema if tables don't exist
-      const schemaPath = path.join(process.cwd(), "db", "schema.sql");
-      if (fs.existsSync(schemaPath)) {
-        const schema = fs.readFileSync(schemaPath, "utf-8");
-        db.exec(schema);
-      }
-
-      console.log(`Database initialized at: ${DB_PATH}`);
-    } catch (err) {
-      console.error(`Failed to open database at: ${DB_PATH}`, err);
-      console.error(`DATABASE_PATH env var: ${process.env.DATABASE_PATH}`);
-      console.error(`Directory exists: ${fs.existsSync(dbDir)}`);
-      throw err;
-    }
+export function getDb(): Pool {
+  if (!pool) {
+    pool = new Pool({ connectionString: DATABASE_URL });
+    console.log(`PostgreSQL pool created for: ${DATABASE_URL.replace(/\/\/.*@/, '//***@')}`);
   }
-  return db;
+  return pool;
+}
+
+export async function initDb(): Promise<void> {
+  if (initialized) return;
+
+  const p = getDb();
+  const schemaPath = path.join(process.cwd(), "db", "schema.sql");
+  if (fs.existsSync(schemaPath)) {
+    const schema = fs.readFileSync(schemaPath, "utf-8");
+    await p.query(schema);
+  }
+
+  initialized = true;
+  console.log("Database schema initialized");
+}
+
+/**
+ * Build a parameterized IN clause for PostgreSQL.
+ * Returns { placeholders: "$1,$2,$3", params: [...values] } with offset support.
+ */
+export function buildInClause(values: (string | number)[], startIndex: number = 1): { placeholders: string; params: (string | number)[] } {
+  const placeholders = values.map((_, i) => `$${startIndex + i}`).join(",");
+  return { placeholders, params: values };
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, initDb } from '@/lib/db';
 import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
 import { articleUpdateSchema, validateRequest } from '@/lib/validation';
 import { createErrorResponse } from '@/lib/errors';
@@ -39,19 +39,15 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid article ID' }, { status: 400 });
     }
 
-    const db = getDb();
-    const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(id) as Article | undefined;
+    await initDb();
+    const pool = getDb();
+    const { rows: [article] } = await pool.query('SELECT * FROM articles WHERE id = $1', [id]);
 
     if (!article) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
 
-    // Get topic info
-    const topic = db.prepare('SELECT id, name, slug FROM topics WHERE id = ?').get(article.topic_id) as {
-      id: number;
-      name: string;
-      slug: string;
-    } | undefined;
+    const { rows: [topic] } = await pool.query('SELECT id, name, slug FROM topics WHERE id = $1', [article.topic_id]);
 
     return NextResponse.json({
       ...article,
@@ -86,7 +82,6 @@ export async function PUT(
 
     const body = await request.json();
 
-    // Validate request body with Zod
     const validation = validateRequest(articleUpdateSchema, body);
     if (!validation.success) {
       return NextResponse.json(
@@ -97,40 +92,40 @@ export async function PUT(
 
     const { title, url, source, summary, imageUrl, publishedAt } = validation.data;
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    // Check if article exists
-    const existing = db.prepare('SELECT id FROM articles WHERE id = ?').get(id);
+    const { rows: [existing] } = await pool.query('SELECT id FROM articles WHERE id = $1', [id]);
     if (!existing) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
 
-    // Build update query dynamically
     const updates: string[] = [];
     const params: any[] = [];
+    let paramIndex = 1;
 
     if (title !== undefined) {
-      updates.push('title = ?');
+      updates.push(`title = $${paramIndex++}`);
       params.push(title);
     }
     if (url !== undefined) {
-      updates.push('url = ?');
+      updates.push(`url = $${paramIndex++}`);
       params.push(url);
     }
     if (source !== undefined) {
-      updates.push('source = ?');
+      updates.push(`source = $${paramIndex++}`);
       params.push(source);
     }
     if (summary !== undefined) {
-      updates.push('summary = ?');
+      updates.push(`summary = $${paramIndex++}`);
       params.push(summary);
     }
     if (imageUrl !== undefined) {
-      updates.push('image_url = ?');
+      updates.push(`image_url = $${paramIndex++}`);
       params.push(imageUrl);
     }
     if (publishedAt !== undefined) {
-      updates.push('published_at = ?');
+      updates.push(`published_at = $${paramIndex++}`);
       params.push(publishedAt);
     }
 
@@ -139,12 +134,10 @@ export async function PUT(
     }
 
     params.push(id);
-    db.prepare(`UPDATE articles SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    await pool.query(`UPDATE articles SET ${updates.join(', ')} WHERE id = $${paramIndex}`, params);
 
-    // Get updated article
-    const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(id) as Article;
+    const { rows: [article] } = await pool.query('SELECT * FROM articles WHERE id = $1', [id]);
 
-    // Log successful article update
     logSuccess(request, 'update_article', {
       articleId: id,
       fieldsUpdated: updates.map(u => u.split(' = ')[0]),
@@ -179,22 +172,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid article ID' }, { status: 400 });
     }
 
-    const db = getDb();
+    await initDb();
+    const pool = getDb();
 
-    // Get article to find topic_id
-    const article = db.prepare('SELECT topic_id FROM articles WHERE id = ?').get(id) as { topic_id: number } | undefined;
+    const { rows: [article] } = await pool.query('SELECT topic_id FROM articles WHERE id = $1', [id]);
     if (!article) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
 
-    // Delete the article
-    db.prepare('DELETE FROM articles WHERE id = ?').run(id);
+    await pool.query('DELETE FROM articles WHERE id = $1', [id]);
 
-    // Update topic article count
-    const count = db.prepare('SELECT COUNT(*) as count FROM articles WHERE topic_id = ?').get(article.topic_id) as { count: number };
-    db.prepare('UPDATE topics SET article_count = ? WHERE id = ?').run(count.count, article.topic_id);
+    const { rows: [{ count }] } = await pool.query('SELECT COUNT(*) as count FROM articles WHERE topic_id = $1', [article.topic_id]);
+    await pool.query('UPDATE topics SET article_count = $1 WHERE id = $2', [parseInt(count), article.topic_id]);
 
-    // Log successful article deletion
     logSuccess(request, 'delete_article', {
       articleId: id,
       topicId: article.topic_id,

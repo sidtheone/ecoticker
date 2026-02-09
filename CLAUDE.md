@@ -103,7 +103,7 @@ The index should be updated when:
 ## Tech Stack
 
 - **Next.js 16** (App Router, TypeScript, Tailwind CSS 4)
-- **SQLite** via better-sqlite3 (WAL mode)
+- **PostgreSQL** via pg (node-postgres)
 - **Recharts** for sparklines and score charts
 - **Zod** for input validation
 - **Docker Compose** (app + nginx + cron)
@@ -124,7 +124,7 @@ docker compose up -d      # Start production stack
 
 - `src/app/` — Pages (dashboard, topic detail) + API routes (topics, articles, ticker, movers, batch, seed, cleanup, audit-logs)
 - `src/components/` — ThemeProvider, ThemeToggle, TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
-- `src/lib/` — db.ts (SQLite singleton), types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
+- `src/lib/` — db.ts (pg Pool singleton), types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
 - `scripts/` — batch.ts (daily pipeline), seed.ts (demo data)
 - `db/schema.sql` — 5 tables: topics, articles, score_history, topic_keywords, audit_logs
 - `tests/` — Jest with two projects: node (.test.ts) and react/jsdom (.test.tsx)
@@ -147,7 +147,7 @@ docker compose up -d      # Start production stack
 - Theme: class-based dark mode (`@custom-variant dark`), warm cream/beige light theme, localStorage persistence, OS preference fallback
 - API input validation: urgency/category params validated against allowed enums (400 on invalid), write endpoints use Zod schemas
 - Batch pipeline: 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
-- SQLite dedup: UNIQUE on articles.url with INSERT OR IGNORE
+- PostgreSQL dedup: UNIQUE on articles.url with ON CONFLICT DO NOTHING
 - Topic upsert rotates previous_score before updating current_score
 - Authentication: requireAdminKey() check at start of all write handlers, returns 401 if missing/invalid
 
@@ -156,13 +156,13 @@ docker compose up -d      # Start production stack
 - Mock `next/link` as `<a>` in component tests
 - Mock `recharts` as simple divs with data-testid in jsdom tests
 - Mock `global.fetch` for component tests that fetch API data
-- API tests use real SQLite in-memory DBs with schema loaded from db/schema.sql
+- API tests use a real PostgreSQL test database with schema loaded from db/schema.sql
 - Jest config: two projects — "node" (ts-jest, node env) and "react" (ts-jest, jsdom env, @/ path alias)
 
 ## Docker
 
 - Multi-stage Dockerfile with `output: "standalone"` in next.config.ts
-- Named volume `ecoticker-data` shared between app and cron containers for SQLite
+- PostgreSQL service with named `pgdata` volume for persistence
 - Alpine crond for daily batch at 6AM UTC
 - Nginx reverse proxy on :80 with gzip, static asset caching, and security headers (CSP, X-Frame-Options, etc.)
 

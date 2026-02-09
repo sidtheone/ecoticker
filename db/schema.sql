@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS topics (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   category TEXT DEFAULT 'climate',
@@ -10,42 +10,42 @@ CREATE TABLE IF NOT EXISTS topics (
   impact_summary TEXT,
   image_url TEXT,
   article_count INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS articles (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   topic_id INTEGER NOT NULL REFERENCES topics(id),
   title TEXT NOT NULL,
   url TEXT NOT NULL UNIQUE,
   source TEXT,
   summary TEXT,
   image_url TEXT,
-  published_at DATETIME,
-  fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  published_at TIMESTAMPTZ,
+  fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS score_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   topic_id INTEGER NOT NULL REFERENCES topics(id),
   score INTEGER NOT NULL,
   health_score INTEGER,
   eco_score INTEGER,
   econ_score INTEGER,
   impact_summary TEXT,
-  recorded_at DATE DEFAULT (date('now'))
+  recorded_at DATE DEFAULT CURRENT_DATE
 );
 
 CREATE TABLE IF NOT EXISTS topic_keywords (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   topic_id INTEGER NOT NULL REFERENCES topics(id),
   keyword TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  id SERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
   ip_address TEXT,
   endpoint TEXT NOT NULL,
   method TEXT NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   error_message TEXT,
   details TEXT,
   user_agent TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_topic ON articles(topic_id);

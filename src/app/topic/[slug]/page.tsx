@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { TopicDetail } from "@/lib/types";
 import { changeColor, formatChange } from "@/lib/utils";
+import { eventBus } from "@/lib/events";
 import ScoreChart from "@/components/ScoreChart";
 import ArticleList from "@/components/ArticleList";
 import UrgencyBadge from "@/components/UrgencyBadge";
@@ -15,16 +16,31 @@ export default function TopicDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/topics/${slug}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Not found");
-        return r.json();
-      })
-      .then((d) => setData(d))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+  const fetchTopicData = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+
+    try {
+      const r = await fetch(`/api/topics/${slug}`);
+      if (!r.ok) throw new Error("Not found");
+      const d = await r.json();
+      setData(d);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [slug]);
+
+  useEffect(() => {
+    fetchTopicData();
+  }, [fetchTopicData]);
+
+  // Listen for refresh events
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe("ui-refresh", fetchTopicData);
+    return unsubscribe;
+  }, [fetchTopicData]);
 
   if (loading) {
     return <div data-testid="detail-loading" className="text-gray-500 text-center py-12">Loading...</div>;

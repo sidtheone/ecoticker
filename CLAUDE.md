@@ -36,13 +36,14 @@ Environmental news impact tracker. Aggregates news via NewsAPI, scores severity 
 - **Next.js 16** (App Router, TypeScript, Tailwind CSS 4)
 - **SQLite** via better-sqlite3 (WAL mode)
 - **Recharts** for sparklines and score charts
+- **Zod** for input validation
 - **Docker Compose** (app + nginx + cron)
 
 ## Key Commands
 
 ```bash
 npm run dev          # Dev server on :3000
-npx jest             # Run all 114 tests (16 suites)
+npx jest             # Run all 132 tests (17 suites)
 npx jest --coverage  # With coverage (98.6% stmts)
 npx tsx scripts/seed.ts   # Seed sample data
 npx tsx scripts/batch.ts  # Run batch pipeline
@@ -52,12 +53,22 @@ docker compose up -d      # Start production stack
 
 ## Project Structure
 
-- `src/app/` — Pages (dashboard, topic detail) + API routes (topics, ticker, movers)
+- `src/app/` — Pages (dashboard, topic detail) + API routes (topics, articles, ticker, movers, batch, seed, cleanup, audit-logs)
 - `src/components/` — ThemeProvider, ThemeToggle, TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
-- `src/lib/` — db.ts (SQLite singleton), types.ts, utils.ts
+- `src/lib/` — db.ts (SQLite singleton), types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
 - `scripts/` — batch.ts (daily pipeline), seed.ts (demo data)
-- `db/schema.sql` — 4 tables: topics, articles, score_history, topic_keywords
+- `db/schema.sql` — 5 tables: topics, articles, score_history, topic_keywords, audit_logs
 - `tests/` — Jest with two projects: node (.test.ts) and react/jsdom (.test.tsx)
+
+## Security Features
+
+- **Authentication:** X-API-Key header required for all write operations (POST/PUT/DELETE). Public read access (GET). ADMIN_API_KEY env var.
+- **Rate Limiting:** In-memory rate limiter in middleware: 100/min (read), 10/min (write), 2/hour (batch/seed). Returns 429 with Retry-After header.
+- **Input Validation:** Zod schemas for all write endpoints (articles, topics). Type-safe validation with detailed error messages.
+- **SQL Injection Protection:** Parameterized queries with placeholders throughout. No string concatenation in SQL.
+- **CSP:** Content-Security-Policy enabled with Next.js-compatible directives (unsafe-inline for hydration).
+- **Audit Logging:** All write operations logged to audit_logs table with IP, timestamp, action, success/failure, details. Queryable via GET /api/audit-logs.
+- **Error Sanitization:** Production errors hide implementation details. Development shows full error messages.
 
 ## Code Patterns
 
@@ -65,10 +76,11 @@ docker compose up -d      # Start production stack
 - Topic scores 0-100 with urgency: breaking (80+), critical (60-79), moderate (30-59), informational (<30)
 - Colors: red=breaking/worsening, orange=critical, yellow=moderate, green=informational/improving
 - Theme: class-based dark mode (`@custom-variant dark`), warm cream/beige light theme, localStorage persistence, OS preference fallback
-- API input validation: urgency/category params validated against allowed enums (400 on invalid)
+- API input validation: urgency/category params validated against allowed enums (400 on invalid), write endpoints use Zod schemas
 - Batch pipeline: 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
 - SQLite dedup: UNIQUE on articles.url with INSERT OR IGNORE
 - Topic upsert rotates previous_score before updating current_score
+- Authentication: requireAdminKey() check at start of all write handlers, returns 401 if missing/invalid
 
 ## Testing
 

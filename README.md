@@ -65,8 +65,11 @@ npx tsx scripts/batch.ts
 | `NEWSAPI_KEY` | Yes | API key from [newsapi.org](https://newsapi.org) (free tier) |
 | `OPENROUTER_API_KEY` | Yes | API key from [openrouter.ai](https://openrouter.ai) (free models available) |
 | `OPENROUTER_MODEL` | No | Model ID (default: `meta-llama/llama-3.1-8b-instruct:free`) |
+| `ADMIN_API_KEY` | **Yes** | Admin API key for write operations (generate: `openssl rand -base64 32`) |
 | `DATABASE_PATH` | No | Path to SQLite database (default: `./db/ecoticker.db`, Docker: `/data/ecoticker.db`) |
 | `BATCH_KEYWORDS` | No | Comma-separated keywords for NewsAPI queries |
+
+**Security Note:** The `ADMIN_API_KEY` is required for all write operations (POST/PUT/DELETE). Generate a secure key and never commit it to version control.
 
 ## Architecture
 
@@ -107,12 +110,46 @@ Data persists in a named Docker volume (`ecoticker-data`), surviving container r
 
 ## API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/topics` | All topics sorted by score. Filters: `?urgency=`, `?category=` |
-| `GET /api/topics/[slug]` | Topic detail with articles and score history |
-| `GET /api/ticker` | Top 15 topics (lightweight payload for ticker bar) |
-| `GET /api/movers` | Top 5 topics by absolute score change |
+### Public Endpoints (No Authentication)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/topics` | GET | All topics sorted by score. Filters: `?urgency=`, `?category=` |
+| `/api/topics/[slug]` | GET | Topic detail with articles and score history |
+| `/api/ticker` | GET | Top 15 topics (lightweight payload for ticker bar) |
+| `/api/movers` | GET | Top 5 topics by absolute score change |
+| `/api/articles` | GET | List articles with pagination. Filters: `?topicId=`, `?source=`, `?url=` |
+| `/api/articles/[id]` | GET | Get single article by ID |
+
+### Protected Endpoints (Require X-API-Key Header)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/seed` | POST | Seed database with demo data |
+| `/api/batch` | POST | Run batch processing pipeline manually |
+| `/api/cleanup` | POST | Clean up demo/seed data |
+| `/api/articles` | POST | Create new article |
+| `/api/articles` | DELETE | Batch delete articles by filters |
+| `/api/articles/[id]` | PUT | Update article |
+| `/api/articles/[id]` | DELETE | Delete single article |
+| `/api/topics` | DELETE | Batch delete topics |
+| `/api/audit-logs` | GET | View audit logs and statistics |
+
+**Authentication Example:**
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "X-API-Key: your-admin-key-here"
+```
+
+## Security Features
+
+- **🔐 Authentication:** API key required for all write operations (POST/PUT/DELETE)
+- **⏱️ Rate Limiting:** 100 req/min (read), 10 req/min (write), 2 req/hour (batch/seed)
+- **✅ Input Validation:** Zod schemas validate all write endpoint payloads
+- **🛡️ SQL Injection Protection:** Parameterized queries throughout
+- **🔒 Content-Security-Policy:** XSS protection with Next.js-compatible directives
+- **📊 Audit Logging:** All write operations logged to database with IP, timestamp, action, details
+- **🚫 Error Sanitization:** Production errors hide implementation details
 
 ## Batch Pipeline
 
@@ -133,7 +170,7 @@ npx jest
 npx jest --coverage
 ```
 
-114 tests across 16 suites. Coverage: 98.6% statements, 94% branches.
+132 tests across 17 suites. Coverage: 98.6% statements, 94% branches.
 
 ## Project Structure
 
@@ -162,7 +199,12 @@ ecoticker/
 │   └── lib/
 │       ├── db.ts                   # SQLite singleton
 │       ├── types.ts                # TypeScript interfaces
-│       └── utils.ts                # Helpers
+│       ├── utils.ts                # Helpers
+│       ├── auth.ts                 # API key authentication
+│       ├── rate-limit.ts           # Rate limiting
+│       ├── validation.ts           # Zod input validation schemas
+│       ├── errors.ts               # Centralized error handling
+│       └── audit-log.ts            # Audit logging utilities
 ├── scripts/
 │   ├── batch.ts                    # Daily batch pipeline
 │   └── seed.ts                     # Sample data seeder

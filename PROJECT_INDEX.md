@@ -1,6 +1,6 @@
 # Project Index: EcoTicker
 
-Generated: 2026-02-07
+Generated: 2026-02-09 (Updated with security features)
 
 ## Project Structure
 
@@ -13,10 +13,17 @@ ecoticker/
 │   │   ├── globals.css               # Tailwind, @custom-variant dark, CSS vars, ticker animation
 │   │   ├── topic/[slug]/page.tsx     # Topic detail: score chart, impact summary, articles
 │   │   └── api/
-│   │       ├── topics/route.ts       # GET /api/topics — filtered list with sparklines + input validation
+│   │       ├── topics/route.ts       # GET /api/topics, DELETE /api/topics (auth)
 │   │       ├── topics/[slug]/route.ts # GET /api/topics/[slug] — detail + articles + history
 │   │       ├── ticker/route.ts       # GET /api/ticker — top 15, lightweight payload
-│   │       └── movers/route.ts       # GET /api/movers — top 5 by abs(change)
+│   │       ├── movers/route.ts       # GET /api/movers — top 5 by abs(change)
+│   │       ├── articles/route.ts     # GET, POST (auth), DELETE (auth) — CRUD articles
+│   │       ├── articles/[id]/route.ts # GET, PUT (auth), DELETE (auth) — single article CRUD
+│   │       ├── batch/route.ts        # POST (auth) — manual batch processing
+│   │       ├── seed/route.ts         # POST (auth) — seed demo data
+│   │       ├── cleanup/route.ts      # POST (auth) — clean up demo data
+│   │       ├── audit-logs/route.ts   # GET (auth) — view audit logs and statistics
+│   │       └── cron/batch/route.ts   # GET/POST (bearer token) — cron trigger
 │   ├── components/
 │   │   ├── ThemeProvider.tsx          # Dark/light context + useTheme() hook + localStorage
 │   │   ├── ThemeToggle.tsx           # Sun/moon icon button, fixed top-right
@@ -31,13 +38,18 @@ ecoticker/
 │   └── lib/
 │       ├── db.ts                     # SQLite singleton (better-sqlite3, WAL, auto-schema)
 │       ├── types.ts                  # Topic, Article, ScoreHistoryEntry, TickerItem, TopicDetail
-│       └── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
+│       ├── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
+│       ├── auth.ts                   # requireAdminKey(), getUnauthorizedResponse() — API key auth
+│       ├── rate-limit.ts             # RateLimiter class — in-memory rate limiting
+│       ├── validation.ts             # Zod schemas — articleCreate/Update/Delete, topicDelete
+│       ├── errors.ts                 # createErrorResponse() — centralized error handling
+│       └── audit-log.ts              # logSuccess/Failure(), getAuditLogs/Stats()
 ├── scripts/
 │   ├── batch.ts                      # Daily pipeline: NewsAPI → LLM classify → LLM score → DB
 │   └── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
 ├── db/
-│   └── schema.sql                    # 4 tables: topics, articles, score_history, topic_keywords
-├── tests/                            # 16 suites, 114 tests (98.6% statement coverage)
+│   └── schema.sql                    # 5 tables: topics, articles, score_history, topic_keywords, audit_logs
+├── tests/                            # 17 suites, 132 tests (98.6% statement coverage)
 │   ├── db.test.ts                    # 10 tests — schema, constraints, upserts
 │   ├── utils.test.ts                 # 14 tests — all utility functions
 │   ├── batch.test.ts                 # 7 tests — batch DB ops, JSON extraction
@@ -78,12 +90,28 @@ ecoticker/
 
 ## API Endpoints
 
+### Public (No Auth Required)
 | Endpoint | Params | Response |
 |----------|--------|----------|
 | `GET /api/topics` | `?urgency=`, `?category=` (validated) | `{ topics: Topic[] }` with sparkline arrays |
 | `GET /api/topics/[slug]` | — | `{ topic, articles, scoreHistory }` or 404 |
 | `GET /api/ticker` | — | `{ items: TickerItem[] }` top 15 |
 | `GET /api/movers` | — | `{ movers[] }` top 5 by abs(change) |
+| `GET /api/articles` | `?topicId=`, `?source=`, `?url=`, `?limit=`, `?offset=` | `{ articles[], pagination }` |
+| `GET /api/articles/[id]` | — | `{ article, topic }` or 404 |
+
+### Protected (Requires X-API-Key Header)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/seed` | POST | Seed database with demo data |
+| `/api/batch` | POST | Run batch processing manually |
+| `/api/cleanup` | POST | Clean up demo/seed data |
+| `/api/articles` | POST | Create new article (Zod validated) |
+| `/api/articles` | DELETE | Batch delete articles by filters (Zod validated) |
+| `/api/articles/[id]` | PUT | Update article (Zod validated) |
+| `/api/articles/[id]` | DELETE | Delete single article |
+| `/api/topics` | DELETE | Batch delete topics (Zod validated) |
+| `/api/audit-logs` | GET | View audit logs and statistics |
 
 ## Database Schema
 
@@ -93,6 +121,7 @@ ecoticker/
 | articles | topic_id (FK), url (UQ), title, source, summary | INSERT OR IGNORE dedup |
 | score_history | topic_id (FK), score, health/eco/econ_score, recorded_at | Daily sub-score snapshots |
 | topic_keywords | topic_id (FK), keyword | LLM-generated aliases for cross-batch matching |
+| audit_logs | timestamp, ip_address, endpoint, method, action, success, details | Tracks all write operations |
 
 ## External APIs
 
@@ -103,7 +132,7 @@ ecoticker/
 
 ## Dependencies
 
-**Runtime**: next 16.1.6, react 19.2.3, better-sqlite3, recharts 3.7, slugify
+**Runtime**: next 16.1.6, react 19.2.3, better-sqlite3, recharts 3.7, slugify, zod 3.24
 **Dev**: typescript 5, jest 30, ts-jest, @testing-library/react, tailwindcss 4, tsx, eslint
 
 ## Docker Services
@@ -118,7 +147,7 @@ Volume: `ecoticker-data` (SQLite persistence, shared between app + cron)
 
 ## Build Status
 
-All 4 phases complete. 114 tests passing, 98.6% coverage. Docker builds successfully.
+All 4 phases complete + security hardening. 132 tests passing, 98.6% coverage. Docker builds successfully.
 
 ## Theme System
 
@@ -132,9 +161,47 @@ All 4 phases complete. 114 tests passing, 98.6% coverage. Docker builds successf
 
 ## Security
 
-- Nginx security headers: X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy, Permissions-Policy
-- API input validation: urgency/category enum whitelist (400 on invalid)
-- Batch script: 15s timeout (NewsAPI), 30s timeout (OpenRouter)
-- All SQL queries use parameterized statements
-- No cookies, no auth (public read-only data)
-- GitHub Actions CI: dependency audit, secret scanning, dangerous pattern detection, Dockerfile checks
+### Authentication & Authorization
+- **API Key Authentication:** X-API-Key header required for all write operations (POST/PUT/DELETE)
+- **ADMIN_API_KEY env var:** Configured per deployment (generate with `openssl rand -base64 32`)
+- **Public read access:** All GET endpoints remain public for dashboard functionality
+
+### Rate Limiting
+- **Read operations:** 100 requests/minute per IP
+- **Write operations:** 10 requests/minute per IP
+- **Batch/Seed operations:** 2 requests/hour per IP
+- **429 responses:** Include Retry-After and X-RateLimit-Reset headers
+- **In-memory implementation:** Resets on server restart (acceptable for demo/personal projects)
+
+### Input Validation
+- **Zod schemas:** All write endpoints validated with type-safe schemas
+- **Article operations:** Validated fields include topicId, title, url, source, summary, imageUrl, publishedAt
+- **Topic operations:** Validated filters for batch deletion
+- **Query params:** Urgency/category enum whitelist (400 on invalid)
+
+### SQL Injection Protection
+- **Parameterized queries:** All SQL uses prepared statements with placeholders
+- **No string concatenation:** Fixed critical vulnerabilities in /api/cleanup and /api/articles
+- **LIKE pattern safety:** Changed to exact match or escaped wildcards
+
+### Content-Security-Policy
+- **CSP enabled:** Middleware sets strict CSP directives
+- **Next.js compatible:** Allows unsafe-inline for hydration (required by framework)
+- **Restricts sources:** default-src 'self', external images allowed, scripts/styles scoped
+
+### Audit Logging
+- **Comprehensive tracking:** All write operations logged to audit_logs table
+- **Logged details:** IP address, endpoint, method, action, success/failure, error messages, request details, user agent
+- **Queryable API:** GET /api/audit-logs with pagination and statistics
+- **Statistics:** Total operations, success rate, unique IPs, recent failures, top actions
+
+### Error Handling
+- **Environment-aware:** Production hides implementation details, development shows full errors
+- **Request IDs:** Each error includes unique request ID for debugging
+- **Centralized:** All endpoints use createErrorResponse() utility
+- **No information disclosure:** Prevents leaking database schema or internal paths
+
+### Additional Security
+- **Nginx headers:** X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy
+- **Timeouts:** 15s (NewsAPI), 30s (OpenRouter) to prevent hanging requests
+- **GitHub Actions CI:** Dependency audit, secret scanning, dangerous pattern detection, Dockerfile checks

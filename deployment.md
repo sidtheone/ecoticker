@@ -24,9 +24,16 @@ Edit `.env` with your API keys:
 NEWSAPI_KEY=your_newsapi_key        # https://newsapi.org
 OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
+ADMIN_API_KEY=your_secure_admin_key  # Generate with: openssl rand -base64 32
 DATABASE_PATH=/data/ecoticker.db
 BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
 ```
+
+**Security Note:** Generate a strong `ADMIN_API_KEY`:
+```bash
+openssl rand -base64 32
+```
+This key is required for all write operations (POST/PUT/DELETE endpoints). Never commit this key to version control.
 
 ## Step 2: Build and Start
 
@@ -78,6 +85,46 @@ curl http://localhost/api/ticker
 ```
 
 Visit `http://<your-server-ip>` in a browser to see the dashboard.
+
+## Security Configuration
+
+The application includes comprehensive security features:
+
+### Authentication
+All write operations (POST/PUT/DELETE) require the `X-API-Key` header:
+
+```bash
+# Seed database (requires authentication)
+curl -X POST http://localhost/api/seed \
+  -H "X-API-Key: your_admin_key_here"
+
+# Run batch processing (requires authentication)
+curl -X POST http://localhost/api/batch \
+  -H "X-API-Key: your_admin_key_here"
+```
+
+### Rate Limiting
+- **Read operations (GET):** 100 requests/minute per IP
+- **Write operations (POST/PUT/DELETE):** 10 requests/minute per IP
+- **Batch/Seed operations:** 2 requests/hour per IP
+
+Rate-limited requests return `429 Too Many Requests` with a `Retry-After` header.
+
+### Audit Logging
+All write operations are logged to the `audit_logs` table. View audit logs:
+
+```bash
+# View recent audit logs
+curl http://localhost/api/audit-logs \
+  -H "X-API-Key: your_admin_key_here"
+
+# View audit statistics
+curl "http://localhost/api/audit-logs?stats=true" \
+  -H "X-API-Key: your_admin_key_here"
+```
+
+### Content-Security-Policy
+CSP headers are enabled in production to prevent XSS attacks. The middleware sets strict CSP directives while allowing Next.js hydration.
 
 ## Architecture
 

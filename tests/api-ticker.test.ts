@@ -1,26 +1,16 @@
-import { Pool } from "pg";
-import fs from "fs";
-import path from "path";
+import { createTestDb } from "./test-db";
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL || "postgresql://ecoticker:ecoticker@localhost:5432/ecoticker_test";
+let pool: any;
+let backup: any;
 
-let pool: Pool;
-
-beforeAll(async () => {
-  pool = new Pool({ connectionString: DATABASE_URL });
-  const schema = fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf-8");
-  await pool.query(schema);
+beforeAll(() => {
+  const testDb = createTestDb();
+  pool = testDb.pool;
+  backup = testDb.backup;
 });
 
-beforeEach(async () => {
-  await pool.query("DELETE FROM topic_keywords");
-  await pool.query("DELETE FROM score_history");
-  await pool.query("DELETE FROM articles");
-  await pool.query("DELETE FROM topics");
-});
-
-afterAll(async () => {
-  await pool.end();
+beforeEach(() => {
+  backup.restore();
 });
 
 async function queryTicker() {

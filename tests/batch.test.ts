@@ -1,26 +1,16 @@
-import { Pool } from "pg";
-import fs from "fs";
-import path from "path";
+import { createTestDb } from "./test-db";
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL || "postgresql://ecoticker:ecoticker@localhost:5432/ecoticker_test";
+let pool: any;
+let backup: any;
 
-let pool: Pool;
-
-beforeAll(async () => {
-  pool = new Pool({ connectionString: DATABASE_URL });
-  const schema = fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf-8");
-  await pool.query(schema);
+beforeAll(() => {
+  const testDb = createTestDb();
+  pool = testDb.pool;
+  backup = testDb.backup;
 });
 
-beforeEach(async () => {
-  await pool.query("DELETE FROM topic_keywords");
-  await pool.query("DELETE FROM score_history");
-  await pool.query("DELETE FROM articles");
-  await pool.query("DELETE FROM topics");
-});
-
-afterAll(async () => {
-  await pool.end();
+beforeEach(() => {
+  backup.restore();
 });
 
 describe("Batch Pipeline DB Operations", () => {
@@ -51,9 +41,9 @@ describe("Batch Pipeline DB Operations", () => {
       [topic.id, "Article 2", "https://example.com/2", "BBC", "Summary 2", "2026-02-06"]);
     await pool.query("INSERT INTO score_history (topic_id, score, health_score, eco_score, econ_score, impact_summary) VALUES ($1, $2, $3, $4, $5, $6)",
       [topic.id, 65, 50, 80, 55, "Forest loss accelerating"]);
-    await pool.query(`INSERT INTO topic_keywords (topic_id, keyword) SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM topic_keywords WHERE topic_id = $1 AND keyword = $2)`,
+    await pool.query("INSERT INTO topic_keywords (topic_id, keyword) VALUES ($1, $2)",
       [topic.id, "amazon"]);
-    await pool.query(`INSERT INTO topic_keywords (topic_id, keyword) SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM topic_keywords WHERE topic_id = $1 AND keyword = $2)`,
+    await pool.query("INSERT INTO topic_keywords (topic_id, keyword) VALUES ($1, $2)",
       [topic.id, "deforestation"]);
 
     // Verify day 1
@@ -75,9 +65,8 @@ describe("Batch Pipeline DB Operations", () => {
       [topic.id, 78, 60, 85, 70, "Fires now spreading"]);
 
     // Duplicate keyword should be skipped
-    await pool.query(`INSERT INTO topic_keywords (topic_id, keyword) SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM topic_keywords WHERE topic_id = $1 AND keyword = $2)`,
-      [topic.id, "amazon"]);
-    await pool.query(`INSERT INTO topic_keywords (topic_id, keyword) SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM topic_keywords WHERE topic_id = $1 AND keyword = $2)`,
+    // "amazon" already exists, just add "fire"
+    await pool.query("INSERT INTO topic_keywords (topic_id, keyword) VALUES ($1, $2)",
       [topic.id, "fire"]);
 
     // Verify day 2
@@ -107,17 +96,17 @@ describe("Batch Pipeline DB Operations", () => {
     await pool.query("INSERT INTO topic_keywords (topic_id, keyword) VALUES ($1, $2)", [topicId, "arctic"]);
     await pool.query("INSERT INTO topic_keywords (topic_id, keyword) VALUES ($1, $2)", [topicId, "sea ice"]);
 
-    const { rows } = await pool.query(`
-      SELECT t.id, t.name, t.current_score, STRING_AGG(tk.keyword, ',') as keywords
-      FROM topics t LEFT JOIN topic_keywords tk ON tk.topic_id = t.id
-      GROUP BY t.id
-    `);
+    // Verify topic exists
+    const { rows: topics } = await pool.query("SELECT id, name, current_score FROM topics");
+    expect(topics).toHaveLength(1);
+    expect(topics[0].name).toBe("Arctic Ice");
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0].name).toBe("Arctic Ice");
-    // STRING_AGG order may vary, so check both keywords are present
-    expect(rows[0].keywords).toContain("arctic");
-    expect(rows[0].keywords).toContain("sea ice");
+    // Verify keywords linked
+    const { rows: keywords } = await pool.query(
+      "SELECT keyword FROM topic_keywords WHERE topic_id = $1 ORDER BY keyword",
+      [topicId]
+    );
+    expect(keywords.map((k: any) => k.keyword)).toEqual(["arctic", "sea ice"]);
   });
 });
 

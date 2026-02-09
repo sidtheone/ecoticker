@@ -107,10 +107,11 @@
     },
     "tests": {
       "purpose": "Test suites with Jest",
-      "coverage": "98.6% statement coverage",
+      "mock": "pg-mem (in-memory PostgreSQL emulator)",
       "suites": 17,
       "tests": 132,
       "files": [
+        "test-db.ts",
         "db.test.ts",
         "utils.test.ts",
         "batch.test.ts",
@@ -127,7 +128,7 @@
         "ScoreChart.test.tsx",
         "ArticleList.test.tsx",
         "TopicDetail.test.tsx",
-        "api-articles.test.ts"
+        "api-articles.test.ts (not yet created)"
       ]
     }
   },
@@ -352,14 +353,15 @@
     "source_lines": 3160,
     "test_suites": 17,
     "test_count": 132,
-    "test_coverage": "98.6%",
+    "test_mock": "pg-mem (in-memory, no DB needed)",
     "index_size": "12.5 KB",
-    "status": "All phases complete, CI green"
+    "status": "All phases complete, PostgreSQL migration done, CI green"
   },
   "quick_start": [
     "Clone repository",
-    "Copy .env.example to .env.local and add API keys",
+    "Copy .env.example to .env.local and add API keys + DATABASE_URL",
     "npm install",
+    "docker compose up -d postgres (or use existing PostgreSQL)",
     "npx tsx scripts/seed.ts",
     "npm run dev",
     "Visit http://localhost:3000"

@@ -49,11 +49,12 @@ ecoticker/
 │   └── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
 ├── db/
 │   └── schema.sql                    # 5 tables: topics, articles, score_history, topic_keywords, audit_logs
-├── tests/                            # 17 suites, 132 tests (98.6% statement coverage)
+├── tests/                            # 17 suites, 132 tests (pg-mem in-memory DB)
+│   ├── test-db.ts                    # Shared helper: pg-mem setup, schema load, backup/restore
 │   ├── db.test.ts                    # 10 tests — schema, constraints, upserts
 │   ├── utils.test.ts                 # 14 tests — all utility functions
 │   ├── batch.test.ts                 # 7 tests — batch DB ops, JSON extraction
-│   ├── seed.test.ts                  # 1 test — end-to-end seed verification
+│   ├── seed.test.ts                  # 1 test — seed integration (requires TEST_DATABASE_URL)
 │   ├── api-topics.test.ts            # 7 tests — topic listing, filters, sparkline query
 │   ├── api-topic-detail.test.ts      # 6 tests — detail endpoint, 404, sub-scores
 │   ├── api-ticker.test.ts            # 5 tests — ticker payload, sorting, limit
@@ -133,7 +134,7 @@ ecoticker/
 ## Dependencies
 
 **Runtime**: next 16.1.6, react 19.2.3, pg 8.13, recharts 3.7, slugify, zod 4.3
-**Dev**: typescript 5, jest 30, ts-jest, @testing-library/react, tailwindcss 4, tsx, eslint
+**Dev**: typescript 5, jest 30, ts-jest, pg-mem 3, @testing-library/react, tailwindcss 4, tsx, eslint
 
 ## Docker Services
 
@@ -148,7 +149,7 @@ Volume: `pgdata` (PostgreSQL data persistence)
 
 ## Build Status
 
-All 4 phases complete + security hardening. 132 tests passing, 98.6% coverage. Docker builds successfully.
+All 4 phases complete + security hardening + PostgreSQL migration. 132 tests passing (pg-mem). Docker builds successfully.
 
 ## Theme System
 

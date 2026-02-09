@@ -84,7 +84,7 @@ jobs:
           echo "Dockerfile uses non-root user"
       - name: Check no secrets in Dockerfile
         run: |
-          if grep -iE '(ARG|ENV).*(KEY|SECRET|PASSWORD|TOKEN).*=' Dockerfile | grep -v 'DATABASE_PATH' | grep -v 'HOSTNAME' | grep -v 'PORT' | grep -v 'NODE_ENV'; then
+          if grep -iE '(ARG|ENV).*(KEY|SECRET|PASSWORD|TOKEN).*=' Dockerfile | grep -v 'DATABASE_URL' | grep -v 'HOSTNAME' | grep -v 'PORT' | grep -v 'NODE_ENV'; then
             echo "::warning::Potential secret in Dockerfile build args/env"
           fi
           echo "Dockerfile secrets check passed"

@@ -156,7 +156,7 @@ docker compose up -d      # Start production stack
 - Mock `next/link` as `<a>` in component tests
 - Mock `recharts` as simple divs with data-testid in jsdom tests
 - Mock `global.fetch` for component tests that fetch API data
-- API tests use a real PostgreSQL test database with schema loaded from db/schema.sql
+- API tests use pg-mem (in-memory PostgreSQL emulator), no real database needed
 - Jest config: two projects — "node" (ts-jest, node env) and "react" (ts-jest, jsdom env, @/ path alias)
 
 ## Docker

@@ -4,6 +4,75 @@
 
 Environmental news impact tracker. Aggregates news via NewsAPI, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.
 
+## 🚀 Efficient Context Loading
+
+**IMPORTANT: Always read `PROJECT_INDEX.md` first to understand the codebase efficiently.**
+
+### Token Efficiency
+
+- **Without index:** Reading all files = ~57,000 tokens per session
+- **With index:** Reading PROJECT_INDEX.md = ~3,500 tokens (94% reduction)
+- **Savings:** 53,500 tokens per session
+
+### Available Index Files
+
+1. **`PROJECT_INDEX.md`** (12 KB) — Human-readable comprehensive index
+   - Complete project structure with file purposes
+   - All 11 API endpoints documented (public + protected)
+   - All 10 React components mapped
+   - Database schema (5 tables)
+   - Security features, Docker services, CI/CD
+   - 100% accuracy verified
+
+2. **`PROJECT_INDEX.json`** (11 KB) — Machine-readable structured data
+   - Programmatic access to project metadata
+   - API definitions with parameters and responses
+   - Stack information, metrics, quick start guide
+
+3. **`docs/TOKEN_EFFICIENCY_REPORT.md`** — Detailed ROI analysis
+   - Token savings calculations
+   - Best practices and usage patterns
+
+### Recommended Workflow
+
+```bash
+# 1. Start every session by reading the index
+cat PROJECT_INDEX.md  # 3,500 tokens
+
+# 2. Identify relevant files from the index
+# Example: Need to modify auth? Index shows: src/lib/auth.ts
+
+# 3. Read ONLY those specific files
+cat src/lib/auth.ts  # 1,500 tokens
+
+# Total: 5,000 tokens vs 57,000 tokens (91% savings)
+```
+
+### When to Use the Index
+
+✅ **Use PROJECT_INDEX.md for:**
+- Starting any new coding session
+- Understanding project architecture
+- Finding entry points (pages, APIs, components)
+- Locating specific utilities or modules
+- Understanding database schema
+- Reviewing test coverage and security features
+
+❌ **Don't use for:**
+- Reading actual implementation code
+- Line-by-line debugging
+- Understanding complex algorithms
+
+### Keeping the Index Updated
+
+The index should be updated when:
+- Adding new API routes or components
+- Creating new database tables
+- Significant architecture changes
+- Major security features added
+
+**Update command:** Re-run the index-repo tool (see docs/TOKEN_EFFICIENCY_REPORT.md)
+
 ## ⚠️ CRITICAL: Pre-Commit Requirements
 
 **ALWAYS build and check for errors before committing:**

@@ -1,0 +1,362 @@
+{
+  "project": {
+    "name": "ecoticker",
+    "description": "Environmental news impact tracker with stock-ticker style UI",
+    "version": "0.1.0",
+    "generated": "2026-02-09T00:00:00Z",
+    "repository": "github.com/sidtheone/ecoticker"
+  },
+  "stack": {
+    "framework": "Next.js 16.1.6",
+    "runtime": "React 19.2.3",
+    "language": "TypeScript 5",
+    "styling": "Tailwind CSS 4",
+    "database": "SQLite (better-sqlite3)",
+    "charts": "Recharts 3.7",
+    "validation": "Zod 4.3.6",
+    "containerization": "Docker + Docker Compose"
+  },
+  "entry_points": {
+    "dev_server": {
+      "command": "npm run dev",
+      "port": 3000,
+      "description": "Development server with hot reload"
+    },
+    "production": {
+      "command": "docker compose up -d",
+      "port": 80,
+      "description": "Production stack (app + nginx + cron)"
+    },
+    "batch_pipeline": {
+      "command": "npx tsx scripts/batch.ts",
+      "description": "Manual batch processing (NewsAPI → LLM → DB)"
+    },
+    "seed_data": {
+      "command": "npx tsx scripts/seed.ts",
+      "description": "Seed database with demo data"
+    },
+    "tests": {
+      "command": "npx jest",
+      "description": "Run all 132 tests across 17 suites"
+    }
+  },
+  "structure": {
+    "src/app": {
+      "purpose": "Next.js App Router pages and API routes",
+      "key_files": [
+        "layout.tsx",
+        "page.tsx",
+        "globals.css",
+        "topic/[slug]/page.tsx"
+      ],
+      "api_routes": [
+        "api/topics/route.ts",
+        "api/topics/[slug]/route.ts",
+        "api/ticker/route.ts",
+        "api/movers/route.ts",
+        "api/articles/route.ts",
+        "api/articles/[id]/route.ts",
+        "api/batch/route.ts",
+        "api/seed/route.ts",
+        "api/cleanup/route.ts",
+        "api/audit-logs/route.ts",
+        "api/cron/batch/route.ts"
+      ]
+    },
+    "src/components": {
+      "purpose": "React components for UI",
+      "exports": [
+        "ThemeProvider",
+        "ThemeToggle",
+        "TickerBar",
+        "TopicGrid",
+        "TopicCard",
+        "BiggestMovers",
+        "Sparkline",
+        "ScoreChart",
+        "ArticleList",
+        "UrgencyBadge"
+      ]
+    },
+    "src/lib": {
+      "purpose": "Core utilities and business logic",
+      "modules": {
+        "db.ts": "SQLite singleton with WAL mode, auto-schema",
+        "types.ts": "TypeScript type definitions",
+        "utils.ts": "Color/format utilities for scores",
+        "auth.ts": "API key authentication",
+        "rate-limit.ts": "In-memory rate limiter",
+        "validation.ts": "Zod schemas for input validation",
+        "errors.ts": "Centralized error handling",
+        "audit-log.ts": "Audit logging utilities"
+      }
+    },
+    "scripts": {
+      "purpose": "Automation scripts",
+      "files": {
+        "batch.ts": "Daily pipeline: NewsAPI → LLM classify → LLM score → DB",
+        "seed.ts": "Seeds 12 topics, 36 articles, 84 score history entries",
+        "setup-git-hooks.sh": "Installs pre-commit hooks for build checks"
+      }
+    },
+    "db": {
+      "purpose": "Database schema and migrations",
+      "files": {
+        "schema.sql": "5 tables: topics, articles, score_history, topic_keywords, audit_logs"
+      }
+    },
+    "tests": {
+      "purpose": "Test suites with Jest",
+      "coverage": "98.6% statement coverage",
+      "suites": 17,
+      "tests": 132,
+      "files": [
+        "db.test.ts",
+        "utils.test.ts",
+        "batch.test.ts",
+        "seed.test.ts",
+        "api-topics.test.ts",
+        "api-topic-detail.test.ts",
+        "api-ticker.test.ts",
+        "api-movers.test.ts",
+        "TickerBar.test.tsx",
+        "TopicCard.test.tsx",
+        "TopicGrid.test.tsx",
+        "BiggestMovers.test.tsx",
+        "Sparkline.test.tsx",
+        "ScoreChart.test.tsx",
+        "ArticleList.test.tsx",
+        "TopicDetail.test.tsx",
+        "api-articles.test.ts"
+      ]
+    }
+  },
+  "api": {
+    "public_endpoints": [
+      {
+        "path": "/api/topics",
+        "method": "GET",
+        "params": ["urgency", "category"],
+        "response": "{ topics: Topic[] }"
+      },
+      {
+        "path": "/api/topics/[slug]",
+        "method": "GET",
+        "response": "{ topic, articles, scoreHistory }"
+      },
+      {
+        "path": "/api/ticker",
+        "method": "GET",
+        "response": "{ items: TickerItem[] }"
+      },
+      {
+        "path": "/api/movers",
+        "method": "GET",
+        "response": "{ movers[] }"
+      },
+      {
+        "path": "/api/articles",
+        "method": "GET",
+        "params": ["topicId", "source", "url", "limit", "offset"],
+        "response": "{ articles[], pagination }"
+      },
+      {
+        "path": "/api/articles/[id]",
+        "method": "GET",
+        "response": "{ article, topic }"
+      }
+    ],
+    "protected_endpoints": [
+      {
+        "path": "/api/seed",
+        "method": "POST",
+        "auth": "X-API-Key header",
+        "description": "Seed database with demo data"
+      },
+      {
+        "path": "/api/batch",
+        "method": "POST",
+        "auth": "X-API-Key header",
+        "description": "Run batch processing manually"
+      },
+      {
+        "path": "/api/cleanup",
+        "method": "POST",
+        "auth": "X-API-Key header",
+        "description": "Clean up demo/seed data"
+      },
+      {
+        "path": "/api/articles",
+        "method": "POST",
+        "auth": "X-API-Key header",
+        "description": "Create new article (Zod validated)"
+      },
+      {
+        "path": "/api/articles",
+        "method": "DELETE",
+        "auth": "X-API-Key header",
+        "description": "Batch delete articles (Zod validated)"
+      },
+      {
+        "path": "/api/articles/[id]",
+        "method": "PUT",
+        "auth": "X-API-Key header",
+        "description": "Update article (Zod validated)"
+      },
+      {
+        "path": "/api/articles/[id]",
+        "method": "DELETE",
+        "auth": "X-API-Key header",
+        "description": "Delete single article"
+      },
+      {
+        "path": "/api/topics",
+        "method": "DELETE",
+        "auth": "X-API-Key header",
+        "description": "Batch delete topics (Zod validated)"
+      },
+      {
+        "path": "/api/audit-logs",
+        "method": "GET",
+        "auth": "X-API-Key header",
+        "description": "View audit logs and statistics"
+      }
+    ]
+  },
+  "database": {
+    "type": "SQLite",
+    "mode": "WAL",
+    "tables": {
+      "topics": {
+        "key_columns": ["slug (UQ)", "current_score", "previous_score", "urgency", "category", "region"],
+        "notes": "Upsert rotates previous_score"
+      },
+      "articles": {
+        "key_columns": ["topic_id (FK)", "url (UQ)", "title", "source", "summary"],
+        "notes": "INSERT OR IGNORE for deduplication"
+      },
+      "score_history": {
+        "key_columns": ["topic_id (FK)", "score", "health_score", "eco_score", "econ_score", "recorded_at"],
+        "notes": "Daily sub-score snapshots"
+      },
+      "topic_keywords": {
+        "key_columns": ["topic_id (FK)", "keyword"],
+        "notes": "LLM-generated aliases for cross-batch matching"
+      },
+      "audit_logs": {
+        "key_columns": ["timestamp", "ip_address", "endpoint", "method", "action", "success", "details"],
+        "notes": "Tracks all write operations"
+      }
+    }
+  },
+  "external_apis": {
+    "NewsAPI": {
+      "purpose": "Fetch environmental news",
+      "config": "NEWSAPI_KEY",
+      "timeout": "15s"
+    },
+    "OpenRouter": {
+      "purpose": "LLM classify and score articles",
+      "config": "OPENROUTER_API_KEY, OPENROUTER_MODEL",
+      "timeout": "30s"
+    }
+  },
+  "security": {
+    "authentication": {
+      "method": "API Key (X-API-Key header)",
+      "env_var": "ADMIN_API_KEY",
+      "scope": "All write operations (POST/PUT/DELETE)"
+    },
+    "rate_limiting": {
+      "read_ops": "100 requests/minute per IP",
+      "write_ops": "10 requests/minute per IP",
+      "batch_ops": "2 requests/hour per IP",
+      "implementation": "In-memory (resets on restart)"
+    },
+    "input_validation": {
+      "library": "Zod 4.3.6",
+      "scope": "All write endpoints",
+      "types": "Type-safe schemas with detailed error messages"
+    },
+    "sql_injection_protection": {
+      "method": "Parameterized queries only",
+      "status": "No string concatenation in SQL"
+    },
+    "csp": {
+      "enabled": true,
+      "directives": "default-src 'self', unsafe-inline for Next.js hydration"
+    },
+    "audit_logging": {
+      "scope": "All write operations",
+      "fields": ["IP", "endpoint", "method", "action", "success", "details", "user_agent"],
+      "queryable": "GET /api/audit-logs"
+    },
+    "error_handling": {
+      "production": "Sanitized errors, no implementation details",
+      "development": "Full error messages",
+      "request_ids": "Unique ID per error for debugging"
+    },
+    "headers": {
+      "nginx": ["X-Frame-Options", "X-Content-Type-Options", "X-XSS-Protection", "Referrer-Policy", "Permissions-Policy"]
+    }
+  },
+  "docker": {
+    "services": {
+      "app": {
+        "image": "Dockerfile (multi-stage)",
+        "port": 3000,
+        "memory": "1GB",
+        "description": "Next.js standalone build"
+      },
+      "nginx": {
+        "image": "nginx:alpine",
+        "port": 80,
+        "features": ["Reverse proxy", "gzip compression", "Static asset caching", "Security headers"]
+      },
+      "cron": {
+        "image": "Dockerfile (crond)",
+        "schedule": "Daily at 6AM UTC",
+        "description": "Batch pipeline automation"
+      }
+    },
+    "volumes": {
+      "ecoticker-data": "SQLite persistence, shared between app + cron"
+    }
+  },
+  "ci_cd": {
+    "platform": "GitHub Actions",
+    "workflow": ".github/workflows/security.yml",
+    "triggers": ["push to main", "pull request to main"],
+    "jobs": [
+      "Dependency audit",
+      "Security linting (secrets, eval, SQL patterns)",
+      "Dockerfile security checks",
+      "Full test suite (132 tests)"
+    ]
+  },
+  "theme": {
+    "mode": "Class-based dark mode",
+    "implementation": "Tailwind v4 @custom-variant dark",
+    "persistence": "localStorage with OS preference fallback",
+    "fouc_prevention": "Inline <script> in layout",
+    "light_palette": "Warm cream/beige (#faf7f2, #f5f0e8, stone-*)",
+    "dark_palette": "Gray-900 bg, gray-800 cards, gray-* text"
+  },
+  "metrics": {
+    "source_files": 35,
+    "source_lines": 3160,
+    "test_suites": 17,
+    "test_count": 132,
+    "test_coverage": "98.6%",
+    "index_size": "12.5 KB",
+    "status": "All phases complete, CI green"
+  },
+  "quick_start": [
+    "Clone repository",
+    "Copy .env.example to .env.local and add API keys",
+    "npm install",
+    "npx tsx scripts/seed.ts",
+    "npm run dev",
+    "Visit http://localhost:3000"
+  ]
+}

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const pool = getDb();
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: (string | number)[] = [];
     let paramIndex = 1;
 
     if (topicId) {

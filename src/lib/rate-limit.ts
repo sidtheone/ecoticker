@@ -3,11 +3,33 @@
  * Simple implementation suitable for demo/personal projects
  */
 
-interface RateLimitStore {
-  [key: string]: { count: number; resetTime: number };
+import { RATE_LIMITS, RATE_LIMIT_CLEANUP_INTERVAL_MS } from './constants';
+
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
 }
 
-const store: RateLimitStore = {};
+const store = new Map<string, RateLimitEntry>();
+
+// Periodic cleanup of expired entries to prevent memory leaks
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCleanup() {
+  if (cleanupTimer) return;
+  cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (now > entry.resetTime) {
+        store.delete(key);
+      }
+    }
+  }, RATE_LIMIT_CLEANUP_INTERVAL_MS);
+  // Allow process to exit even if timer is running
+  if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
+    cleanupTimer.unref();
+  }
+}
 
 /**
  * Rate limiter class with sliding window implementation
@@ -16,7 +38,9 @@ export class RateLimiter {
   constructor(
     private interval: number,  // Time window in milliseconds
     private maxRequests: number  // Max requests allowed in window
-  ) {}
+  ) {
+    startCleanup();
+  }
 
   /**
    * Check if a request should be allowed
@@ -25,21 +49,18 @@ export class RateLimiter {
    */
   check(identifier: string): boolean {
     const now = Date.now();
-    const key = identifier;
+    const entry = store.get(identifier);
 
-    if (!store[key] || now > store[key].resetTime) {
-      // First request or window has expired - allow and start new window
-      store[key] = { count: 1, resetTime: now + this.interval };
+    if (!entry || now > entry.resetTime) {
+      store.set(identifier, { count: 1, resetTime: now + this.interval });
       return true;
     }
 
-    if (store[key].count >= this.maxRequests) {
-      // Rate limit exceeded
+    if (entry.count >= this.maxRequests) {
       return false;
     }
 
-    // Increment count and allow request
-    store[key].count++;
+    entry.count++;
     return true;
   }
 
@@ -49,11 +70,11 @@ export class RateLimiter {
    * @returns Unix timestamp (ms) when the rate limit will reset
    */
   getResetTime(identifier: string): number {
-    return store[identifier]?.resetTime || Date.now();
+    return store.get(identifier)?.resetTime || Date.now();
   }
 }
 
 // Pre-configured rate limiters for different endpoint types
-export const readLimiter = new RateLimiter(60 * 1000, 100);      // 100 requests per minute for GET
-export const writeLimiter = new RateLimiter(60 * 1000, 10);      // 10 requests per minute for POST/PUT/DELETE
-export const batchLimiter = new RateLimiter(60 * 60 * 1000, 2);  // 2 requests per hour for batch/seed
+export const readLimiter = new RateLimiter(RATE_LIMITS.READ_WINDOW_MS, RATE_LIMITS.READ_MAX_REQUESTS);
+export const writeLimiter = new RateLimiter(RATE_LIMITS.WRITE_WINDOW_MS, RATE_LIMITS.WRITE_MAX_REQUESTS);
+export const batchLimiter = new RateLimiter(RATE_LIMITS.BATCH_WINDOW_MS, RATE_LIMITS.BATCH_MAX_REQUESTS);

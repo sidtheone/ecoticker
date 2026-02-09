@@ -4,6 +4,7 @@ import slugify from 'slugify';
 import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
 import { createErrorResponse } from '@/lib/errors';
 import { logSuccess, logFailure } from '@/lib/audit-log';
+import { TIMEOUTS, BATCH } from '@/lib/constants';
 
 // --- Config ---
 const NEWSAPI_KEY = process.env.NEWSAPI_KEY || '';
@@ -44,14 +45,14 @@ async function fetchNews(): Promise<NewsArticle[]> {
   const allArticles: NewsArticle[] = [];
 
   const keywordGroups = [];
-  for (let i = 0; i < KEYWORDS.length; i += 4) {
-    keywordGroups.push(KEYWORDS.slice(i, i + 4).join(' OR '));
+  for (let i = 0; i < KEYWORDS.length; i += BATCH.KEYWORD_GROUP_SIZE) {
+    keywordGroups.push(KEYWORDS.slice(i, i + BATCH.KEYWORD_GROUP_SIZE).join(' OR '));
   }
 
   for (const query of keywordGroups) {
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&searchIn=title&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUTS.NEWS_API_MS) });
       const data = await res.json();
 
       if (data.status === 'error') {
@@ -86,7 +87,7 @@ async function fetchNews(): Promise<NewsArticle[]> {
 async function callLLM(prompt: string): Promise<string> {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(TIMEOUTS.LLM_API_MS),
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
       GROUP BY t.id
     `);
 
-    const topicsWithKeywords = existingTopics.map((t: any) => ({
+    const topicsWithKeywords = existingTopics.map((t: { id: number; name: string; current_score: number; keywords: string | null }) => ({
       ...t,
       keywords: t.keywords ? t.keywords.split(',') : [],
     }));
@@ -266,7 +267,7 @@ export async function POST(request: NextRequest) {
     console.log('\n[2/4] Classifying articles into topics...');
     const allClassifications: Classification[] = [];
 
-    const batchSize = 10;
+    const batchSize = BATCH.CLASSIFICATION_BATCH_SIZE;
     for (let i = 0; i < articles.length; i += batchSize) {
       const batch = articles.slice(i, i + batchSize);
       console.log(`  Classifying batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(articles.length / batchSize)} (${batch.length} articles)...`);

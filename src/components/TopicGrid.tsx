@@ -1,60 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Topic, Urgency } from "@/lib/types";
 import TopicCard from "./TopicCard";
 import { eventBus } from "@/lib/events";
+
+const FILTERS: { label: string; value: Urgency | null }[] = [
+  { label: "All", value: null },
+  { label: "Breaking", value: "breaking" },
+  { label: "Critical", value: "critical" },
+  { label: "Moderate", value: "moderate" },
+  { label: "Informational", value: "informational" },
+];
 
 export default function TopicGrid() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const params = urgencyFilter ? `?urgency=${urgencyFilter}` : "";
-        const res = await fetch(`/api/topics${params}`);
-        const data = await res.json();
-        setTopics(data.topics || []);
-      } catch {
-        setTopics([]);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const fetchTopics = useCallback(async () => {
     setLoading(true);
-    fetchTopics();
+    try {
+      const params = urgencyFilter ? `?urgency=${urgencyFilter}` : "";
+      const res = await fetch(`/api/topics${params}`);
+      const data = await res.json();
+      setTopics(data.topics || []);
+    } catch {
+      setTopics([]);
+    } finally {
+      setLoading(false);
+    }
   }, [urgencyFilter]);
 
-  // Listen for refresh events
   useEffect(() => {
-    const unsubscribe = eventBus.subscribe("ui-refresh", () => {
-      setLoading(true);
-      fetch(`/api/topics${urgencyFilter ? `?urgency=${urgencyFilter}` : ""}`)
-        .then((r) => r.json())
-        .then((data) => setTopics(data.topics || []))
-        .catch(() => setTopics([]))
-        .finally(() => setLoading(false));
-    });
-    return unsubscribe;
-  }, [urgencyFilter]);
+    fetchTopics();
+  }, [fetchTopics]);
 
-  const filters: { label: string; value: Urgency | null }[] = [
-    { label: "All", value: null },
-    { label: "Breaking", value: "breaking" },
-    { label: "Critical", value: "critical" },
-    { label: "Moderate", value: "moderate" },
-    { label: "Informational", value: "informational" },
-  ];
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe("ui-refresh", fetchTopics);
+    return unsubscribe;
+  }, [fetchTopics]);
 
   return (
     <div>
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1" data-testid="urgency-filters">
-        {filters.map((f) => (
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1" role="group" aria-label="Filter by urgency" data-testid="urgency-filters">
+        {FILTERS.map((f) => (
           <button
             key={f.label}
             onClick={() => setUrgencyFilter(f.value)}
+            aria-pressed={urgencyFilter === f.value}
             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               urgencyFilter === f.value
                 ? "bg-stone-800 dark:bg-white text-white dark:text-gray-900"

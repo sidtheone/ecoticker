@@ -17,6 +17,7 @@ export default function ArticleList({ articles }: { articles: Article[] }) {
             href={a.url}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`${a.title} (opens in new tab)`}
             className="block bg-[#f5f0e8] dark:bg-gray-900 border border-[#e8dfd3] dark:border-gray-800 rounded-lg p-3 hover:border-stone-400 dark:hover:border-gray-600 transition-colors"
             data-testid="article-item"
           >

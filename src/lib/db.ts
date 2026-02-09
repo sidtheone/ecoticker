@@ -37,3 +37,18 @@ export function buildInClause(values: (string | number)[], startIndex: number = 
   const placeholders = values.map((_, i) => `$${startIndex + i}`).join(",");
   return { placeholders, params: values };
 }
+
+/**
+ * Cascade-delete topics and all related data (keywords, scores, articles).
+ * Returns the number of topics deleted.
+ */
+export async function cascadeDeleteTopics(topicIds: number[]): Promise<number> {
+  if (topicIds.length === 0) return 0;
+  const p = getDb();
+  const { placeholders } = buildInClause(topicIds);
+  await p.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, topicIds);
+  await p.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, topicIds);
+  await p.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, topicIds);
+  const result = await p.query(`DELETE FROM topics WHERE id IN (${placeholders})`, topicIds);
+  return result.rowCount ?? 0;
+}

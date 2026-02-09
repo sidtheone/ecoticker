@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, initDb, buildInClause } from "@/lib/db";
+import { getDb, initDb, cascadeDeleteTopics } from "@/lib/db";
 import type { TopicRow } from "@/lib/types";
 import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
 import { topicDeleteSchema, validateRequest } from "@/lib/validation";
 import { createErrorResponse } from "@/lib/errors";
 import { logSuccess, logFailure } from "@/lib/audit-log";
+import { VALID_URGENCIES, VALID_CATEGORIES } from "@/lib/constants";
 
 /**
  * Topics API
@@ -18,16 +19,11 @@ export async function GET(request: NextRequest) {
   const urgency = request.nextUrl.searchParams.get("urgency");
   const category = request.nextUrl.searchParams.get("category");
 
-  const validUrgencies = ["breaking", "critical", "moderate", "informational"];
-  if (urgency && !validUrgencies.includes(urgency)) {
+  if (urgency && !(VALID_URGENCIES as readonly string[]).includes(urgency)) {
     return NextResponse.json({ error: "Invalid urgency value" }, { status: 400 });
   }
 
-  const validCategories = [
-    "air_quality", "deforestation", "ocean", "climate", "pollution",
-    "biodiversity", "wildlife", "energy", "waste", "water",
-  ];
-  if (category && !validCategories.includes(category)) {
+  if (category && !(VALID_CATEGORIES as readonly string[]).includes(category)) {
     return NextResponse.json({ error: "Invalid category value" }, { status: 400 });
   }
 
@@ -135,25 +131,11 @@ export async function DELETE(request: NextRequest) {
     let deletedCount = 0;
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      const { placeholders } = buildInClause(ids);
-
-      await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, ids);
-      await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, ids);
-      await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, ids);
-      const result = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, ids);
-      deletedCount = result.rowCount ?? 0;
+      deletedCount = await cascadeDeleteTopics(ids);
     } else if (articleCount !== undefined) {
       const { rows: topicsToDelete } = await pool.query('SELECT id FROM topics WHERE article_count = $1', [articleCount]);
       const topicIds = topicsToDelete.map((t: { id: number }) => t.id);
-
-      if (topicIds.length > 0) {
-        const { placeholders } = buildInClause(topicIds);
-        await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, topicIds);
-        await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, topicIds);
-        await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, topicIds);
-        const result = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, topicIds);
-        deletedCount = result.rowCount ?? 0;
-      }
+      deletedCount = await cascadeDeleteTopics(topicIds);
     }
 
     logSuccess(request, 'delete_topics', {

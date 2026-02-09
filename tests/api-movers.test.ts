@@ -61,9 +61,9 @@ describe("GET /api/movers — query logic", () => {
 
     const rows = await queryMovers();
     expect(rows).toHaveLength(2);
-    const changes = rows.map((r: any) => r.change as number);
-    expect(changes.some((c) => c > 0)).toBe(true);
-    expect(changes.some((c) => c < 0)).toBe(true);
+    const changes = rows.map((r: Record<string, unknown>) => r.change as number);
+    expect(changes.some((c: number) => c > 0)).toBe(true);
+    expect(changes.some((c: number) => c < 0)).toBe(true);
   });
 
   test("returns empty array when all topics are stable", async () => {

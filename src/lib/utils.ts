@@ -1,4 +1,5 @@
 import type { Urgency } from "./types";
+import { SCORE_THRESHOLDS } from "./constants";
 
 export function urgencyColor(urgency: Urgency) {
   switch (urgency) {
@@ -26,8 +27,8 @@ export function formatChange(change: number) {
 }
 
 export function scoreToUrgency(score: number): Urgency {
-  if (score >= 80) return "breaking";
-  if (score >= 60) return "critical";
-  if (score >= 30) return "moderate";
+  if (score >= SCORE_THRESHOLDS.BREAKING) return "breaking";
+  if (score >= SCORE_THRESHOLDS.CRITICAL) return "critical";
+  if (score >= SCORE_THRESHOLDS.MODERATE) return "moderate";
   return "informational";
 }

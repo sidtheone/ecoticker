@@ -7,6 +7,7 @@ export default function UrgencyBadge({ urgency }: { urgency: Urgency }) {
     <span
       className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase ${colors.text} ${colors.bg} ${colors.border} border`}
       data-testid="urgency-badge"
+      aria-label={`Urgency level: ${urgency}`}
     >
       {urgency}
     </span>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, initDb, buildInClause } from '@/lib/db';
+import { getDb, initDb, buildInClause, cascadeDeleteTopics } from '@/lib/db';
 import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
 import { createErrorResponse } from '@/lib/errors';
 import { logSuccess, logFailure } from '@/lib/audit-log';
@@ -71,30 +71,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { placeholders } = buildInClause(topicIdsToDelete);
-    const keywordsDeleted = await pool.query(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
-    const scoresDeleted = await pool.query(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
-    const articlesDeleted = await pool.query(`DELETE FROM articles WHERE topic_id IN (${placeholders})`, topicIdsToDelete);
-    const topicsDeleted = await pool.query(`DELETE FROM topics WHERE id IN (${placeholders})`, topicIdsToDelete);
+    const deletedCount = await cascadeDeleteTopics(topicIdsToDelete);
 
     const { rows: [remainingTopicsRow] } = await pool.query('SELECT COUNT(*) as count FROM topics');
     const { rows: [remainingArticlesRow] } = await pool.query('SELECT COUNT(*) as count FROM articles');
 
     logSuccess(request, 'cleanup_data', {
-      topicsDeleted: topicsDeleted.rowCount,
-      articlesDeleted: articlesDeleted.rowCount,
-      scoresDeleted: scoresDeleted.rowCount,
-      keywordsDeleted: keywordsDeleted.rowCount,
+      topicsDeleted: deletedCount,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Demo data cleaned up successfully',
       deleted: {
-        topics: topicsDeleted.rowCount,
-        articles: articlesDeleted.rowCount,
-        scores: scoresDeleted.rowCount,
-        keywords: keywordsDeleted.rowCount,
+        topics: deletedCount,
       },
       remaining: {
         topics: parseInt(remainingTopicsRow.count),

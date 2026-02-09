@@ -47,7 +47,7 @@ export async function logAuditEvent(
       endpoint,
       method,
       action,
-      success ? 1 : 0,
+      success,
       errorMessage || null,
       details ? JSON.stringify(details) : null,
       userAgent
@@ -99,12 +99,12 @@ export async function getAuditLogs(limit: number = 100, offset: number = 0) {
   const { rows: [totalRow] } = await pool.query('SELECT COUNT(*) as count FROM audit_logs');
 
   return {
-    logs: logs.map((log: any) => ({
+    logs: logs.map((log: Record<string, unknown>) => ({
       ...log,
       success: Boolean(log.success),
-      details: log.details ? JSON.parse(log.details) : null,
+      details: typeof log.details === 'string' ? JSON.parse(log.details) : log.details ?? null,
     })),
-    total: parseInt(totalRow.count),
+    total: parseInt(totalRow.count as string),
   };
 }
 
@@ -117,8 +117,8 @@ export async function getAuditStats() {
   const { rows: [stats] } = await pool.query(`
     SELECT
       COUNT(*) as total,
-      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
-      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
+      SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
+      SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed,
       COUNT(DISTINCT ip_address) as unique_ips,
       COUNT(DISTINCT action) as unique_actions
     FROM audit_logs
@@ -127,7 +127,7 @@ export async function getAuditStats() {
   const { rows: recentFailures } = await pool.query(`
     SELECT action, COUNT(*) as count
     FROM audit_logs
-    WHERE success = 0
+    WHERE NOT success
       AND timestamp > NOW() - INTERVAL '24 hours'
     GROUP BY action
     ORDER BY count DESC

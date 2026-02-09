@@ -52,8 +52,8 @@ jobs:
             echo "::warning::dangerouslySetInnerHTML found outside layout.tsx"
             FOUND=1
           fi
-          # Check for SQL string concatenation
-          if grep -rPn '(exec|prepare|query)\s*\(' src/ scripts/ --include='*.ts' | grep -E '\$\{|` *\+'; then
+          # Check for SQL string concatenation (exclude safe parameterized placeholder patterns)
+          if grep -rPn '(exec|prepare|query)\s*\(' src/ scripts/ --include='*.ts' | grep -E '\$\{|` *\+' | grep -v 'placeholders' | grep -v 'updates\.join'; then
             echo "::error::Possible SQL injection via string interpolation"
             FOUND=1
           fi

@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import slugify from 'slugify';
+import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
+import { createErrorResponse } from '@/lib/errors';
+import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Simple seed endpoint - creates demo data without external dependencies
- * No API keys needed, works immediately
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function POST(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const db = getDb();
 
@@ -190,6 +197,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log successful seed operation
+    logSuccess(request, 'seed_database', {
+      topicsCreated: topicCount,
+      articlesCreated: articleCount,
+      scoresCreated: scoreCount,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Database seeded successfully',
@@ -202,13 +216,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Seed failed:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to seed database',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'seed_database', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to seed database');
   }
 }

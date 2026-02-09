@@ -43,9 +43,25 @@ CREATE TABLE IF NOT EXISTS topic_keywords (
   keyword TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  endpoint TEXT NOT NULL,
+  method TEXT NOT NULL,
+  action TEXT NOT NULL,
+  success INTEGER DEFAULT 1,
+  error_message TEXT,
+  details TEXT,
+  user_agent TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_articles_topic ON articles(topic_id);
 CREATE INDEX IF NOT EXISTS idx_score_history_topic ON score_history(topic_id);
 CREATE INDEX IF NOT EXISTS idx_score_history_date ON score_history(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_topic_keywords_topic ON topic_keywords(topic_id);
 CREATE INDEX IF NOT EXISTS idx_topics_urgency ON topics(urgency);
 CREATE INDEX IF NOT EXISTS idx_topics_category ON topics(category);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);

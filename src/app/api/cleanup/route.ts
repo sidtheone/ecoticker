@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
+import { createErrorResponse } from '@/lib/errors';
+import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Cleanup endpoint - removes demo/seed data, keeps only real news
@@ -10,8 +13,12 @@ import { getDb } from '@/lib/db';
  *
  * Usage: POST /api/cleanup
  * Optional: Add ?dryRun=true to preview what will be deleted
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function POST(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
   try {
     const { searchParams } = new URL(request.url);
     const dryRun = searchParams.get('dryRun') === 'true';
@@ -36,13 +43,14 @@ export async function POST(request: NextRequest) {
 
     if (dryRun) {
       // Preview what will be deleted
+      const placeholders = topicIdsToDelete.map(() => '?').join(',');
       const topicsToDelete = db
-        .prepare(`SELECT id, name, article_count FROM topics WHERE id IN (${topicIdsToDelete.join(',')})`)
-        .all();
+        .prepare(`SELECT id, name, article_count FROM topics WHERE id IN (${placeholders})`)
+        .all(...topicIdsToDelete);
 
       const articlesCount = db
-        .prepare(`SELECT COUNT(*) as count FROM articles WHERE topic_id IN (${topicIdsToDelete.join(',')})`)
-        .get() as { count: number };
+        .prepare(`SELECT COUNT(*) as count FROM articles WHERE topic_id IN (${placeholders})`)
+        .get(...topicIdsToDelete) as { count: number };
 
       return NextResponse.json({
         dryRun: true,
@@ -68,17 +76,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const topicIdsList = topicIdsToDelete.join(',');
-
-    // Delete in reverse FK order
-    const keywordsDeleted = db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${topicIdsList})`).run();
-    const scoresDeleted = db.prepare(`DELETE FROM score_history WHERE topic_id IN (${topicIdsList})`).run();
-    const articlesDeleted = db.prepare(`DELETE FROM articles WHERE topic_id IN (${topicIdsList})`).run();
-    const topicsDeleted = db.prepare(`DELETE FROM topics WHERE id IN (${topicIdsList})`).run();
+    // Delete in reverse FK order using parameterized queries
+    const placeholders = topicIdsToDelete.map(() => '?').join(',');
+    const keywordsDeleted = db.prepare(`DELETE FROM topic_keywords WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
+    const scoresDeleted = db.prepare(`DELETE FROM score_history WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
+    const articlesDeleted = db.prepare(`DELETE FROM articles WHERE topic_id IN (${placeholders})`).run(...topicIdsToDelete);
+    const topicsDeleted = db.prepare(`DELETE FROM topics WHERE id IN (${placeholders})`).run(...topicIdsToDelete);
 
     // Get remaining counts
     const remainingTopics = (db.prepare('SELECT COUNT(*) as count FROM topics').get() as { count: number }).count;
     const remainingArticles = (db.prepare('SELECT COUNT(*) as count FROM articles').get() as { count: number }).count;
+
+    // Log successful cleanup
+    logSuccess(request, 'cleanup_data', {
+      topicsDeleted: topicsDeleted.changes,
+      articlesDeleted: articlesDeleted.changes,
+      scoresDeleted: scoresDeleted.changes,
+      keywordsDeleted: keywordsDeleted.changes,
+    });
 
     return NextResponse.json({
       success: true,
@@ -96,13 +111,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Cleanup failed:', error);
-    return NextResponse.json(
-      {
-        error: 'Cleanup failed',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'cleanup_data', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Cleanup operation failed');
   }
 }

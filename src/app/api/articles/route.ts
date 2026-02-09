@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
+import { articleCreateSchema, articleDeleteSchema, validateRequest } from '@/lib/validation';
+import { createErrorResponse } from '@/lib/errors';
+import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Articles CRUD API
  *
  * GET /api/articles - List all articles with optional filtering
  * POST /api/articles - Create new article (admin only)
- * DELETE /api/articles - Batch delete articles by IDs or filter
+ * DELETE /api/articles - Batch delete articles by IDs or filter (admin only)
  */
 
 interface Article {
@@ -57,7 +61,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (urlPattern) {
-      conditions.push('url LIKE ?');
+      // Use exact match instead of LIKE to prevent SQL wildcard exploitation
+      conditions.push('url = ?');
       params.push(urlPattern);
     }
 
@@ -89,14 +94,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Failed to fetch articles:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch articles',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    return createErrorResponse(error, 'Failed to fetch articles');
   }
 }
 
@@ -105,19 +103,26 @@ export async function GET(request: NextRequest) {
  *
  * Create a new article
  * Body: { topicId, title, url, source?, summary?, imageUrl?, publishedAt? }
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function POST(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
-    const { topicId, title, url, source, summary, imageUrl, publishedAt } = body;
 
-    // Validation
-    if (!topicId || !title || !url) {
+    // Validate request body with Zod
+    const validation = validateRequest(articleCreateSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: topicId, title, url' },
+        { error: 'Validation failed', details: validation.error },
         { status: 400 }
       );
     }
+
+    const { topicId, title, url, source, summary, imageUrl, publishedAt } = validation.data;
 
     const db = getDb();
 
@@ -149,19 +154,20 @@ export async function POST(request: NextRequest) {
     // Update topic article count
     db.prepare('UPDATE topics SET article_count = article_count + 1 WHERE id = ?').run(topicId);
 
+    // Log successful article creation
+    logSuccess(request, 'create_article', {
+      articleId: article.id,
+      topicId,
+      title: article.title,
+    });
+
     return NextResponse.json({
       success: true,
       article,
     }, { status: 201 });
   } catch (error) {
-    console.error('Failed to create article:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to create article',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'create_article', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to create article');
   }
 }
 
@@ -174,18 +180,26 @@ export async function POST(request: NextRequest) {
  * 2. { url: "%example.com%" } - Delete by URL pattern (LIKE query)
  * 3. { topicId: 5 } - Delete all articles for a topic
  * 4. { source: "Example Source" } - Delete all articles from a source
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function DELETE(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
-    const { ids, url, topicId, source } = body;
 
-    if (!ids && !url && !topicId && !source) {
+    // Validate request body with Zod
+    const validation = validateRequest(articleDeleteSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Must provide one of: ids, url, topicId, or source' },
+        { error: 'Validation failed', details: validation.error },
         { status: 400 }
       );
     }
+
+    const { ids, url, topicId, source } = validation.data;
 
     const db = getDb();
     let deletedCount = 0;
@@ -228,6 +242,13 @@ export async function DELETE(request: NextRequest) {
       db.prepare('UPDATE topics SET article_count = ? WHERE id = ?').run(count.count, topicId);
     }
 
+    // Log successful article deletion
+    logSuccess(request, 'delete_articles', {
+      deletedCount,
+      affectedTopics: Array.from(affectedTopics).length,
+      filters: { ids: !!ids, url: !!url, topicId: !!topicId, source: !!source },
+    });
+
     return NextResponse.json({
       success: true,
       deleted: deletedCount,
@@ -235,13 +256,7 @@ export async function DELETE(request: NextRequest) {
       message: `Deleted ${deletedCount} article(s)`,
     });
   } catch (error) {
-    console.error('Failed to delete articles:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to delete articles',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'delete_articles', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to delete articles');
   }
 }

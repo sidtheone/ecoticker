@@ -27,11 +27,11 @@ describe("Database Schema", () => {
   });
   afterEach(() => cleanup(db, dbPath));
 
-  test("creates all 4 tables", () => {
+  test("creates all 5 tables", () => {
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence' ORDER BY name")
       .all() as { name: string }[];
-    expect(tables.map((t) => t.name)).toEqual(["articles", "score_history", "topic_keywords", "topics"]);
+    expect(tables.map((t) => t.name)).toEqual(["articles", "audit_logs", "score_history", "topic_keywords", "topics"]);
   });
 
   test("schema is idempotent (can run twice)", () => {

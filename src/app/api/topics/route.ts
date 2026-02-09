@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import type { TopicRow } from "@/lib/types";
+import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
+import { topicDeleteSchema, validateRequest } from "@/lib/validation";
+import { createErrorResponse } from "@/lib/errors";
+import { logSuccess, logFailure } from "@/lib/audit-log";
 
 /**
  * Topics API
  * GET - List topics with optional filtering
- * DELETE - Batch delete topics by IDs
+ * DELETE - Batch delete topics by IDs (admin only)
  */
 
 export async function GET(request: NextRequest) {
@@ -109,18 +113,26 @@ export async function GET(request: NextRequest) {
  * Batch delete topics
  * Body: { ids: [1, 2, 3] } - Delete specific topic IDs
  * Body: { articleCount: 0 } - Delete topics with 0 articles
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function DELETE(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
-    const { ids, articleCount } = body;
 
-    if (!ids && articleCount === undefined) {
+    // Validate request body with Zod
+    const validation = validateRequest(topicDeleteSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Must provide either ids array or articleCount filter' },
+        { error: 'Validation failed', details: validation.error },
         { status: 400 }
       );
     }
+
+    const { ids, articleCount } = validation.data;
 
     const db = getDb();
     let deletedCount = 0;
@@ -150,19 +162,19 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
+    // Log successful topic deletion
+    logSuccess(request, 'delete_topics', {
+      deletedCount,
+      filters: { ids: !!ids, articleCount: articleCount !== undefined },
+    });
+
     return NextResponse.json({
       success: true,
       deleted: deletedCount,
       message: `Deleted ${deletedCount} topic(s)`,
     });
   } catch (error) {
-    console.error('Failed to delete topics:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to delete topics',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'delete_topics', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to delete topics');
   }
 }

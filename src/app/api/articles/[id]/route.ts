@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
+import { articleUpdateSchema, validateRequest } from '@/lib/validation';
+import { createErrorResponse } from '@/lib/errors';
+import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Single Article CRUD
  *
  * GET /api/articles/[id] - Get article by ID
- * PUT /api/articles/[id] - Update article
- * DELETE /api/articles/[id] - Delete article
+ * PUT /api/articles/[id] - Update article (admin only)
+ * DELETE /api/articles/[id] - Delete article (admin only)
  */
 
 interface Article {
@@ -54,14 +58,7 @@ export async function GET(
       topic,
     });
   } catch (error) {
-    console.error('Failed to fetch article:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch article',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    return createErrorResponse(error, 'Failed to fetch article');
   }
 }
 
@@ -70,11 +67,16 @@ export async function GET(
  *
  * Update article fields
  * Body: { title?, url?, source?, summary?, imageUrl?, publishedAt? }
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const { id: idStr } = await context.params;
     const id = parseInt(idStr);
@@ -83,7 +85,17 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { title, url, source, summary, imageUrl, publishedAt } = body;
+
+    // Validate request body with Zod
+    const validation = validateRequest(articleUpdateSchema, body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.error },
+        { status: 400 }
+      );
+    }
+
+    const { title, url, source, summary, imageUrl, publishedAt } = validation.data;
 
     const db = getDb();
 
@@ -132,29 +144,34 @@ export async function PUT(
     // Get updated article
     const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(id) as Article;
 
+    // Log successful article update
+    logSuccess(request, 'update_article', {
+      articleId: id,
+      fieldsUpdated: updates.map(u => u.split(' = ')[0]),
+    });
+
     return NextResponse.json({
       success: true,
       article,
     });
   } catch (error) {
-    console.error('Failed to update article:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to update article',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'update_article', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to update article');
   }
 }
 
 /**
  * DELETE /api/articles/[id]
+ * Requires: X-API-Key header with valid admin API key
  */
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const { id: idStr } = await context.params;
     const id = parseInt(idStr);
@@ -177,18 +194,18 @@ export async function DELETE(
     const count = db.prepare('SELECT COUNT(*) as count FROM articles WHERE topic_id = ?').get(article.topic_id) as { count: number };
     db.prepare('UPDATE topics SET article_count = ? WHERE id = ?').run(count.count, article.topic_id);
 
+    // Log successful article deletion
+    logSuccess(request, 'delete_article', {
+      articleId: id,
+      topicId: article.topic_id,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Article deleted',
     });
   } catch (error) {
-    console.error('Failed to delete article:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to delete article',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'delete_article', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Failed to delete article');
   }
 }

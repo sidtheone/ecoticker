@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import slugify from 'slugify';
+import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
+import { createErrorResponse } from '@/lib/errors';
+import { logSuccess, logFailure } from '@/lib/audit-log';
 
 /**
  * Batch processing endpoint - fetches real news and updates database
@@ -13,6 +16,7 @@ import slugify from 'slugify';
  * - OPENROUTER_API_KEY: API key from openrouter.ai
  * - OPENROUTER_MODEL: (optional) defaults to meta-llama/llama-3.1-8b-instruct:free
  * - BATCH_KEYWORDS: (optional) comma-separated keywords, defaults to environmental topics
+ * - ADMIN_API_KEY: Admin API key for authentication
  */
 
 // --- Config ---
@@ -234,6 +238,10 @@ Valid categories: air_quality, deforestation, ocean, climate, pollution, biodive
 
 // --- Main Batch Logic ---
 export async function POST(request: NextRequest) {
+  if (!requireAdminKey(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     // Check API keys
     if (!NEWSAPI_KEY || !OPENROUTER_API_KEY) {
@@ -410,6 +418,15 @@ export async function POST(request: NextRequest) {
     const totalArticles = (db.prepare('SELECT COUNT(*) as c FROM articles').get() as { c: number }).c;
     console.log(`\n[4/4] Done! ${totalTopics} total topics, ${totalArticles} total articles in database.`);
 
+    // Log successful batch processing
+    logSuccess(request, 'batch_process', {
+      topicsProcessed: topicCount,
+      articlesAdded: articleCount,
+      scoresRecorded: scoreCount,
+      totalTopics,
+      totalArticles,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Batch processing completed successfully',
@@ -423,14 +440,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Batch processing failed:', error);
-    return NextResponse.json(
-      {
-        error: 'Batch processing failed',
-        details: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+    logFailure(request, 'batch_process', error instanceof Error ? error.message : 'Unknown error');
+    return createErrorResponse(error, 'Batch processing failed');
   }
 }

@@ -143,7 +143,7 @@ command = "curl -H 'Authorization: Bearer $CRON_SECRET' http://localhost:3000/ap
 1. **Fetch News** - NewsAPI retrieves recent articles about environmental keywords
 2. **Classify Topics** - OpenRouter LLM groups articles into environmental topics
 3. **Score Severity** - LLM rates each topic's impact on 0-100 scale
-4. **Update Database** - New topics, articles, and scores saved to SQLite
+4. **Update Database** - New topics, articles, and scores saved to PostgreSQL
 
 ### Data Freshness
 

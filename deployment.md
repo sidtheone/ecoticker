@@ -25,7 +25,7 @@ NEWSAPI_KEY=your_newsapi_key        # https://newsapi.org
 OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 ADMIN_API_KEY=your_secure_admin_key  # Generate with: openssl rand -base64 32
-DATABASE_PATH=/data/ecoticker.db
+DATABASE_URL=postgresql://ecoticker:ecoticker@postgres:5432/ecoticker
 BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
 ```
 
@@ -45,10 +45,11 @@ docker compose build
 docker compose up -d
 ```
 
-This starts three services:
+This starts four services:
 
 | Service | Role | Details |
 |---------|------|---------|
+| **postgres** | PostgreSQL database | Port 5432, 512MB memory limit, healthcheck |
 | **app** | Next.js server | Port 3000 (internal), 1GB memory limit |
 | **nginx** | Reverse proxy | Port 80 (public), gzip, static caching |
 | **cron** | Batch pipeline | Runs daily at 6AM UTC |
@@ -131,13 +132,14 @@ CSP headers are enabled in production to prevent XSS attacks. The middleware set
 ```
 Internet → :80 → Nginx → :3000 → Next.js App
                                       ↕
-                              SQLite (named volume)
+                              PostgreSQL (named volume)
                                       ↕
                               Cron → batch.ts (daily 6AM)
 ```
 
-- **Named volume** `ecoticker-data` persists the SQLite database across container restarts and rebuilds
-- Both `app` and `cron` share the same volume so cron writes and the app reads the same database
+- **Named volume** `pgdata` persists the PostgreSQL data across container restarts and rebuilds
+- Both `app` and `cron` connect to PostgreSQL via `DATABASE_URL`
+- PostgreSQL healthcheck ensures the app only starts after the database is ready
 
 ## HTTPS Setup (Optional)
 
@@ -196,7 +198,7 @@ docker compose down
 docker compose down -v
 
 # Check database size
-docker compose exec app ls -lh /data/ecoticker.db
+docker compose exec postgres psql -U ecoticker -c "SELECT pg_size_pretty(pg_database_size('ecoticker'));"
 ```
 
 ## Troubleshooting
@@ -206,6 +208,7 @@ docker compose exec app ls -lh /data/ecoticker.db
 | App not reachable on :80 | Check `docker compose ps` — nginx must be running |
 | Empty dashboard | Run batch manually: `docker compose exec app npx tsx scripts/batch.ts` |
 | Cron not running | Check logs: `docker compose logs cron` |
-| Database locked errors | Only one writer at a time — check if batch is running during heavy reads |
+| Database connection refused | Check `docker compose ps` — postgres must be healthy |
 | Out of memory | Increase `mem_limit` in `docker-compose.yml` |
 | Port 80 in use | Change nginx port mapping: `"8080:80"` in `docker-compose.yml` |
+| Port 5432 in use | Change postgres port mapping or stop conflicting PostgreSQL instance |

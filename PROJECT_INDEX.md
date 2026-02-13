@@ -51,7 +51,7 @@ ecoticker/
 │   │   └── schema.ts                 # Drizzle schema: topics, articles, score_history, topic_keywords, audit_logs
 │   └── middleware.ts                 # Next.js middleware — CSP headers, rate limiting
 ├── scripts/
-│   ├── batch.ts                      # Daily pipeline: NewsAPI → LLM classify → LLM score → DB
+│   ├── batch.ts                      # Daily pipeline: NewsAPI → LLM filter/classify → LLM score → DB (w/ quality filtering)
 │   ├── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
 │   └── setup-git-hooks.sh           # Installs pre-commit hooks (tsc, build, lint)
 ├── drizzle.config.ts                 # Drizzle Kit configuration for schema migrations
@@ -76,6 +76,9 @@ ecoticker/
 │   └── TopicDetail.test.tsx          # 9 tests — loading, error, score, chart, articles
 ├── docs/
 │   ├── TOKEN_EFFICIENCY_REPORT.md    # Token savings analysis and ROI
+│   ├── NEWSAPI_QUALITY_SOLUTION.md   # NewsAPI quality improvement: LLM filtering design (4 solutions)
+│   ├── BATCH_KEYWORDS_RESEARCH.md    # Event-based keyword strategy research
+│   ├── IMPLEMENTATION_STATUS.md      # NewsAPI quality solution status and testing plan
 │   ├── real-data-setup.md            # Guide for connecting real NewsAPI data
 │   ├── refresh-button-design.md      # RefreshButton component design
 │   ├── refresh-button-implementation-summary.md # RefreshButton implementation notes
@@ -164,8 +167,14 @@ Defined in `src/db/schema.ts` using Drizzle ORM:
 
 | API | Purpose | Config |
 |-----|---------|--------|
-| NewsAPI | Fetch environmental news | `NEWSAPI_KEY` |
-| OpenRouter | LLM classify + score | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` |
+| NewsAPI | Fetch environmental news (free tier, 100 req/day) | `NEWSAPI_KEY`, `BATCH_KEYWORDS` |
+| OpenRouter | LLM filter/classify + score | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` |
+
+**NewsAPI Quality Improvement (v2):**
+- 2-step LLM filtering: TASK 1 (reject non-environmental) → TASK 2 (classify environmental)
+- Rejection criteria: celebrity/entertainment, sports, general politics, business, pet care, shopping
+- Event-based keywords: wildfire, coral bleaching, drought, deforestation, emissions, oil spill, etc.
+- Test results: 55-60% relevance rate (up from 20-30% baseline)
 
 ## Dependencies
 
@@ -202,6 +211,14 @@ Volumes: `pgdata` (PostgreSQL data persistence)
 - 8 files changed (+2,669/-253 lines)
 - Functional validation plan created (10 phases)
 
+**NewsAPI Quality Solution:** ✅ COMPLETE (Commit: 175d848)
+- LLM-based article filtering implemented (2-step: filter → classify)
+- Rejection statistics logging (relevance rate, article titles, reasons)
+- Test results: 55-60% relevance (target: 40-60%) ✅
+- Event-based keywords configured (wildfire, coral bleaching, etc.)
+- 6 files changed (+1,056 lines): batch.ts, 3 new docs, docker-compose, .gitignore
+- Cost: $0.027/month (+25% tokens, effectively free)
+
 ## v2 Implementation Status
 
 | Phase | Status | Details |
@@ -209,6 +226,7 @@ Volumes: `pgdata` (PostgreSQL data persistence)
 | **Planning** | ✅ Done | Business panel, LLM research, user stories v2, DB design |
 | **Phase 0A-D** | ✅ Done | PostgreSQL + Drizzle ORM migration (commit: d25ebb0) |
 | **US-1.1** | ✅ Done | Multi-dimensional scoring (commits: 9f351f1, 9d33fc3) |
+| **Quality** | ✅ Done | NewsAPI filtering solution (commit: 175d848) |
 | **US-1.2** | ⏸️ Next | UI for sub-scores and reasoning display |
 
 ## Theme System

@@ -110,7 +110,7 @@
     "scripts": {
       "purpose": "Automation scripts",
       "files": {
-        "batch.ts": "Daily pipeline: NewsAPI → LLM classify → LLM score → DB",
+        "batch.ts": "Daily pipeline: NewsAPI → LLM filter/classify → LLM score → DB (with quality filtering)",
         "seed.ts": "Seeds 12 topics, 36 articles, 84 score history entries",
         "setup-git-hooks.sh": "Installs pre-commit hooks for build checks"
       }
@@ -147,6 +147,9 @@
       "purpose": "Documentation and design documents",
       "files": {
         "TOKEN_EFFICIENCY_REPORT.md": "Token savings analysis and ROI",
+        "NEWSAPI_QUALITY_SOLUTION.md": "NewsAPI quality improvement: LLM filtering design (4 solutions)",
+        "BATCH_KEYWORDS_RESEARCH.md": "Event-based keyword strategy research",
+        "IMPLEMENTATION_STATUS.md": "NewsAPI quality solution status and testing plan",
         "real-data-setup.md": "Guide for connecting real NewsAPI data",
         "refresh-button-design.md": "RefreshButton component design",
         "refresh-button-implementation-summary.md": "RefreshButton implementation notes",
@@ -157,7 +160,10 @@
         "2026-02-09-user-stories.md": "Original 23 user stories (SUPERSEDED)",
         "2026-02-09-llm-scoring-research.md": "LLM scoring strategy (v3, 30+ sources)",
         "2026-02-12-user-stories-v2.md": "Deep revision: 20 stories, personas + journeys",
-        "2026-02-12-postgresql-drizzle-design.md": "PostgreSQL + Drizzle ORM design for v2"
+        "2026-02-12-postgresql-drizzle-design.md": "PostgreSQL + Drizzle ORM design for v2",
+        "2026-02-13-phase0-workflow.md": "Phase 0 implementation workflow (4 sub-phases)",
+        "2026-02-13-us1.1-workflow.md": "US-1.1 scoring workflow (4 phases)",
+        "2026-02-13-us1.1-functional-validation.md": "US-1.1 validation guide (10 phases)"
       }
     }
   },
@@ -294,13 +300,25 @@
   "external_apis": {
     "NewsAPI": {
       "purpose": "Fetch environmental news",
-      "config": "NEWSAPI_KEY",
-      "timeout": "15s"
+      "tier": "Free (100 requests/day)",
+      "config": "NEWSAPI_KEY, BATCH_KEYWORDS",
+      "timeout": "15s",
+      "quality_solution": {
+        "implemented": true,
+        "commit": "175d848",
+        "approach": "2-step LLM filtering (reject non-environmental → classify environmental)",
+        "relevance_rate": "55-60% (up from 20-30% baseline)",
+        "cost": "$0.027/month (+25% tokens)",
+        "keywords": "Event-based (wildfire, coral bleaching, drought, deforestation, emissions, etc.)"
+      }
     },
     "OpenRouter": {
-      "purpose": "LLM classify and score articles",
+      "purpose": "LLM filter/classify and score articles",
       "config": "OPENROUTER_API_KEY, OPENROUTER_MODEL",
-      "timeout": "30s"
+      "timeout": "30s",
+      "model": "meta-llama/llama-3.1-8b-instruct:free (or Mistral Nemo)",
+      "temperature": 0,
+      "response_format": "json_object"
     }
   },
   "security": {
@@ -373,8 +391,13 @@
     ]
   },
   "v2_planning": {
-    "status": "Phase 0 complete - PostgreSQL + Drizzle ORM migration done",
-    "phase0_commit": "d25ebb0",
+    "status": "Phase 0 + US-1.1 + Quality Solution complete",
+    "commits": {
+      "phase0": "d25ebb0",
+      "us11_scoring": "9f351f1",
+      "us11_tests": "9d33fc3",
+      "quality_solution": "175d848"
+    },
     "phase0_stats": {
       "files_changed": 47,
       "lines_added": 5996,
@@ -382,24 +405,41 @@
       "tests_passing": "141/141",
       "coverage": "87.35%"
     },
+    "us11_stats": {
+      "files_changed": 8,
+      "lines_added": 2669,
+      "lines_removed": 253,
+      "new_module": "src/lib/scoring.ts (235 lines, 5 core functions)",
+      "tests": "31 new unit tests (tests/scoring.test.ts, 363 lines)"
+    },
+    "quality_solution_stats": {
+      "files_changed": 6,
+      "lines_added": 1056,
+      "relevance_improvement": "55-60% (from 20-30% baseline)",
+      "cost": "$0.027/month",
+      "test_results": "2 successful batch runs, 7-8 quality topics per batch"
+    },
     "documents": [
       "Business panel analysis (9 experts, 10 recommendations)",
       "LLM scoring research (v3, 30+ sources)",
       "User stories v2 (21 stories, personas, journeys + GDPR)",
       "PostgreSQL + Drizzle ORM design",
-      "Phase 0 workflow (4 sub-phases: 0A-0D)"
+      "Phase 0 workflow (4 sub-phases: 0A-0D)",
+      "US-1.1 workflow (4 phases)",
+      "US-1.1 functional validation (10 phases)",
+      "NewsAPI quality solution (4 alternatives, cost analysis)",
+      "Batch keywords research (event-based strategy)",
+      "Implementation status (testing plan, metrics)"
     ],
     "completed": [
       "Phase 0A: Infrastructure (drizzle-orm, pg, schema.ts)",
       "Phase 0B: Core migration (17 files, 60+ queries)",
       "Phase 0C: Test migration (mock-db helper, 16 test files)",
-      "Phase 0D: Docker & documentation (postgres service, docs)"
+      "Phase 0D: Docker & documentation (postgres service, docs)",
+      "US-1.1: Multi-dimensional scoring (health/eco/econ)",
+      "Quality: NewsAPI filtering (LLM-based article rejection)"
     ],
-    "deferred": [
-      "scripts/batch.ts (US-1.1 scoring logic)",
-      "scripts/seed.ts (v2 seed data)"
-    ],
-    "next_step": "Migrate scripts OR implement US-1.1 multi-dimensional scoring"
+    "next_step": "US-1.2: UI for sub-scores and reasoning display"
   },
   "metrics": {
     "source_files": 38,
@@ -410,7 +450,7 @@
     "test_suites": 17,
     "test_count": 141,
     "test_coverage": "87.35%",
-    "status": "v1 complete, v2 Phase 0 complete (PostgreSQL + Drizzle ORM)"
+    "status": "v2: Phase 0 + US-1.1 + Quality Solution complete"
   },
   "quick_start": [
     "Clone repository",

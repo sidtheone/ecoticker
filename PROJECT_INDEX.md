@@ -180,17 +180,22 @@ Volumes: `pgdata` (PostgreSQL data persistence)
 
 ## Build Status
 
-v1 complete (4 phases + security hardening). 132 tests passing, 98.6% coverage. Docker builds successfully.
+**v1:** Complete (4 phases + security hardening). 132 tests, 98.6% coverage. Docker builds successfully.
 
-## v2 Planning Status
+**v2 Phase 0:** ✅ COMPLETE (Commit: d25ebb0)
+- PostgreSQL 17 + Drizzle ORM migration complete
+- 141 tests passing, 87.35% coverage
+- 47 files changed (+5,996/-3,170 lines)
+- All infrastructure, API routes, tests, Docker updated
 
-| Document | Status |
-|----------|--------|
-| Business panel analysis (9 experts, 10 recs) | Done |
-| LLM scoring research (v3, 30+ sources) | Done |
-| User stories v2 (20 stories, personas, journeys) | Done |
-| PostgreSQL + Drizzle ORM design | Done |
-| **Next**: Phase 0 implementation (PG+Drizzle) + US-1.1 | Pending |
+## v2 Implementation Status
+
+| Phase | Status | Details |
+|-------|--------|---------|
+| **Planning** | ✅ Done | Business panel, LLM research, user stories v2, DB design |
+| **Phase 0A-D** | ✅ Done | PostgreSQL + Drizzle ORM migration (commit: d25ebb0) |
+| **Scripts** | 🔄 Deferred | batch.ts, seed.ts (separate session with US-1.1) |
+| **US-1.1** | ⏸️ Next | Multi-dimensional scoring implementation |
 
 ## Theme System
 

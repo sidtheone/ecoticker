@@ -38,7 +38,11 @@
     },
     "tests": {
       "command": "npx jest",
-      "description": "Run all 132 tests across 17 suites"
+      "description": "Run all 141 tests across 17 suites"
+    },
+    "schema_push": {
+      "command": "npx drizzle-kit push",
+      "description": "Push Drizzle schema to PostgreSQL database"
     }
   },
   "structure": {
@@ -369,24 +373,44 @@
     ]
   },
   "v2_planning": {
-    "status": "Design phase complete, implementation pending",
+    "status": "Phase 0 complete - PostgreSQL + Drizzle ORM migration done",
+    "phase0_commit": "d25ebb0",
+    "phase0_stats": {
+      "files_changed": 47,
+      "lines_added": 5996,
+      "lines_removed": 3170,
+      "tests_passing": "141/141",
+      "coverage": "87.35%"
+    },
     "documents": [
       "Business panel analysis (9 experts, 10 recommendations)",
       "LLM scoring research (v3, 30+ sources)",
-      "User stories v2 (20 stories, personas, journeys)",
-      "PostgreSQL + Drizzle ORM design"
+      "User stories v2 (21 stories, personas, journeys + GDPR)",
+      "PostgreSQL + Drizzle ORM design",
+      "Phase 0 workflow (4 sub-phases: 0A-0D)"
     ],
-    "next_step": "Phase 0: PostgreSQL + Drizzle ORM migration + US-1.1"
+    "completed": [
+      "Phase 0A: Infrastructure (drizzle-orm, pg, schema.ts)",
+      "Phase 0B: Core migration (17 files, 60+ queries)",
+      "Phase 0C: Test migration (mock-db helper, 16 test files)",
+      "Phase 0D: Docker & documentation (postgres service, docs)"
+    ],
+    "deferred": [
+      "scripts/batch.ts (US-1.1 scoring logic)",
+      "scripts/seed.ts (v2 seed data)"
+    ],
+    "next_step": "Migrate scripts OR implement US-1.1 multi-dimensional scoring"
   },
   "metrics": {
-    "source_files": 35,
+    "source_files": 38,
     "components": 11,
     "api_routes": 11,
     "lib_modules": 9,
+    "db_modules": 2,
     "test_suites": 17,
-    "test_count": 132,
-    "test_coverage": "98.6%",
-    "status": "v1 complete, v2 design phase done"
+    "test_count": 141,
+    "test_coverage": "87.35%",
+    "status": "v1 complete, v2 Phase 0 complete (PostgreSQL + Drizzle ORM)"
   },
   "quick_start": [
     "Clone repository",

@@ -39,6 +39,7 @@ ecoticker/
 │   ├── lib/
 │   │   ├── types.ts                  # Topic, Article, ScoreHistoryEntry, TickerItem, TopicDetail
 │   │   ├── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
+│   │   ├── scoring.ts                # Multi-dimensional scoring: validateScore, computeOverallScore, deriveUrgency, detectAnomaly
 │   │   ├── auth.ts                   # requireAdminKey(), getUnauthorizedResponse() — API key auth
 │   │   ├── rate-limit.ts             # RateLimiter class — in-memory rate limiting
 │   │   ├── validation.ts             # Zod schemas — articleCreate/Update/Delete, topicDelete
@@ -54,9 +55,10 @@ ecoticker/
 │   ├── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
 │   └── setup-git-hooks.sh           # Installs pre-commit hooks (tsc, build, lint)
 ├── drizzle.config.ts                 # Drizzle Kit configuration for schema migrations
-├── tests/                            # 17 suites, 132 tests (98.6% statement coverage)
+├── tests/                            # 18 suites, 163+ tests
 │   ├── db.test.ts                    # 10 tests — schema, constraints, upserts
 │   ├── utils.test.ts                 # 14 tests — all utility functions
+│   ├── scoring.test.ts               # 31 tests — validateScore, computeOverallScore, deriveUrgency, detectAnomaly, scoreToLevel
 │   ├── batch.test.ts                 # 7 tests — batch DB ops, JSON extraction
 │   ├── seed.test.ts                  # 1 test — end-to-end seed verification
 │   ├── api-topics.test.ts            # 7 tests — topic listing, filters, sparkline query
@@ -79,11 +81,14 @@ ecoticker/
 │   ├── refresh-button-implementation-summary.md # RefreshButton implementation notes
 │   ├── ui-refresh-design.md          # UI refresh feature design
 │   └── plans/
-│       ├── 2026-02-09-business-panel-analysis.md    # 9-expert business panel, 10 recommendations
-│       ├── 2026-02-09-user-stories.md               # Original 23 user stories (SUPERSEDED)
-│       ├── 2026-02-09-llm-scoring-research.md       # LLM scoring strategy (v3, 30+ sources)
-│       ├── 2026-02-12-user-stories-v2.md            # Deep revision: 20 stories, personas + journeys
-│       └── 2026-02-12-postgresql-drizzle-design.md  # PostgreSQL + Drizzle ORM design for v2
+│       ├── 2026-02-09-business-panel-analysis.md       # 9-expert business panel, 10 recommendations
+│       ├── 2026-02-09-user-stories.md                  # Original 23 user stories (SUPERSEDED)
+│       ├── 2026-02-09-llm-scoring-research.md          # LLM scoring strategy (v3, 30+ sources)
+│       ├── 2026-02-12-user-stories-v2.md               # Deep revision: 21 stories, personas + journeys
+│       ├── 2026-02-12-postgresql-drizzle-design.md     # PostgreSQL + Drizzle ORM design for v2
+│       ├── 2026-02-13-phase0-workflow.md               # Phase 0 implementation workflow (4 sub-phases)
+│       ├── 2026-02-13-us1.1-workflow.md                # US-1.1 scoring workflow (4 phases)
+│       └── 2026-02-13-us1.1-functional-validation.md   # US-1.1 validation guide (10 phases)
 ├── Dockerfile                        # Multi-stage: deps → build → slim production
 ├── docker-compose.yml                # 3 services: app, nginx, cron + named volume
 ├── nginx.conf                        # Reverse proxy, gzip, static cache, security headers
@@ -188,14 +193,23 @@ Volumes: `pgdata` (PostgreSQL data persistence)
 - 47 files changed (+5,996/-3,170 lines)
 - All infrastructure, API routes, tests, Docker updated
 
+**v2 US-1.1:** ✅ COMPLETE (Commits: 9f351f1, 9d33fc3)
+- Multi-dimensional LLM scoring implementation complete
+- New scoring library: src/lib/scoring.ts (235 lines, 5 core functions)
+- Batch pipeline rewritten: scripts/batch.ts (708 lines, Drizzle + rubric prompt)
+- Seed script rewritten: scripts/seed.ts (403 lines, realistic v2 data)
+- 31 new unit tests: tests/scoring.test.ts (363 lines)
+- 8 files changed (+2,669/-253 lines)
+- Functional validation plan created (10 phases)
+
 ## v2 Implementation Status
 
 | Phase | Status | Details |
 |-------|--------|---------|
 | **Planning** | ✅ Done | Business panel, LLM research, user stories v2, DB design |
 | **Phase 0A-D** | ✅ Done | PostgreSQL + Drizzle ORM migration (commit: d25ebb0) |
-| **Scripts** | 🔄 Deferred | batch.ts, seed.ts (separate session with US-1.1) |
-| **US-1.1** | ⏸️ Next | Multi-dimensional scoring implementation |
+| **US-1.1** | ✅ Done | Multi-dimensional scoring (commits: 9f351f1, 9d33fc3) |
+| **US-1.2** | ⏸️ Next | UI for sub-scores and reasoning display |
 
 ## Theme System
 

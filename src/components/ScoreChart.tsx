@@ -1,12 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { ScoreHistoryEntry } from "@/lib/types";
 import { useTheme } from "./ThemeProvider";
 
+const DIMENSION_COLORS = {
+  overall: "#ef4444",
+  health: "#8b5cf6",
+  eco: "#06b6d4",
+  econ: "#f59e0b",
+} as const;
+
+const DIMENSIONS = [
+  { key: "eco" as const, label: "Ecology", weight: "40%" },
+  { key: "health" as const, label: "Health", weight: "35%" },
+  { key: "econ" as const, label: "Economy", weight: "25%" },
+];
+
 export default function ScoreChart({ history }: { history: ScoreHistoryEntry[] }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const [visible, setVisible] = useState({ health: false, eco: false, econ: false });
 
   if (history.length === 0) {
     return <div data-testid="score-chart-empty" className="text-gray-500 text-sm">No score history available</div>;
@@ -15,9 +30,9 @@ export default function ScoreChart({ history }: { history: ScoreHistoryEntry[] }
   const data = history.map((h) => ({
     date: new Date(h.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     score: h.score,
-    health: h.healthScore,
-    eco: h.ecoScore,
-    econ: h.econScore,
+    health: h.healthScore === -1 ? null : h.healthScore,
+    eco: h.ecoScore === -1 ? null : h.ecoScore,
+    econ: h.econScore === -1 ? null : h.econScore,
   }));
 
   const gridColor = isDark ? "#374151" : "#e8dfd3";
@@ -39,12 +54,27 @@ export default function ScoreChart({ history }: { history: ScoreHistoryEntry[] }
               contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: "8px" }}
               labelStyle={{ color: tooltipLabel }}
             />
-            <Line type="monotone" dataKey="score" stroke="#ef4444" strokeWidth={2} dot={false} name="Overall" />
-            <Line type="monotone" dataKey="health" stroke="#22c55e" strokeWidth={1} dot={false} name="Health" />
-            <Line type="monotone" dataKey="eco" stroke="#3b82f6" strokeWidth={1} dot={false} name="Ecological" />
-            <Line type="monotone" dataKey="econ" stroke="#eab308" strokeWidth={1} dot={false} name="Economic" />
+            <Line type="monotone" dataKey="score" stroke={DIMENSION_COLORS.overall} strokeWidth={2} dot={false} name="Overall" />
+            {visible.health && <Line type="monotone" dataKey="health" stroke={DIMENSION_COLORS.health} strokeWidth={1} dot={false} name="Health (35%)" connectNulls={false} />}
+            {visible.eco && <Line type="monotone" dataKey="eco" stroke={DIMENSION_COLORS.eco} strokeWidth={1} dot={false} name="Ecology (40%)" connectNulls={false} />}
+            {visible.econ && <Line type="monotone" dataKey="econ" stroke={DIMENSION_COLORS.econ} strokeWidth={1} dot={false} name="Economy (25%)" connectNulls={false} />}
           </LineChart>
         </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap gap-3 mt-3">
+        {DIMENSIONS.map(({ key, label, weight }) => (
+          <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer text-stone-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={visible[key]}
+              onChange={() => setVisible((v) => ({ ...v, [key]: !v[key] }))}
+              className="cursor-pointer"
+              data-testid={`toggle-${key}`}
+            />
+            <span style={{ color: DIMENSION_COLORS[key] }}>●</span>
+            {label} ({weight})
+          </label>
+        ))}
       </div>
     </div>
   );

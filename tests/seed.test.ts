@@ -1,6 +1,6 @@
 import { mockDb, mockDbInstance } from "./helpers/mock-db";
 
-jest.mock("@/db", () => {
+jest.mock("../src/db", () => {
   const { mockDbInstance } = jest.requireActual("./helpers/mock-db");
   return {
     db: mockDbInstance,
@@ -8,8 +8,8 @@ jest.mock("@/db", () => {
   };
 });
 
-import { db } from "@/db";
-import { topics, articles, scoreHistory, topicKeywords } from "@/db/schema";
+import { db } from "../src/db";
+import { topics, articles, scoreHistory, topicKeywords } from "../src/db/schema";
 import { sql } from "drizzle-orm";
 
 describe("Seed Script", () => {

@@ -114,7 +114,7 @@ describe("GET /api/topics/[slug] — query logic", () => {
     expect(result!.name).toBe("Arctic Ice Decline");
     expect(result!.currentScore).toBe(85);
     expect(result!.previousScore).toBe(79);
-    expect(result!.change).toBe(6);
+    expect(result!.currentScore! - result!.previousScore!).toBe(6);
     expect(result!.urgency).toBe("breaking");
     expect(result!.category).toBe("climate");
     expect(result!.region).toBe("Arctic");

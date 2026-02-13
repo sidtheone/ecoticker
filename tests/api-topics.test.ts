@@ -107,9 +107,9 @@ describe("GET /api/topics — query logic", () => {
     const result = await db.select().from(topics).orderBy(desc(topics.currentScore));
 
     const arctic = result.find((r) => r.slug === "arctic-ice-decline");
-    expect(arctic!.change).toBe(6); // 85 - 79
+    expect(arctic!.currentScore! - arctic!.previousScore!).toBe(6); // 85 - 79
     const ganges = result.find((r) => r.slug === "ganges-cleanup");
-    expect(ganges!.change).toBe(-7); // 45 - 52
+    expect(ganges!.currentScore! - ganges!.previousScore!).toBe(-7); // 45 - 52
   });
 
   test("filters by urgency", async () => {

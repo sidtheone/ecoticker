@@ -195,13 +195,13 @@ describe("Batch Pipeline DB Operations", () => {
     // Query like batch.ts does with relational query
     const result = await db.query.topics.findMany({
       with: {
-        topicKeywords: true,
+        keywords: true,
       },
     });
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Arctic Ice");
-    expect(result[0].topicKeywords.map(k => k.keyword)).toEqual(["arctic", "sea ice"]);
+    expect(result[0].keywords.map((k: { keyword: string }) => k.keyword)).toEqual(["arctic", "sea ice"]);
   });
 });
 

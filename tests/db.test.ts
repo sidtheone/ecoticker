@@ -5,7 +5,7 @@
  * Schema constraints are enforced at PostgreSQL level, not tested here.
  */
 
-import { db } from "@/db";
+import { db } from "../src/db";
 import {
   topics,
   articles,
@@ -15,7 +15,7 @@ import {
   trackedKeywords,
   topicViews,
   scoreFeedback,
-} from "@/db/schema";
+} from "../src/db/schema";
 import { mockDb, mockDbInstance } from "./helpers/mock-db";
 
 // Mock the database module

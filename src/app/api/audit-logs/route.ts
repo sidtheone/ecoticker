@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     if (showStats) {
       // Return audit statistics
-      const stats = getAuditStats();
+      const stats = await getAuditStats();
 
       return NextResponse.json({
         success: true,
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     );
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const { logs, total } = getAuditLogs(limit, offset);
+    const { logs, total } = await getAuditLogs(limit, offset);
 
     return NextResponse.json({
       success: true,

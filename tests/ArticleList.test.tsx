@@ -4,8 +4,8 @@ import ArticleList from "@/components/ArticleList";
 import type { Article } from "@/lib/types";
 
 const mockArticles: Article[] = [
-  { id: 1, topicId: 1, title: "Ice caps shrinking", url: "https://example.com/1", source: "Reuters", summary: "Arctic ice declining fast", imageUrl: null, publishedAt: "2026-02-05T10:00:00Z" },
-  { id: 2, topicId: 1, title: "Record temperatures", url: "https://example.com/2", source: null, summary: null, imageUrl: null, publishedAt: null },
+  { id: 1, topicId: 1, title: "Ice caps shrinking", url: "https://example.com/1", source: "Reuters", summary: "Arctic ice declining fast", imageUrl: null, publishedAt: "2026-02-05T10:00:00Z", sourceType: "news" },
+  { id: 2, topicId: 1, title: "Record temperatures", url: "https://example.com/2", source: null, summary: null, imageUrl: null, publishedAt: null, sourceType: "news" },
 ];
 
 describe("ArticleList", () => {

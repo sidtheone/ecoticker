@@ -201,17 +201,19 @@ export const topicKeywords = pgTable("topic_keywords", {
 ]);
 
 // ─── Audit Logs ────────────────────────────────────────
+// GDPR: ip_address is truncated before storage (last octet zeroed).
+//        user_agent removed (PII, not needed).
+//        Auto-purged after 90 days (data minimization).
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   timestamp: timestamp("timestamp").defaultNow(),
-  ipAddress: text("ip_address"),
+  ipAddress: text("ip_address"),       // GDPR: stored truncated (e.g., "192.168.1.0")
   endpoint: text("endpoint").notNull(),
   method: text("method").notNull(),
   action: text("action").notNull(),
   success: boolean("success").default(true),
   errorMessage: text("error_message"),
   details: text("details"),
-  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_audit_logs_timestamp").on(table.timestamp),
@@ -240,6 +242,7 @@ export const topicViews = pgTable("topic_views", {
 ]);
 
 // ─── Score Feedback (US-10.1) ──────────────────────────
+// GDPR: ip_address is truncated before storage (same as audit_logs).
 export const scoreFeedback = pgTable("score_feedback", {
   id: serial("id").primaryKey(),
   topicId: integer("topic_id").notNull().references(() => topics.id),
@@ -247,7 +250,7 @@ export const scoreFeedback = pgTable("score_feedback", {
   dimension: text("dimension").notNull(),
   direction: text("direction").notNull(),
   comment: text("comment"),
-  ipAddress: text("ip_address"),
+  ipAddress: text("ip_address"),       // GDPR: stored truncated (e.g., "192.168.1.0")
   createdAt: timestamp("created_at").defaultNow(),
 });
 ```

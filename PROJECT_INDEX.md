@@ -1,6 +1,6 @@
 # Project Index: EcoTicker
 
-Generated: 2026-02-09 (Updated with security features)
+Generated: 2026-02-13 | Branch: v2
 
 ## Project Structure
 
@@ -31,24 +31,29 @@ ecoticker/
 │   │   ├── TopicGrid.tsx             # Filterable grid (All/Breaking/Critical/Moderate/Info)
 │   │   ├── TopicCard.tsx             # Card: score, change, urgency badge, sparkline, region
 │   │   ├── BiggestMovers.tsx         # Horizontal scroll of top movers
+│   │   ├── RefreshButton.tsx         # Manual data refresh trigger button
 │   │   ├── Sparkline.tsx             # Mini Recharts line chart (w-16 h-8)
 │   │   ├── ScoreChart.tsx            # Full history chart (4 lines: overall, health, eco, econ)
 │   │   ├── ArticleList.tsx           # External article links with source, date, summary
 │   │   └── UrgencyBadge.tsx          # Color-coded urgency pill
-│   └── lib/
-│       ├── db.ts                     # SQLite singleton (better-sqlite3, WAL, auto-schema)
-│       ├── types.ts                  # Topic, Article, ScoreHistoryEntry, TickerItem, TopicDetail
-│       ├── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
-│       ├── auth.ts                   # requireAdminKey(), getUnauthorizedResponse() — API key auth
-│       ├── rate-limit.ts             # RateLimiter class — in-memory rate limiting
-│       ├── validation.ts             # Zod schemas — articleCreate/Update/Delete, topicDelete
-│       ├── errors.ts                 # createErrorResponse() — centralized error handling
-│       └── audit-log.ts              # logSuccess/Failure(), getAuditLogs/Stats()
+│   ├── lib/
+│   │   ├── types.ts                  # Topic, Article, ScoreHistoryEntry, TickerItem, TopicDetail
+│   │   ├── utils.ts                  # urgencyColor, changeColor, formatChange, scoreToUrgency
+│   │   ├── auth.ts                   # requireAdminKey(), getUnauthorizedResponse() — API key auth
+│   │   ├── rate-limit.ts             # RateLimiter class — in-memory rate limiting
+│   │   ├── validation.ts             # Zod schemas — articleCreate/Update/Delete, topicDelete
+│   │   ├── errors.ts                 # createErrorResponse() — centralized error handling
+│   │   ├── events.ts                 # EventMap type + eventBus — cross-component event system
+│   │   └── audit-log.ts             # logSuccess/Failure(), getAuditLogs/Stats()
+│   ├── db/
+│   │   ├── index.ts                  # Drizzle connection pool (PostgreSQL via pg library)
+│   │   └── schema.ts                 # Drizzle schema: topics, articles, score_history, topic_keywords, audit_logs
+│   └── middleware.ts                 # Next.js middleware — CSP headers, rate limiting
 ├── scripts/
 │   ├── batch.ts                      # Daily pipeline: NewsAPI → LLM classify → LLM score → DB
-│   └── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
-├── db/
-│   └── schema.sql                    # 5 tables: topics, articles, score_history, topic_keywords, audit_logs
+│   ├── seed.ts                       # Seeds 12 topics, 36 articles, 84 score history entries
+│   └── setup-git-hooks.sh           # Installs pre-commit hooks (tsc, build, lint)
+├── drizzle.config.ts                 # Drizzle Kit configuration for schema migrations
 ├── tests/                            # 17 suites, 132 tests (98.6% statement coverage)
 │   ├── db.test.ts                    # 10 tests — schema, constraints, upserts
 │   ├── utils.test.ts                 # 14 tests — all utility functions
@@ -58,6 +63,7 @@ ecoticker/
 │   ├── api-topic-detail.test.ts      # 6 tests — detail endpoint, 404, sub-scores
 │   ├── api-ticker.test.ts            # 5 tests — ticker payload, sorting, limit
 │   ├── api-movers.test.ts            # 5 tests — abs sorting, positive/negative movers
+│   ├── api-cron-batch.test.ts        # Cron batch endpoint tests
 │   ├── TickerBar.test.tsx            # 7 tests — render, fetch, doubling, links
 │   ├── TopicCard.test.tsx            # 13 tests — score colors, change, badge, region, link
 │   ├── TopicGrid.test.tsx            # 8 tests — filters, loading, empty, fetch params
@@ -66,17 +72,36 @@ ecoticker/
 │   ├── ScoreChart.test.tsx           # 3 tests — chart lines, empty state
 │   ├── ArticleList.test.tsx          # 7 tests — titles, source, links, empty
 │   └── TopicDetail.test.tsx          # 9 tests — loading, error, score, chart, articles
+├── docs/
+│   ├── TOKEN_EFFICIENCY_REPORT.md    # Token savings analysis and ROI
+│   ├── real-data-setup.md            # Guide for connecting real NewsAPI data
+│   ├── refresh-button-design.md      # RefreshButton component design
+│   ├── refresh-button-implementation-summary.md # RefreshButton implementation notes
+│   ├── ui-refresh-design.md          # UI refresh feature design
+│   └── plans/
+│       ├── 2026-02-09-business-panel-analysis.md    # 9-expert business panel, 10 recommendations
+│       ├── 2026-02-09-user-stories.md               # Original 23 user stories (SUPERSEDED)
+│       ├── 2026-02-09-llm-scoring-research.md       # LLM scoring strategy (v3, 30+ sources)
+│       ├── 2026-02-12-user-stories-v2.md            # Deep revision: 20 stories, personas + journeys
+│       └── 2026-02-12-postgresql-drizzle-design.md  # PostgreSQL + Drizzle ORM design for v2
 ├── Dockerfile                        # Multi-stage: deps → build → slim production
 ├── docker-compose.yml                # 3 services: app, nginx, cron + named volume
 ├── nginx.conf                        # Reverse proxy, gzip, static cache, security headers
 ├── crontab                           # Daily batch at 6AM UTC
 ├── .env.example                      # Environment variable template
 ├── .github/workflows/security.yml    # CI: dependency audit, security lint, Dockerfile check, tests
-├── .dockerignore                     # Excludes node_modules, .next, tests, db/*.db
+├── CLAUDE.md                         # AI assistant instructions and project context
+├── CONTRIBUTING.md                   # Contribution guidelines
+├── DEPLOYMENT_OPTIONS.md             # Deployment strategy comparison
+├── RAILWAY_CHECKLIST.md              # Railway deployment checklist
+├── RAILWAY_DEPLOYMENT_PLAN.md        # Railway deployment plan
+├── RAILWAY_IMPLEMENTATION_SUMMARY.md # Railway implementation summary
+├── RAILWAY_QUICKSTART.md             # Railway quick start guide
+├── README.md                         # Project readme
 ├── deployment.md                     # Production deployment guide
 ├── jest.config.ts                    # Two projects: node (.test.ts) + react/jsdom (.test.tsx)
 ├── next.config.ts                    # output: "standalone" for Docker
-├── package.json                      # Next.js 16, React 19, better-sqlite3, recharts, slugify
+├── package.json                      # Next.js 16, React 19, pg, drizzle-orm, drizzle-kit, recharts, slugify
 └── tsconfig.json                     # Path alias @/* → src/*
 ```
 
@@ -113,12 +138,19 @@ ecoticker/
 | `/api/topics` | DELETE | Batch delete topics (Zod validated) |
 | `/api/audit-logs` | GET | View audit logs and statistics |
 
+### Cron (Bearer Token)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cron/batch` | GET/POST | Cron-triggered batch processing |
+
 ## Database Schema
+
+Defined in `src/db/schema.ts` using Drizzle ORM:
 
 | Table | Key Columns | Notes |
 |-------|-------------|-------|
-| topics | slug (UQ), current_score, previous_score, urgency, category, region | Upsert rotates previous_score |
-| articles | topic_id (FK), url (UQ), title, source, summary | INSERT OR IGNORE dedup |
+| topics | slug (UQ), current_score, previous_score, urgency, category, region | Drizzle upsert with onConflictDoUpdate |
+| articles | topic_id (FK), url (UQ), title, source, summary | ON CONFLICT DO NOTHING dedup |
 | score_history | topic_id (FK), score, health/eco/econ_score, recorded_at | Daily sub-score snapshots |
 | topic_keywords | topic_id (FK), keyword | LLM-generated aliases for cross-batch matching |
 | audit_logs | timestamp, ip_address, endpoint, method, action, success, details | Tracks all write operations |
@@ -132,22 +164,33 @@ ecoticker/
 
 ## Dependencies
 
-**Runtime**: next 16.1.6, react 19.2.3, better-sqlite3, recharts 3.7, slugify, zod 3.24
-**Dev**: typescript 5, jest 30, ts-jest, @testing-library/react, tailwindcss 4, tsx, eslint
+**Runtime**: next 16.1.6, react 19.2.3, pg 8.x, drizzle-orm 0.37.x, recharts 3.7, slugify 1.6, zod 4.3
+**Dev**: typescript 5, drizzle-kit 0.29.x, jest 30, ts-jest 29.4, @testing-library/react 16.3, tailwindcss 4, tsx 4.21, eslint 9
 
 ## Docker Services
 
 | Service | Image | Purpose |
 |---------|-------|---------|
-| app | Dockerfile (standalone) | Next.js on :3000, mem_limit 1g |
+| postgres | postgres:17-alpine | PostgreSQL database on :5432, pgdata volume |
+| app | Dockerfile (standalone) | Next.js on :3000, mem_limit 1g, connects to postgres |
 | nginx | nginx:alpine | Reverse proxy :80, gzip, static cache |
-| cron | Dockerfile (crond) | Daily batch at 6AM, shared volume |
+| cron | Dockerfile (crond) | Daily batch at 6AM, connects to postgres |
 
-Volume: `ecoticker-data` (SQLite persistence, shared between app + cron)
+Volumes: `pgdata` (PostgreSQL data persistence)
 
 ## Build Status
 
-All 4 phases complete + security hardening. 132 tests passing, 98.6% coverage. Docker builds successfully.
+v1 complete (4 phases + security hardening). 132 tests passing, 98.6% coverage. Docker builds successfully.
+
+## v2 Planning Status
+
+| Document | Status |
+|----------|--------|
+| Business panel analysis (9 experts, 10 recs) | Done |
+| LLM scoring research (v3, 30+ sources) | Done |
+| User stories v2 (20 stories, personas, journeys) | Done |
+| PostgreSQL + Drizzle ORM design | Done |
+| **Next**: Phase 0 implementation (PG+Drizzle) + US-1.1 | Pending |
 
 ## Theme System
 
@@ -171,37 +214,28 @@ All 4 phases complete + security hardening. 132 tests passing, 98.6% coverage. D
 - **Write operations:** 10 requests/minute per IP
 - **Batch/Seed operations:** 2 requests/hour per IP
 - **429 responses:** Include Retry-After and X-RateLimit-Reset headers
-- **In-memory implementation:** Resets on server restart (acceptable for demo/personal projects)
+- **In-memory implementation:** Resets on server restart
 
 ### Input Validation
 - **Zod schemas:** All write endpoints validated with type-safe schemas
-- **Article operations:** Validated fields include topicId, title, url, source, summary, imageUrl, publishedAt
-- **Topic operations:** Validated filters for batch deletion
 - **Query params:** Urgency/category enum whitelist (400 on invalid)
 
 ### SQL Injection Protection
 - **Parameterized queries:** All SQL uses prepared statements with placeholders
-- **No string concatenation:** Fixed critical vulnerabilities in /api/cleanup and /api/articles
-- **LIKE pattern safety:** Changed to exact match or escaped wildcards
+- **No string concatenation:** No dynamic SQL construction
 
 ### Content-Security-Policy
-- **CSP enabled:** Middleware sets strict CSP directives
-- **Next.js compatible:** Allows unsafe-inline for hydration (required by framework)
-- **Restricts sources:** default-src 'self', external images allowed, scripts/styles scoped
+- **Middleware-applied CSP:** Strict directives, Next.js-compatible (unsafe-inline for hydration)
 
 ### Audit Logging
-- **Comprehensive tracking:** All write operations logged to audit_logs table
-- **Logged details:** IP address, endpoint, method, action, success/failure, error messages, request details, user agent
-- **Queryable API:** GET /api/audit-logs with pagination and statistics
-- **Statistics:** Total operations, success rate, unique IPs, recent failures, top actions
+- All write operations logged to audit_logs table
+- Queryable API: GET /api/audit-logs with pagination and statistics
 
 ### Error Handling
-- **Environment-aware:** Production hides implementation details, development shows full errors
-- **Request IDs:** Each error includes unique request ID for debugging
-- **Centralized:** All endpoints use createErrorResponse() utility
-- **No information disclosure:** Prevents leaking database schema or internal paths
+- Environment-aware (production hides details, dev shows full errors)
+- Unique request IDs, centralized via createErrorResponse()
 
 ### Additional Security
-- **Nginx headers:** X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy
-- **Timeouts:** 15s (NewsAPI), 30s (OpenRouter) to prevent hanging requests
-- **GitHub Actions CI:** Dependency audit, secret scanning, dangerous pattern detection, Dockerfile checks
+- Nginx headers: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy
+- Request timeouts: 15s (NewsAPI), 30s (OpenRouter)
+- GitHub Actions CI: dependency audit, secret scanning, Dockerfile checks

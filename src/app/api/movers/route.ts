@@ -1,39 +1,36 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import type { MoverRow } from "@/lib/types";
+import { db } from "@/db";
+import { topics } from "@/db/schema";
+import { desc, sql, ne } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const db = getDb();
+    const rows = await db
+      .select({
+        name: topics.name,
+        slug: topics.slug,
+        currentScore: topics.currentScore,
+        previousScore: topics.previousScore,
+        change: sql<number>`${topics.currentScore} - ${topics.previousScore}`,
+        urgency: topics.urgency,
+      })
+      .from(topics)
+      .where(ne(topics.currentScore, topics.previousScore))
+      .orderBy(desc(sql`ABS(${topics.currentScore} - ${topics.previousScore})`))
+      .limit(5);
 
-    const rows = db.prepare(`
-      SELECT name, slug, current_score, previous_score,
-        (current_score - previous_score) as change,
-        urgency
-      FROM topics
-      WHERE current_score != previous_score
-      ORDER BY ABS(current_score - previous_score) DESC
-      LIMIT 5
-    `).all() as MoverRow[];
-
-    const movers = rows.map((r) => ({
-      name: r.name,
-      slug: r.slug,
-      currentScore: r.current_score,
-      previousScore: r.previous_score,
-      change: r.change,
-      urgency: r.urgency,
-    }));
-
-    return NextResponse.json({ movers }, {
-      headers: {
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching movers:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch movers' },
+      { movers: rows },
+      {
+        headers: {
+          "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error fetching movers:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch movers" },
       { status: 500 }
     );
   }

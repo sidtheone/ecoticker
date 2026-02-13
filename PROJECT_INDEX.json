@@ -3,7 +3,8 @@
     "name": "ecoticker",
     "description": "Environmental news impact tracker with stock-ticker style UI",
     "version": "0.1.0",
-    "generated": "2026-02-09T00:00:00Z",
+    "generated": "2026-02-13T00:00:00Z",
+    "branch": "v2",
     "repository": "github.com/sidtheone/ecoticker"
   },
   "stack": {
@@ -11,7 +12,7 @@
     "runtime": "React 19.2.3",
     "language": "TypeScript 5",
     "styling": "Tailwind CSS 4",
-    "database": "SQLite (better-sqlite3)",
+    "database": "PostgreSQL 17 + Drizzle ORM",
     "charts": "Recharts 3.7",
     "validation": "Zod 4.3.6",
     "containerization": "Docker + Docker Compose"
@@ -72,6 +73,7 @@
         "TopicGrid",
         "TopicCard",
         "BiggestMovers",
+        "RefreshButton",
         "Sparkline",
         "ScoreChart",
         "ArticleList",
@@ -81,15 +83,25 @@
     "src/lib": {
       "purpose": "Core utilities and business logic",
       "modules": {
-        "db.ts": "SQLite singleton with WAL mode, auto-schema",
         "types.ts": "TypeScript type definitions",
         "utils.ts": "Color/format utilities for scores",
         "auth.ts": "API key authentication",
         "rate-limit.ts": "In-memory rate limiter",
         "validation.ts": "Zod schemas for input validation",
         "errors.ts": "Centralized error handling",
+        "events.ts": "EventMap type + eventBus for cross-component events",
         "audit-log.ts": "Audit logging utilities"
       }
+    },
+    "src/db": {
+      "purpose": "Database connection and schema",
+      "modules": {
+        "index.ts": "Drizzle connection pool (PostgreSQL via pg library)",
+        "schema.ts": "Drizzle schema definitions for all tables"
+      }
+    },
+    "src/middleware.ts": {
+      "purpose": "Next.js middleware for CSP headers and rate limiting"
     },
     "scripts": {
       "purpose": "Automation scripts",
@@ -99,11 +111,8 @@
         "setup-git-hooks.sh": "Installs pre-commit hooks for build checks"
       }
     },
-    "db": {
-      "purpose": "Database schema and migrations",
-      "files": {
-        "schema.sql": "5 tables: topics, articles, score_history, topic_keywords, audit_logs"
-      }
+    "drizzle.config.ts": {
+      "purpose": "Drizzle Kit configuration for schema migrations"
     },
     "tests": {
       "purpose": "Test suites with Jest",
@@ -119,6 +128,7 @@
         "api-topic-detail.test.ts",
         "api-ticker.test.ts",
         "api-movers.test.ts",
+        "api-cron-batch.test.ts",
         "TickerBar.test.tsx",
         "TopicCard.test.tsx",
         "TopicGrid.test.tsx",
@@ -126,9 +136,25 @@
         "Sparkline.test.tsx",
         "ScoreChart.test.tsx",
         "ArticleList.test.tsx",
-        "TopicDetail.test.tsx",
-        "api-articles.test.ts"
+        "TopicDetail.test.tsx"
       ]
+    },
+    "docs": {
+      "purpose": "Documentation and design documents",
+      "files": {
+        "TOKEN_EFFICIENCY_REPORT.md": "Token savings analysis and ROI",
+        "real-data-setup.md": "Guide for connecting real NewsAPI data",
+        "refresh-button-design.md": "RefreshButton component design",
+        "refresh-button-implementation-summary.md": "RefreshButton implementation notes",
+        "ui-refresh-design.md": "UI refresh feature design"
+      },
+      "plans": {
+        "2026-02-09-business-panel-analysis.md": "9-expert business panel, 10 recommendations",
+        "2026-02-09-user-stories.md": "Original 23 user stories (SUPERSEDED)",
+        "2026-02-09-llm-scoring-research.md": "LLM scoring strategy (v3, 30+ sources)",
+        "2026-02-12-user-stories-v2.md": "Deep revision: 20 stories, personas + journeys",
+        "2026-02-12-postgresql-drizzle-design.md": "PostgreSQL + Drizzle ORM design for v2"
+      }
     }
   },
   "api": {
@@ -221,11 +247,23 @@
         "auth": "X-API-Key header",
         "description": "View audit logs and statistics"
       }
+    ],
+    "cron_endpoints": [
+      {
+        "path": "/api/cron/batch",
+        "method": "GET/POST",
+        "auth": "Bearer token",
+        "description": "Cron-triggered batch processing"
+      }
     ]
   },
   "database": {
-    "type": "SQLite",
-    "mode": "WAL",
+    "type": "PostgreSQL 17",
+    "orm": "Drizzle ORM",
+    "library": "pg (node-postgres)",
+    "schema": "src/db/schema.ts",
+    "connection": "src/db/index.ts",
+    "design_doc": "docs/plans/2026-02-12-postgresql-drizzle-design.md",
     "tables": {
       "topics": {
         "key_columns": ["slug (UQ)", "current_score", "previous_score", "urgency", "category", "region"],
@@ -275,52 +313,48 @@
     },
     "input_validation": {
       "library": "Zod 4.3.6",
-      "scope": "All write endpoints",
-      "types": "Type-safe schemas with detailed error messages"
+      "scope": "All write endpoints"
     },
-    "sql_injection_protection": {
-      "method": "Parameterized queries only",
-      "status": "No string concatenation in SQL"
-    },
+    "sql_injection_protection": "Parameterized queries only",
     "csp": {
       "enabled": true,
-      "directives": "default-src 'self', unsafe-inline for Next.js hydration"
+      "implementation": "Next.js middleware"
     },
     "audit_logging": {
       "scope": "All write operations",
-      "fields": ["IP", "endpoint", "method", "action", "success", "details", "user_agent"],
       "queryable": "GET /api/audit-logs"
     },
     "error_handling": {
-      "production": "Sanitized errors, no implementation details",
+      "production": "Sanitized errors",
       "development": "Full error messages",
-      "request_ids": "Unique ID per error for debugging"
-    },
-    "headers": {
-      "nginx": ["X-Frame-Options", "X-Content-Type-Options", "X-XSS-Protection", "Referrer-Policy", "Permissions-Policy"]
+      "request_ids": true
     }
   },
   "docker": {
     "services": {
+      "postgres": {
+        "image": "postgres:17-alpine",
+        "port": 5432,
+        "volume": "pgdata"
+      },
       "app": {
         "image": "Dockerfile (multi-stage)",
         "port": 3000,
         "memory": "1GB",
-        "description": "Next.js standalone build"
+        "depends_on": "postgres"
       },
       "nginx": {
         "image": "nginx:alpine",
-        "port": 80,
-        "features": ["Reverse proxy", "gzip compression", "Static asset caching", "Security headers"]
+        "port": 80
       },
       "cron": {
         "image": "Dockerfile (crond)",
         "schedule": "Daily at 6AM UTC",
-        "description": "Batch pipeline automation"
+        "depends_on": "postgres"
       }
     },
     "volumes": {
-      "ecoticker-data": "SQLite persistence, shared between app + cron"
+      "pgdata": "PostgreSQL data persistence"
     }
   },
   "ci_cd": {
@@ -329,32 +363,38 @@
     "triggers": ["push to main", "pull request to main"],
     "jobs": [
       "Dependency audit",
-      "Security linting (secrets, eval, SQL patterns)",
+      "Security linting",
       "Dockerfile security checks",
-      "Full test suite (132 tests)"
+      "Full test suite"
     ]
   },
-  "theme": {
-    "mode": "Class-based dark mode",
-    "implementation": "Tailwind v4 @custom-variant dark",
-    "persistence": "localStorage with OS preference fallback",
-    "fouc_prevention": "Inline <script> in layout",
-    "light_palette": "Warm cream/beige (#faf7f2, #f5f0e8, stone-*)",
-    "dark_palette": "Gray-900 bg, gray-800 cards, gray-* text"
+  "v2_planning": {
+    "status": "Design phase complete, implementation pending",
+    "documents": [
+      "Business panel analysis (9 experts, 10 recommendations)",
+      "LLM scoring research (v3, 30+ sources)",
+      "User stories v2 (20 stories, personas, journeys)",
+      "PostgreSQL + Drizzle ORM design"
+    ],
+    "next_step": "Phase 0: PostgreSQL + Drizzle ORM migration + US-1.1"
   },
   "metrics": {
     "source_files": 35,
-    "source_lines": 3160,
+    "components": 11,
+    "api_routes": 11,
+    "lib_modules": 9,
     "test_suites": 17,
     "test_count": 132,
     "test_coverage": "98.6%",
-    "index_size": "12.5 KB",
-    "status": "All phases complete, CI green"
+    "status": "v1 complete, v2 design phase done"
   },
   "quick_start": [
     "Clone repository",
-    "Copy .env.example to .env.local and add API keys",
+    "git checkout v2",
+    "Copy .env.example to .env.local and add DATABASE_URL + API keys",
     "npm install",
+    "docker compose up -d postgres (start PostgreSQL)",
+    "npx drizzle-kit push (create tables)",
     "npx tsx scripts/seed.ts",
     "npm run dev",
     "Visit http://localhost:3000"

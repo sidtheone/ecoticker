@@ -6,6 +6,7 @@
 - Docker and Docker Compose installed
 - SSH access to the server
 - API keys for NewsAPI and OpenRouter
+- PostgreSQL 17 (via Docker)
 
 ## Step 1: Clone and Configure
 
@@ -21,12 +22,22 @@ cp .env.example .env
 Edit `.env` with your API keys:
 
 ```env
+# Database
+DATABASE_URL=postgresql://ecoticker:your_secure_password@postgres:5432/ecoticker
+
+# External APIs
 NEWSAPI_KEY=your_newsapi_key        # https://newsapi.org
 OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
+
+# Security
 ADMIN_API_KEY=your_secure_admin_key  # Generate with: openssl rand -base64 32
-DATABASE_PATH=/data/ecoticker.db
+
+# Batch processing
 BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
+
+# Environment
+NODE_ENV=production
 ```
 
 **Security Note:** Generate a strong `ADMIN_API_KEY`:
@@ -45,25 +56,31 @@ docker compose build
 docker compose up -d
 ```
 
-This starts three services:
+This starts four services:
 
 | Service | Role | Details |
 |---------|------|---------|
-| **app** | Next.js server | Port 3000 (internal), 1GB memory limit |
+| **postgres** | PostgreSQL database | Port 5432 (internal), pgdata volume for persistence |
+| **app** | Next.js server | Port 3000 (internal), 1GB memory limit, connects to postgres |
 | **nginx** | Reverse proxy | Port 80 (public), gzip, static caching |
-| **cron** | Batch pipeline | Runs daily at 6AM UTC |
+| **cron** | Batch pipeline | Runs daily at 6AM UTC, connects to postgres |
 
-## Step 3: Seed Initial Data
+## Step 3: Initialize Database Schema
 
-The database is empty on first deploy. Run the batch pipeline manually to populate it:
+On first deploy, push the Drizzle schema to PostgreSQL:
 
 ```bash
-docker compose exec app npx tsx scripts/batch.ts
+# Push schema to create tables
+docker compose exec app npx drizzle-kit push
 ```
 
-Or use the seed script for demo data:
+Then seed initial data:
 
 ```bash
+# Run batch pipeline to fetch real news data
+docker compose exec app npx tsx scripts/batch.ts
+
+# OR use seed script for demo data
 docker compose exec app npx tsx scripts/seed.ts
 ```
 
@@ -131,13 +148,14 @@ CSP headers are enabled in production to prevent XSS attacks. The middleware set
 ```
 Internet → :80 → Nginx → :3000 → Next.js App
                                       ↕
-                              SQLite (named volume)
+                              PostgreSQL :5432 (pgdata volume)
                                       ↕
                               Cron → batch.ts (daily 6AM)
 ```
 
-- **Named volume** `ecoticker-data` persists the SQLite database across container restarts and rebuilds
-- Both `app` and `cron` share the same volume so cron writes and the app reads the same database
+- **Named volume** `pgdata` persists the PostgreSQL database across container restarts and rebuilds
+- Both `app` and `cron` containers connect to the `postgres` service via DATABASE_URL
+- Database connection pooling managed by Drizzle ORM (pg library)
 
 ## HTTPS Setup (Optional)
 
@@ -196,7 +214,10 @@ docker compose down
 docker compose down -v
 
 # Check database size
-docker compose exec app ls -lh /data/ecoticker.db
+docker compose exec postgres psql -U ecoticker -c "SELECT pg_size_pretty(pg_database_size('ecoticker'));"
+
+# Access PostgreSQL directly
+docker compose exec postgres psql -U ecoticker -d ecoticker
 ```
 
 ## Troubleshooting
@@ -204,8 +225,9 @@ docker compose exec app ls -lh /data/ecoticker.db
 | Issue | Solution |
 |-------|----------|
 | App not reachable on :80 | Check `docker compose ps` — nginx must be running |
-| Empty dashboard | Run batch manually: `docker compose exec app npx tsx scripts/batch.ts` |
+| Empty dashboard | First run `drizzle-kit push`, then `scripts/batch.ts` |
 | Cron not running | Check logs: `docker compose logs cron` |
-| Database locked errors | Only one writer at a time — check if batch is running during heavy reads |
+| Database connection errors | Verify DATABASE_URL env var, ensure postgres service is healthy |
+| PostgreSQL not starting | Check logs: `docker compose logs postgres` |
 | Out of memory | Increase `mem_limit` in `docker-compose.yml` |
 | Port 80 in use | Change nginx port mapping: `"8080:80"` in `docker-compose.yml` |

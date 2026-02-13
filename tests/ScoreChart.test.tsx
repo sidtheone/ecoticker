@@ -16,9 +16,9 @@ jest.mock("recharts", () => ({
 }));
 
 const mockHistory: ScoreHistoryEntry[] = [
-  { score: 70, healthScore: 60, ecoScore: 75, econScore: 65, impactSummary: null, date: "2026-02-01T00:00:00Z" },
-  { score: 75, healthScore: 65, ecoScore: 78, econScore: 70, impactSummary: null, date: "2026-02-02T00:00:00Z" },
-  { score: 85, healthScore: 70, ecoScore: 82, econScore: 80, impactSummary: null, date: "2026-02-03T00:00:00Z" },
+  { score: 70, healthScore: 60, ecoScore: 75, econScore: 65, impactSummary: null, date: "2026-02-01T00:00:00Z", healthLevel: null, ecoLevel: null, econLevel: null, healthReasoning: null, ecoReasoning: null, econReasoning: null, overallSummary: null, anomalyDetected: false },
+  { score: 75, healthScore: 65, ecoScore: 78, econScore: 70, impactSummary: null, date: "2026-02-02T00:00:00Z", healthLevel: null, ecoLevel: null, econLevel: null, healthReasoning: null, ecoReasoning: null, econReasoning: null, overallSummary: null, anomalyDetected: false },
+  { score: 85, healthScore: 70, ecoScore: 82, econScore: 80, impactSummary: null, date: "2026-02-03T00:00:00Z", healthLevel: null, ecoLevel: null, econLevel: null, healthReasoning: null, ecoReasoning: null, econReasoning: null, overallSummary: null, anomalyDetected: false },
 ];
 
 describe("ScoreChart", () => {

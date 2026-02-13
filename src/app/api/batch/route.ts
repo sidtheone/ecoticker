@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import slugify from 'slugify';
-import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
-import { createErrorResponse } from '@/lib/errors';
-import { logSuccess, logFailure } from '@/lib/audit-log';
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { topics, articles, scoreHistory, topicKeywords } from "@/db/schema";
+import slugify from "slugify";
+import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
+import { createErrorResponse } from "@/lib/errors";
+import { logSuccess, logFailure } from "@/lib/audit-log";
+import { sql } from "drizzle-orm";
 
 /**
  * Batch processing endpoint - fetches real news and updates database
@@ -20,10 +22,13 @@ import { logSuccess, logFailure } from '@/lib/audit-log';
  */
 
 // --- Config ---
-const NEWSAPI_KEY = process.env.NEWSAPI_KEY || '';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openrouter/free';
-const KEYWORDS = (process.env.BATCH_KEYWORDS || 'climate change,pollution,deforestation,wildfire,flood').split(',');
+const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const KEYWORDS = (
+  process.env.BATCH_KEYWORDS ||
+  "climate change,pollution,deforestation,wildfire,flood"
+).split(",");
 
 // --- Types ---
 interface NewsArticle {
@@ -60,32 +65,32 @@ async function fetchNews(): Promise<NewsArticle[]> {
   // Batch keywords into 2-3 requests to stay under 100/day limit
   const keywordGroups = [];
   for (let i = 0; i < KEYWORDS.length; i += 4) {
-    keywordGroups.push(KEYWORDS.slice(i, i + 4).join(' OR '));
+    keywordGroups.push(KEYWORDS.slice(i, i + 4).join(" OR "));
   }
 
   for (const query of keywordGroups) {
-    // Use searchIn=title to only match articles where keywords are in the title
-    // This filters out articles that only mention keywords tangentially in the body
-    // Reduced pageSize to 10 to avoid LLM timeouts on free tier
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&searchIn=title&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
+      query
+    )}&searchIn=title&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
       const data = await res.json();
 
-      if (data.status === 'error') {
+      if (data.status === "error") {
         console.error(`NewsAPI error for "${query}":`, data.message);
         continue;
       }
 
       if (data.articles) {
-        // Filter out articles from low-quality or non-news sources
         const filteredArticles = data.articles.filter((a: NewsArticle) => {
-          const source = a.source?.name?.toLowerCase() || '';
-          // Exclude auction sites, marketplaces, etc.
-          return !source.includes('bringatrailer') &&
-                 !source.includes('auction') &&
-                 !source.includes('ebay') &&
-                 a.title && a.description;
+          const source = a.source?.name?.toLowerCase() || "";
+          return (
+            !source.includes("bringatrailer") &&
+            !source.includes("auction") &&
+            !source.includes("ebay") &&
+            a.title &&
+            a.description
+          );
         });
         allArticles.push(...filteredArticles);
       }
@@ -105,25 +110,24 @@ async function fetchNews(): Promise<NewsArticle[]> {
 
 // --- OpenRouter LLM ---
 async function callLLM(prompt: string): Promise<string> {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    signal: AbortSignal.timeout(60000), // Increased to 60s for free tier
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    signal: AbortSignal.timeout(60000),
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     }),
   });
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
+  return data.choices?.[0]?.message?.content || "";
 }
 
 function extractJSON(text: string): unknown {
-  // Try to find JSON in the response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
   try {
@@ -135,14 +139,14 @@ function extractJSON(text: string): unknown {
 
 // --- Pass 1: Classification ---
 async function classifyArticles(
-  articles: NewsArticle[],
+  newsArticles: NewsArticle[],
   existingTopics: { name: string; keywords: string[] }[]
 ): Promise<Classification[]> {
   const topicsList = existingTopics
-    .map((t) => `- "${t.name}" (keywords: ${t.keywords.join(', ')})`)
-    .join('\n');
+    .map((t) => `- "${t.name}" (keywords: ${t.keywords.join(", ")})`)
+    .join("\n");
 
-  const titlesList = articles.map((a, i) => `${i}. ${a.title}`).join('\n');
+  const titlesList = newsArticles.map((a, i) => `${i}. ${a.title}`).join("\n");
 
   const prompt = `You are an environmental news classifier. Group these articles into environmental topics.
 
@@ -163,7 +167,7 @@ Use existing topics where they match. Create new topic names only when no existi
 Each topic should be a clear environmental issue (e.g. "Amazon Deforestation", "Delhi Air Quality Crisis").
 
 Existing topics:
-${topicsList || '(none yet)'}
+${topicsList || "(none yet)"}
 
 Articles to classify:
 ${titlesList}
@@ -172,28 +176,31 @@ Respond with ONLY valid JSON, no other text. Use empty array if no environmental
 {"classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...]}`;
 
   const response = await callLLM(prompt);
-  console.log('LLM Classification Response:', response.substring(0, 500));
+  console.log("LLM Classification Response:", response.substring(0, 500));
 
-  const parsed = extractJSON(response) as { classifications?: Classification[] } | null;
+  const parsed = extractJSON(response) as
+    | { classifications?: Classification[] }
+    | null;
 
   if (parsed?.classifications) {
     console.log(`Successfully classified ${parsed.classifications.length} articles`);
     return parsed.classifications;
   }
 
-  // Fallback: return empty if classification completely fails
-  // This prevents non-environmental articles from being added
-  console.error('Classification LLM failed to return valid JSON');
-  console.error('LLM Response was:', response.substring(0, 1000));
-  console.warn('Skipping these articles due to classification failure');
+  console.error("Classification LLM failed to return valid JSON");
+  console.error("LLM Response was:", response.substring(0, 1000));
+  console.warn("Skipping these articles due to classification failure");
   return [];
 }
 
 // --- Pass 2: Scoring ---
-async function scoreTopic(topicName: string, articles: NewsArticle[]): Promise<TopicScore> {
-  const summaries = articles
-    .map((a) => `- ${a.title}: ${a.description || 'No description'}`)
-    .join('\n');
+async function scoreTopic(
+  topicName: string,
+  topicArticles: NewsArticle[]
+): Promise<TopicScore> {
+  const summaries = topicArticles
+    .map((a) => `- ${a.title}: ${a.description || "No description"}`)
+    .join("\n");
 
   const prompt = `You are an environmental impact analyst. Analyze the following news about "${topicName}".
 
@@ -221,18 +228,17 @@ Valid categories: air_quality, deforestation, ocean, climate, pollution, biodive
 
   if (parsed?.score !== undefined) return parsed;
 
-  // Fallback
   console.warn(`Scoring LLM failed for "${topicName}", using defaults`);
   return {
     score: 50,
     healthScore: 50,
     ecoScore: 50,
     econScore: 50,
-    urgency: 'moderate',
+    urgency: "moderate",
     impactSummary: `Recent news coverage about ${topicName}.`,
-    category: 'climate',
-    region: 'Global',
-    keywords: topicName.toLowerCase().split(' '),
+    category: "climate",
+    region: "Global",
+    keywords: topicName.toLowerCase().split(" "),
   };
 }
 
@@ -243,82 +249,91 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Check API keys
     if (!NEWSAPI_KEY || !OPENROUTER_API_KEY) {
       return NextResponse.json(
         {
-          error: 'Missing API keys',
-          details: 'NEWSAPI_KEY and OPENROUTER_API_KEY must be set in environment variables',
+          error: "Missing API keys",
+          details:
+            "NEWSAPI_KEY and OPENROUTER_API_KEY must be set in environment variables",
         },
         { status: 500 }
       );
     }
 
-    console.log('=== EcoTicker Batch Pipeline ===');
+    console.log("=== EcoTicker Batch Pipeline ===");
     console.log(`Time: ${new Date().toISOString()}`);
 
-    const db = getDb();
-
     // Step 1: Fetch news
-    console.log('\n[1/4] Fetching news...');
-    const articles = await fetchNews();
-    console.log(`Fetched ${articles.length} articles`);
+    console.log("\n[1/4] Fetching news...");
+    const newsArticles = await fetchNews();
+    console.log(`Fetched ${newsArticles.length} articles`);
 
-    if (articles.length === 0) {
+    if (newsArticles.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No new articles found',
+        message: "No new articles found",
         stats: { topics: 0, articles: 0, scoreHistory: 0 },
         timestamp: new Date().toISOString(),
       });
     }
 
     // Load existing topics + keywords
-    const existingTopics = db
-      .prepare(
-        `SELECT t.id, t.name, t.current_score,
-          GROUP_CONCAT(tk.keyword) as keywords
-         FROM topics t
-         LEFT JOIN topic_keywords tk ON tk.topic_id = t.id
-         GROUP BY t.id`
-      )
-      .all() as { id: number; name: string; current_score: number; keywords: string | null }[];
+    const existingTopicsRaw = await db
+      .select({
+        id: topics.id,
+        name: topics.name,
+        currentScore: topics.currentScore,
+        keywords: sql<string | null>`STRING_AGG(${topicKeywords.keyword}, ',')`,
+      })
+      .from(topics)
+      .leftJoin(topicKeywords, sql`${topicKeywords.topicId} = ${topics.id}`)
+      .groupBy(topics.id);
 
-    const topicsWithKeywords = existingTopics.map((t) => ({
+    const topicsWithKeywords = existingTopicsRaw.map((t) => ({
       ...t,
-      keywords: t.keywords ? t.keywords.split(',') : [],
+      keywords: t.keywords ? t.keywords.split(",") : [],
     }));
 
-    // Step 2: Classify articles into topics (in batches to avoid timeouts)
-    console.log('\n[2/4] Classifying articles into topics...');
+    // Step 2: Classify articles into topics (in batches)
+    console.log("\n[2/4] Classifying articles into topics...");
     const allClassifications: Classification[] = [];
 
-    // Process articles in batches of 10 to avoid LLM timeouts
     const batchSize = 10;
-    for (let i = 0; i < articles.length; i += batchSize) {
-      const batch = articles.slice(i, i + batchSize);
-      console.log(`  Classifying batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(articles.length / batchSize)} (${batch.length} articles)...`);
+    for (let i = 0; i < newsArticles.length; i += batchSize) {
+      const batch = newsArticles.slice(i, i + batchSize);
+      console.log(
+        `  Classifying batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(
+          newsArticles.length / batchSize
+        )} (${batch.length} articles)...`
+      );
 
       try {
-        const batchClassifications = await classifyArticles(batch, topicsWithKeywords);
-        // Adjust article indices for the batch offset
-        const adjustedClassifications = batchClassifications.map(c => ({
+        const batchClassifications = await classifyArticles(
+          batch,
+          topicsWithKeywords
+        );
+        const adjustedClassifications = batchClassifications.map((c) => ({
           ...c,
-          articleIndex: c.articleIndex + i
+          articleIndex: c.articleIndex + i,
         }));
         allClassifications.push(...adjustedClassifications);
       } catch (err) {
-        console.error(`  Failed to classify batch ${Math.floor(i / batchSize) + 1}:`, err);
+        console.error(
+          `  Failed to classify batch ${Math.floor(i / batchSize) + 1}:`,
+          err
+        );
       }
     }
 
     const classifications = allClassifications;
-    console.log(`Classified into ${new Set(classifications.map((c) => c.topicName)).size} topics`);
+    console.log(
+      `Classified into ${new Set(classifications.map((c) => c.topicName)).size} topics`
+    );
 
     // Group articles by topic name
     const topicGroups = new Map<string, NewsArticle[]>();
     for (const c of classifications) {
-      const article = articles[c.articleIndex];
+      const article = newsArticles[c.articleIndex];
       if (!article) continue;
       const existing = topicGroups.get(c.topicName) || [];
       existing.push(article);
@@ -326,41 +341,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Score each topic
-    console.log('\n[3/4] Scoring topics...');
-    const insertTopic = db.prepare(`
-      INSERT INTO topics (name, slug, category, region, current_score, previous_score, urgency, impact_summary, image_url, article_count)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-      ON CONFLICT(slug) DO UPDATE SET
-        previous_score = topics.current_score,
-        current_score = excluded.current_score,
-        urgency = excluded.urgency,
-        impact_summary = excluded.impact_summary,
-        image_url = COALESCE(excluded.image_url, topics.image_url),
-        category = excluded.category,
-        region = excluded.region,
-        article_count = topics.article_count + excluded.article_count,
-        updated_at = CURRENT_TIMESTAMP
-    `);
-
-    const insertArticle = db.prepare(`
-      INSERT OR IGNORE INTO articles (topic_id, title, url, source, summary, image_url, published_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertScore = db.prepare(`
-      INSERT INTO score_history (topic_id, score, health_score, eco_score, econ_score, impact_summary)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertKeyword = db.prepare(`
-      INSERT INTO topic_keywords (topic_id, keyword)
-      SELECT ?, ? WHERE NOT EXISTS (
-        SELECT 1 FROM topic_keywords WHERE topic_id = ? AND keyword = ?
-      )
-    `);
-
-    const getTopicBySlug = db.prepare(`SELECT id FROM topics WHERE slug = ?`);
-
+    console.log("\n[3/4] Scoring topics...");
     let topicCount = 0;
     let articleCount = 0;
     let scoreCount = 0;
@@ -370,56 +351,105 @@ export async function POST(request: NextRequest) {
       const slug = slugify(topicName, { lower: true, strict: true });
       const imageUrl = topicArticles.find((a) => a.urlToImage)?.urlToImage || null;
 
-      console.log(`  ${topicName}: score=${scoreResult.score}, urgency=${scoreResult.urgency}`);
+      console.log(
+        `  ${topicName}: score=${scoreResult.score}, urgency=${scoreResult.urgency}`
+      );
 
       // Upsert topic
-      insertTopic.run(
-        topicName,
-        slug,
-        scoreResult.category,
-        scoreResult.region,
-        scoreResult.score,
-        scoreResult.urgency,
-        scoreResult.impactSummary,
-        imageUrl,
-        topicArticles.length
-      );
-      topicCount++;
+      const inserted = await db
+        .insert(topics)
+        .values({
+          name: topicName,
+          slug,
+          category: scoreResult.category,
+          region: scoreResult.region,
+          currentScore: scoreResult.score,
+          previousScore: 0,
+          urgency: scoreResult.urgency,
+          impactSummary: scoreResult.impactSummary,
+          imageUrl,
+          articleCount: topicArticles.length,
+          healthScore: scoreResult.healthScore,
+          ecoScore: scoreResult.ecoScore,
+          econScore: scoreResult.econScore,
+        })
+        .onConflictDoUpdate({
+          target: topics.slug,
+          set: {
+            previousScore: sql`${topics.currentScore}`,
+            currentScore: scoreResult.score,
+            urgency: scoreResult.urgency,
+            impactSummary: scoreResult.impactSummary,
+            imageUrl: sql`COALESCE(${imageUrl}, ${topics.imageUrl})`,
+            category: scoreResult.category,
+            region: scoreResult.region,
+            articleCount: sql`${topics.articleCount} + ${topicArticles.length}`,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: topics.id });
 
-      const topicRow = getTopicBySlug.get(slug) as { id: number } | undefined;
-      if (!topicRow) continue;
-      const topicId = topicRow.id;
+      topicCount++;
+      const topicId = inserted[0].id;
 
       // Insert articles
       for (const a of topicArticles) {
-        insertArticle.run(topicId, a.title, a.url, a.source?.name, a.description, a.urlToImage, a.publishedAt);
+        await db
+          .insert(articles)
+          .values({
+            topicId,
+            title: a.title,
+            url: a.url,
+            source: a.source?.name || null,
+            summary: a.description,
+            imageUrl: a.urlToImage,
+            sourceType: "newsapi",
+            publishedAt: new Date(a.publishedAt),
+          })
+          .onConflictDoNothing({ target: articles.url });
         articleCount++;
       }
 
       // Insert score history
-      insertScore.run(
+      await db.insert(scoreHistory).values({
         topicId,
-        scoreResult.score,
-        scoreResult.healthScore,
-        scoreResult.ecoScore,
-        scoreResult.econScore,
-        scoreResult.impactSummary
-      );
+        score: scoreResult.score,
+        healthScore: scoreResult.healthScore,
+        ecoScore: scoreResult.ecoScore,
+        econScore: scoreResult.econScore,
+        impactSummary: scoreResult.impactSummary,
+      });
       scoreCount++;
 
       // Insert keywords
       for (const kw of scoreResult.keywords) {
-        insertKeyword.run(topicId, kw.toLowerCase(), topicId, kw.toLowerCase());
+        await db
+          .insert(topicKeywords)
+          .values({
+            topicId,
+            keyword: kw.toLowerCase(),
+          })
+          .onConflictDoNothing();
       }
     }
 
     // Step 4: Summary
-    const totalTopics = (db.prepare('SELECT COUNT(*) as c FROM topics').get() as { c: number }).c;
-    const totalArticles = (db.prepare('SELECT COUNT(*) as c FROM articles').get() as { c: number }).c;
-    console.log(`\n[4/4] Done! ${totalTopics} total topics, ${totalArticles} total articles in database.`);
+    const totalTopicsResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(topics);
+    const totalArticlesResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(articles);
+
+    const totalTopics = totalTopicsResult[0]?.count || 0;
+    const totalArticles = totalArticlesResult[0]?.count || 0;
+
+    console.log(
+      `\n[4/4] Done! ${totalTopics} total topics, ${totalArticles} total articles in database.`
+    );
 
     // Log successful batch processing
-    logSuccess(request, 'batch_process', {
+    await logSuccess(request, "batch_process", {
       topicsProcessed: topicCount,
       articlesAdded: articleCount,
       scoresRecorded: scoreCount,
@@ -429,7 +459,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Batch processing completed successfully',
+      message: "Batch processing completed successfully",
       stats: {
         topicsProcessed: topicCount,
         articlesAdded: articleCount,
@@ -440,7 +470,11 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logFailure(request, 'batch_process', error instanceof Error ? error.message : 'Unknown error');
-    return createErrorResponse(error, 'Batch processing failed');
+    await logFailure(
+      request,
+      "batch_process",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return createErrorResponse(error, "Batch processing failed");
   }
 }

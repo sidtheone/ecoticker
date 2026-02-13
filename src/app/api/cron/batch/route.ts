@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { POST as seedPOST } from '@/app/api/seed/route';
-import { POST as batchPOST } from '@/app/api/batch/route';
+import { NextRequest, NextResponse } from "next/server";
+import { POST as seedPOST } from "@/app/api/seed/route";
+import { POST as batchPOST } from "@/app/api/batch/route";
 
 /**
  * Cron endpoint for triggering the batch job
@@ -22,27 +22,21 @@ import { POST as batchPOST } from '@/app/api/batch/route';
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized runs
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    console.error('CRON_SECRET not set in environment variables');
-    return NextResponse.json(
-      { error: 'Service misconfigured' },
-      { status: 500 }
-    );
+    console.error("CRON_SECRET not set in environment variables");
+    return NextResponse.json({ error: "Service misconfigured" }, { status: 500 });
   }
 
   if (authHeader !== `Bearer ${cronSecret}`) {
-    console.warn('Unauthorized cron job attempt');
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    console.warn("Unauthorized cron job attempt");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    console.log('Starting batch job via cron endpoint...');
+    console.log("Starting batch job via cron endpoint...");
     const startTime = Date.now();
 
     // Check if API keys are configured for real data processing
@@ -50,17 +44,17 @@ export async function GET(request: NextRequest) {
 
     let response;
     if (hasApiKeys) {
-      console.log('API keys detected - using real batch processing');
+      console.log("API keys detected - using real batch processing");
       // Call /api/batch to fetch and process real news
-      const batchRequest = new NextRequest(new URL('/api/batch', request.url), {
-        method: 'POST',
+      const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
+        method: "POST",
       });
       response = await batchPOST(batchRequest);
     } else {
-      console.log('No API keys - using demo seed data');
+      console.log("No API keys - using demo seed data");
       // Call /api/seed to populate with demo data
-      const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
-        method: 'POST',
+      const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
+        method: "POST",
       });
       response = await seedPOST(seedRequest);
     }
@@ -70,23 +64,23 @@ export async function GET(request: NextRequest) {
     console.log(`Batch job completed in ${duration}ms`);
 
     if (!response.ok) {
-      throw new Error(data.error || 'Batch endpoint failed');
+      throw new Error(data.error || "Batch endpoint failed");
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       durationMs: duration,
-      mode: hasApiKeys ? 'real-data' : 'demo-data',
+      mode: hasApiKeys ? "real-data" : "demo-data",
       stats: data.stats,
       message: data.message,
     });
   } catch (error) {
-    console.error('Batch job failed:', error);
+    console.error("Batch job failed:", error);
 
     return NextResponse.json(
       {
-        error: 'Batch job failed',
+        error: "Batch job failed",
         timestamp: new Date().toISOString(),
         details: error instanceof Error ? error.message : String(error),
       },
@@ -101,11 +95,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   // Same authentication as GET
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -119,15 +113,15 @@ export async function POST(request: NextRequest) {
 
     let response;
     if (hasApiKeys) {
-      console.log('API keys detected - using real batch processing');
-      const batchRequest = new NextRequest(new URL('/api/batch', request.url), {
-        method: 'POST',
+      console.log("API keys detected - using real batch processing");
+      const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
+        method: "POST",
       });
       response = await batchPOST(batchRequest);
     } else {
-      console.log('No API keys - using demo seed data');
-      const seedRequest = new NextRequest(new URL('/api/seed', request.url), {
-        method: 'POST',
+      console.log("No API keys - using demo seed data");
+      const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
+        method: "POST",
       });
       response = await seedPOST(seedRequest);
     }
@@ -135,23 +129,23 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Batch endpoint failed');
+      throw new Error(data.error || "Batch endpoint failed");
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       manual: true,
-      mode: hasApiKeys ? 'real-data' : 'demo-data',
+      mode: hasApiKeys ? "real-data" : "demo-data",
       stats: data.stats,
       message: data.message,
     });
   } catch (error) {
-    console.error('Manual batch job failed:', error);
+    console.error("Manual batch job failed:", error);
 
     return NextResponse.json(
       {
-        error: 'Batch job failed',
+        error: "Batch job failed",
         timestamp: new Date().toISOString(),
         details: error instanceof Error ? error.message : String(error),
       },

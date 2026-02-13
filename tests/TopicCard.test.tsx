@@ -25,6 +25,11 @@ function makeTopic(overrides: Partial<Topic> = {}): Topic {
     articleCount: 5,
     updatedAt: "2026-02-07T06:00:00Z",
     sparkline: [70, 72, 75, 78, 80, 82, 85],
+    healthScore: 85,
+    ecoScore: 85,
+    econScore: 85,
+    scoreReasoning: null,
+    hidden: false,
     ...overrides,
   };
 }

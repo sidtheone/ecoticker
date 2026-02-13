@@ -9,9 +9,9 @@ jest.mock("next/link", () => {
 });
 
 const mockTopics = [
-  { id: 1, name: "Arctic Ice Decline", slug: "arctic-ice-decline", category: "climate", region: "Arctic", currentScore: 85, previousScore: 79, change: 6, urgency: "breaking", impactSummary: "Ice melting", imageUrl: null, articleCount: 5, updatedAt: "2026-02-07", sparkline: [80, 82, 85] },
-  { id: 2, name: "Ganges Cleanup", slug: "ganges-cleanup", category: "water", region: "South Asia", currentScore: 45, previousScore: 52, change: -7, urgency: "moderate", impactSummary: "Progress", imageUrl: null, articleCount: 3, updatedAt: "2026-02-07", sparkline: [50, 48, 45] },
-  { id: 3, name: "Renewable Growth", slug: "renewable-growth", category: "energy", region: "Global", currentScore: 22, previousScore: 28, change: -6, urgency: "informational", impactSummary: "Solar up", imageUrl: null, articleCount: 2, updatedAt: "2026-02-07", sparkline: [26, 24, 22] },
+  { id: 1, name: "Arctic Ice Decline", slug: "arctic-ice-decline", category: "climate", region: "Arctic", currentScore: 85, previousScore: 79, change: 6, urgency: "breaking", impactSummary: "Ice melting", imageUrl: null, articleCount: 5, updatedAt: "2026-02-07", sparkline: [80, 82, 85], healthScore: 85, ecoScore: 85, econScore: 85, scoreReasoning: null, hidden: false },
+  { id: 2, name: "Ganges Cleanup", slug: "ganges-cleanup", category: "water", region: "South Asia", currentScore: 45, previousScore: 52, change: -7, urgency: "moderate", impactSummary: "Progress", imageUrl: null, articleCount: 3, updatedAt: "2026-02-07", sparkline: [50, 48, 45], healthScore: 45, ecoScore: 45, econScore: 45, scoreReasoning: null, hidden: false },
+  { id: 3, name: "Renewable Growth", slug: "renewable-growth", category: "energy", region: "Global", currentScore: 22, previousScore: 28, change: -6, urgency: "informational", impactSummary: "Solar up", imageUrl: null, articleCount: 2, updatedAt: "2026-02-07", sparkline: [26, 24, 22], healthScore: 22, ecoScore: 22, econScore: 22, scoreReasoning: null, hidden: false },
 ];
 
 let fetchUrl: string;

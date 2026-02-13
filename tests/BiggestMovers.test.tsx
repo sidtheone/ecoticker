@@ -9,9 +9,9 @@ jest.mock("next/link", () => {
 });
 
 const mockMovers = [
-  { name: "Arctic Ice Decline", slug: "arctic-ice-decline", currentScore: 85, change: 12 },
-  { name: "Delhi Air Quality", slug: "delhi-air-quality", currentScore: 91, change: -10 },
-  { name: "Ganges Cleanup", slug: "ganges-cleanup", currentScore: 45, change: 8 },
+  { name: "Arctic Ice Decline", slug: "arctic-ice-decline", currentScore: 85, change: 12, healthScore: 85, ecoScore: 85, econScore: 85, hidden: false },
+  { name: "Delhi Air Quality", slug: "delhi-air-quality", currentScore: 91, change: -10, healthScore: 91, ecoScore: 91, econScore: 91, hidden: false },
+  { name: "Ganges Cleanup", slug: "ganges-cleanup", currentScore: 45, change: 8, healthScore: 45, ecoScore: 45, econScore: 45, hidden: false },
 ];
 
 beforeEach(() => {

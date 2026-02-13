@@ -27,13 +27,14 @@ const mockData = {
     id: 1, name: "Arctic Ice Decline", slug: "arctic-ice-decline", category: "climate",
     region: "Arctic", currentScore: 85, previousScore: 79, change: 6, urgency: "breaking",
     impactSummary: "Sea ice at record lows", imageUrl: null, articleCount: 2, updatedAt: "2026-02-07",
+    healthScore: 85, ecoScore: 85, econScore: 85, scoreReasoning: null, hidden: false,
   },
   articles: [
-    { id: 1, topicId: 1, title: "Ice caps shrinking", url: "https://example.com/1", source: "Reuters", summary: "Fast decline", imageUrl: null, publishedAt: "2026-02-05T10:00:00Z" },
+    { id: 1, topicId: 1, title: "Ice caps shrinking", url: "https://example.com/1", source: "Reuters", summary: "Fast decline", imageUrl: null, publishedAt: "2026-02-05T10:00:00Z", sourceType: "news" },
   ],
   scoreHistory: [
-    { score: 75, healthScore: 60, ecoScore: 70, econScore: 65, impactSummary: null, date: "2026-02-01T00:00:00Z" },
-    { score: 85, healthScore: 70, ecoScore: 80, econScore: 75, impactSummary: null, date: "2026-02-07T00:00:00Z" },
+    { score: 75, healthScore: 60, ecoScore: 70, econScore: 65, impactSummary: null, date: "2026-02-01T00:00:00Z", healthLevel: null, ecoLevel: null, econLevel: null, healthReasoning: null, ecoReasoning: null, econReasoning: null, overallSummary: null, anomalyDetected: false },
+    { score: 85, healthScore: 70, ecoScore: 80, econScore: 75, impactSummary: null, date: "2026-02-07T00:00:00Z", healthLevel: null, ecoLevel: null, econLevel: null, healthReasoning: null, ecoReasoning: null, econReasoning: null, overallSummary: null, anomalyDetected: false },
   ],
 };
 

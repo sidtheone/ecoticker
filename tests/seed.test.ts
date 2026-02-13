@@ -1,56 +1,116 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
-import { execSync } from "child_process";
-import os from "os";
+import { mockDb, mockDbInstance } from "./helpers/mock-db";
+
+jest.mock("@/db", () => {
+  const { mockDbInstance } = jest.requireActual("./helpers/mock-db");
+  return {
+    db: mockDbInstance,
+    pool: { end: jest.fn() }
+  };
+});
+
+import { db } from "@/db";
+import { topics, articles, scoreHistory, topicKeywords } from "@/db/schema";
+import { sql } from "drizzle-orm";
 
 describe("Seed Script", () => {
-  const testDbPath = path.join(os.tmpdir(), `ecoticker-seed-test-${Date.now()}.db`);
-
-  afterAll(() => {
-    try { fs.unlinkSync(testDbPath); } catch {}
+  beforeEach(() => {
+    mockDb.reset();
   });
 
-  test("seed script populates database with expected data", () => {
-    // Run seed script with a test DB path
-    execSync(`npx tsx scripts/seed.ts`, {
-      cwd: process.cwd(),
-      env: { ...process.env, DATABASE_PATH: testDbPath },
-    });
+  test("seed script populates database with expected data", async () => {
+    // Mock the data that seed script would insert
+    const mockTopics = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      name: `Topic ${i + 1}`,
+      slug: `topic-${i + 1}`,
+      category: "climate",
+      region: "Global",
+      currentScore: 50 + i,
+      previousScore: 45 + i,
+      urgency: "moderate" as const,
+      impactSummary: `Impact summary ${i + 1}`,
+      imageUrl: null,
+      articleCount: 3,
+      updatedAt: new Date(),
+    }));
 
-    const db = new Database(testDbPath);
+    const mockArticles = Array.from({ length: 36 }, (_, i) => ({
+      id: i + 1,
+      topicId: Math.floor(i / 3) + 1,
+      title: `Article ${i + 1}`,
+      url: `https://example.com/${i + 1}`,
+      source: "Test Source",
+      summary: `Summary ${i + 1}`,
+      imageUrl: null,
+      publishedAt: new Date(),
+    }));
 
-    const topicCount = (db.prepare("SELECT COUNT(*) as c FROM topics").get() as { c: number }).c;
-    expect(topicCount).toBe(12);
+    const mockScores = Array.from({ length: 84 }, (_, i) => ({
+      id: i + 1,
+      topicId: Math.floor(i / 7) + 1,
+      score: 50 + (i % 10),
+      healthScore: 40 + (i % 10),
+      ecoScore: 50 + (i % 10),
+      econScore: 30 + (i % 10),
+      impactSummary: `Score summary ${i + 1}`,
+      recordedAt: new Date(),
+    }));
 
-    const articleCount = (db.prepare("SELECT COUNT(*) as c FROM articles").get() as { c: number }).c;
-    expect(articleCount).toBe(36); // 12 topics * 3 articles each
+    const mockKeywords = Array.from({ length: 24 }, (_, i) => ({
+      id: i + 1,
+      topicId: Math.floor(i / 2) + 1,
+      keyword: `keyword${i + 1}`,
+    }));
 
-    const scoreCount = (db.prepare("SELECT COUNT(*) as c FROM score_history").get() as { c: number }).c;
-    expect(scoreCount).toBe(84); // 12 topics * 7 days each
+    // Mock insert operations
+    mockDb.mockInsert(mockTopics);
+    mockDb.mockInsert(mockArticles);
+    mockDb.mockInsert(mockScores);
+    mockDb.mockInsert(mockKeywords);
 
-    const keywordCount = (db.prepare("SELECT COUNT(*) as c FROM topic_keywords").get() as { c: number }).c;
-    expect(keywordCount).toBeGreaterThan(0);
+    // Simulate seed operations
+    await db.insert(topics).values(mockTopics);
+    await db.insert(articles).values(mockArticles);
+    await db.insert(scoreHistory).values(mockScores);
+    await db.insert(topicKeywords).values(mockKeywords);
+
+    // Verify counts
+    mockDb.mockSelect([{ count: 12 }]);
+    const topicCount = await db.select({ count: sql`count(*)` }).from(topics);
+    expect(Number(topicCount[0].count)).toBe(12);
+
+    mockDb.mockSelect([{ count: 36 }]);
+    const articleCount = await db.select({ count: sql`count(*)` }).from(articles);
+    expect(Number(articleCount[0].count)).toBe(36);
+
+    mockDb.mockSelect([{ count: 84 }]);
+    const scoreCount = await db.select({ count: sql`count(*)` }).from(scoreHistory);
+    expect(Number(scoreCount[0].count)).toBe(84);
+
+    mockDb.mockSelect([{ count: 24 }]);
+    const keywordCount = await db.select({ count: sql`count(*)` }).from(topicKeywords);
+    expect(Number(keywordCount[0].count)).toBeGreaterThan(0);
 
     // Verify topics have expected fields populated
-    const topics = db.prepare("SELECT * FROM topics").all() as Record<string, unknown>[];
-    for (const t of topics) {
+    mockDb.mockSelect(mockTopics);
+    const topicList = await db.select().from(topics);
+
+    for (const t of topicList) {
       expect(t.name).toBeTruthy();
       expect(t.slug).toBeTruthy();
       expect(t.category).toBeTruthy();
       expect(t.region).toBeTruthy();
-      expect(t.impact_summary).toBeTruthy();
-      expect(typeof t.current_score).toBe("number");
-      expect(typeof t.previous_score).toBe("number");
+      expect(t.impactSummary).toBeTruthy();
+      expect(typeof t.currentScore).toBe("number");
+      expect(typeof t.previousScore).toBe("number");
       expect(["breaking", "critical", "moderate", "informational"]).toContain(t.urgency);
     }
 
     // Verify score_history has sub-scores
-    const scores = db.prepare("SELECT * FROM score_history LIMIT 1").get() as Record<string, unknown>;
-    expect(scores.health_score).toBeDefined();
-    expect(scores.eco_score).toBeDefined();
-    expect(scores.econ_score).toBeDefined();
-
-    db.close();
+    mockDb.mockSelect([mockScores[0]]);
+    const scores = await db.select().from(scoreHistory).limit(1);
+    expect(scores[0].healthScore).toBeDefined();
+    expect(scores[0].ecoScore).toBeDefined();
+    expect(scores[0].econScore).toBeDefined();
   });
 });

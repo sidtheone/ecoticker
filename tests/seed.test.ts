@@ -53,7 +53,7 @@ describe("Seed Script", () => {
       ecoScore: 50 + (i % 10),
       econScore: 30 + (i % 10),
       impactSummary: `Score summary ${i + 1}`,
-      recordedAt: new Date(),
+      recordedAt: new Date().toISOString().split('T')[0], // DATE type needs string in YYYY-MM-DD format
     }));
 
     const mockKeywords = Array.from({ length: 24 }, (_, i) => ({

@@ -184,7 +184,7 @@ describe("Batch Pipeline DB Operations", () => {
       category: "climate",
       currentScore: 0,
       previousScore: 0,
-      topicKeywords: [
+      keywords: [
         { id: 1, topicId: 1, keyword: "arctic" },
         { id: 2, topicId: 1, keyword: "sea ice" },
       ],
@@ -201,6 +201,7 @@ describe("Batch Pipeline DB Operations", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Arctic Ice");
+    expect(result[0].keywords).toBeDefined();
     expect(result[0].keywords.map((k: { keyword: string }) => k.keyword)).toEqual(["arctic", "sea ice"]);
   });
 });

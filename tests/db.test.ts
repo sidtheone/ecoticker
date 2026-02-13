@@ -16,6 +16,7 @@ import {
   topicViews,
   scoreFeedback,
 } from "../src/db/schema";
+import { eq, and, gte } from "drizzle-orm";
 import { mockDb, mockDbInstance } from "./helpers/mock-db";
 
 // Mock the database module
@@ -84,7 +85,12 @@ describe("Database Schema", () => {
 
       mockDb.mockSelect(mockTopics);
 
-      const result = await db.select().from(topics).where({}).orderBy({}).limit(10);
+      const result = await db
+        .select()
+        .from(topics)
+        .where(gte(topics.currentScore, 50))
+        .orderBy(topics.currentScore)
+        .limit(10);
 
       expect(mockDb.chain.select).toHaveBeenCalled();
       expect(mockDb.chain.from).toHaveBeenCalled();
@@ -98,7 +104,10 @@ describe("Database Schema", () => {
 
       const result = await db
         .insert(topics)
-        .values({ name: "New Topic", slug: "new-topic" })
+        .values({
+          name: "New Topic",
+          slug: "new-topic",
+        })
         .returning();
 
       expect(mockDb.chain.insert).toHaveBeenCalled();
@@ -114,7 +123,7 @@ describe("Database Schema", () => {
       const result = await db
         .update(topics)
         .set({ currentScore: 80 })
-        .where({})
+        .where(eq(topics.id, 1))
         .returning();
 
       expect(mockDb.chain.update).toHaveBeenCalled();
@@ -127,7 +136,10 @@ describe("Database Schema", () => {
 
       mockDb.mockDelete(mockResult);
 
-      const result = await db.delete(topics).where({}).returning();
+      const result = await db
+        .delete(topics)
+        .where(eq(topics.id, 1))
+        .returning();
 
       expect(mockDb.chain.delete).toHaveBeenCalled();
       expect(mockDb.chain.where).toHaveBeenCalled();
@@ -144,15 +156,15 @@ describe("Database Schema", () => {
           { id: 2, title: "Article 2", url: "https://example.com/2" },
         ],
         scoreHistory: [
-          { id: 1, score: 75, recordedAt: new Date("2026-01-01") },
-          { id: 2, score: 80, recordedAt: new Date("2026-01-02") },
+          { id: 1, score: 75, recordedAt: "2026-01-01" },
+          { id: 2, score: 80, recordedAt: "2026-01-02" },
         ],
       };
 
       mockDb.mockFindFirst("topics", mockTopic);
 
       const result = await db.query.topics.findFirst({
-        where: {},
+        where: eq(topics.slug, "climate-change"),
         with: { articles: true, scoreHistory: true },
       });
 
@@ -168,7 +180,9 @@ describe("Database Schema", () => {
 
       mockDb.mockFindMany("topics", mockTopics);
 
-      const result = await db.query.topics.findMany({ where: {} });
+      const result = await db.query.topics.findMany({
+        where: eq(topics.category, "climate"),
+      });
 
       expect(mockDb.query.topics.findMany).toHaveBeenCalled();
       expect(result).toEqual(mockTopics);
@@ -185,7 +199,11 @@ describe("Database Schema", () => {
 
       const result = await db
         .insert(topics)
-        .values({ slug: "climate", currentScore: 80 })
+        .values({
+          name: "Climate Change",
+          slug: "climate",
+          currentScore: 80,
+        })
         .onConflictDoUpdate({
           target: topics.slug,
           set: { currentScore: 80 },
@@ -203,7 +221,11 @@ describe("Database Schema", () => {
 
       const result = await db
         .insert(articles)
-        .values({ url: "https://example.com/dupe", title: "Dupe" })
+        .values({
+          topicId: 1,
+          url: "https://example.com/dupe",
+          title: "Dupe",
+        })
         .onConflictDoNothing({ target: articles.url });
 
       expect(mockDb.chain.insert).toHaveBeenCalled();
@@ -253,7 +275,10 @@ describe("Database Schema", () => {
       const data = [{ id: 1 }];
       mockDb.mockSelect(data);
 
-      const result = await db.select().from(topics).where({});
+      const result = await db
+        .select()
+        .from(topics)
+        .where(eq(topics.id, 1));
 
       expect(result).toEqual(data);
     });
@@ -262,7 +287,13 @@ describe("Database Schema", () => {
       const data = [{ id: 1 }];
       mockDb.mockInsert(data);
 
-      const result = await db.insert(topics).values({}).returning();
+      const result = await db
+        .insert(topics)
+        .values({
+          name: "Test Topic",
+          slug: "test-topic",
+        })
+        .returning();
 
       expect(result).toEqual(data);
     });
@@ -271,7 +302,9 @@ describe("Database Schema", () => {
       const data = { id: 1, name: "Test" };
       mockDb.mockFindFirst("topics", data);
 
-      const result = await db.query.topics.findFirst({ where: {} });
+      const result = await db.query.topics.findFirst({
+        where: eq(topics.id, 1),
+      });
 
       expect(result).toEqual(data);
     });

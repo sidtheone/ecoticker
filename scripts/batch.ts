@@ -158,23 +158,69 @@ async function classifyArticles(
 
   const titlesList = articles.map((a, i) => `${i}. ${a.title}`).join("\n");
 
-  const prompt = `You are an environmental news classifier. Group these articles into environmental topics.
+  const prompt = `You are an environmental news filter and classifier.
+
+TASK 1 - FILTER: Identify which articles are about ENVIRONMENTAL topics.
+
+✅ INCLUDE articles about:
+- Climate impacts: heatwaves, floods, droughts, storms, sea level rise
+- Biodiversity: species extinction, habitat loss, wildlife decline
+- Pollution: air quality, water contamination, plastic, chemicals (PFAS, etc.)
+- Oceans: coral bleaching, acidification, overfishing, marine pollution
+- Forests: deforestation, wildfires, forest degradation
+- Energy & emissions: fossil fuels, renewables, carbon emissions
+- Environmental policy: regulations, treaties, climate action
+
+❌ REJECT articles about:
+- Celebrity/entertainment news
+- Sports and games
+- General politics (unless environmental policy)
+- Business news (unless environmental impact)
+- Technology (unless climate/environmental tech)
+- Pet care, animal trivia, lifestyle
+- Product reviews, shopping deals, promotions
+
+TASK 2 - CLASSIFY: Group relevant environmental articles into topics.
+
 Use existing topics where they match. Create new topic names only when no existing topic fits.
 Each topic should be a clear environmental issue (e.g. "Amazon Deforestation", "Delhi Air Quality Crisis").
 
 Existing topics:
 ${topicsList}
 
-Articles:
+Articles to classify:
 ${titlesList}
 
 Respond with ONLY valid JSON, no other text:
-{"classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...]}`;
+{
+  "classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...],
+  "rejected": [1, 3, 5],
+  "rejectionReasons": ["Celebrity news", "Pet care Q&A"]
+}`;
 
   const response = await callLLM(prompt);
-  const parsed = extractJSON(response) as { classifications?: Classification[] } | null;
+  const parsed = extractJSON(response) as {
+    classifications?: Classification[];
+    rejected?: number[];
+    rejectionReasons?: string[];
+  } | null;
 
-  if (parsed?.classifications) return parsed.classifications;
+  if (parsed?.classifications) {
+    // Log rejection statistics
+    if (parsed.rejected && parsed.rejected.length > 0) {
+      console.log(`📋 Filtered ${parsed.rejected.length} irrelevant articles:`);
+      parsed.rejectionReasons?.forEach((reason, i) => {
+        const articleIdx = parsed.rejected![i];
+        const article = articles[articleIdx];
+        if (article) {
+          console.log(`   ❌ [${articleIdx}] "${article.title.substring(0, 60)}..." (${reason})`);
+        }
+      });
+      const relevanceRate = ((articles.length - parsed.rejected.length) / articles.length * 100).toFixed(1);
+      console.log(`✅ Relevance rate: ${relevanceRate}% (${articles.length - parsed.rejected.length}/${articles.length} articles)`);
+    }
+    return parsed.classifications;
+  }
 
   // Fallback: assign all to a generic topic
   console.warn("Classification LLM failed, using fallback grouping");

@@ -10,6 +10,7 @@ jest.mock("next/link", () => {
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ slug: "arctic-ice-decline" }),
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
 jest.mock("recharts", () => ({
@@ -251,6 +252,35 @@ describe("Sub-Score Breakdown", () => {
     expect(screen.getByText("Arctic ice decline accelerating with cascading effects across all dimensions.")).toBeInTheDocument();
     // topic.impactSummary should NOT be shown
     expect(screen.queryByText("Sea ice at record lows")).not.toBeInTheDocument();
+  });
+
+  test("renders article count line with plural articles", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Latest score based on 2 articles");
+    });
+  });
+
+  test("renders article count line with singular article", async () => {
+    setupFetch({
+      ...mockData,
+      topic: { ...mockData.topic, articleCount: 1 },
+    });
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Latest score based on 1 article");
+    });
+  });
+
+  test("renders zero-article message when articleCount is 0", async () => {
+    setupFetch({
+      ...mockData,
+      topic: { ...mockData.topic, articleCount: 0 },
+    });
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("No articles available for this topic");
+    });
   });
 
   test("falls back to impactSummary when overallSummary is null", async () => {

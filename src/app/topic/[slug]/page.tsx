@@ -9,6 +9,7 @@ import { eventBus } from "@/lib/events";
 import ScoreChart from "@/components/ScoreChart";
 import ArticleList from "@/components/ArticleList";
 import UrgencyBadge from "@/components/UrgencyBadge";
+import ScoreInfoIcon from "@/components/ScoreInfoIcon";
 
 const DIMENSIONS = [
   { key: "eco", label: "Ecological Impact", weight: "40%" },
@@ -121,7 +122,10 @@ export default function TopicDetailPage() {
           </div>
         </div>
         <div className="sm:text-right">
-          <div className="text-3xl sm:text-4xl font-bold text-stone-800 dark:text-white" data-testid="detail-score">{topic.currentScore}</div>
+          <div className="flex items-center gap-2 sm:justify-end">
+            <span className="text-3xl sm:text-4xl font-bold text-stone-800 dark:text-white" data-testid="detail-score">{topic.currentScore}</span>
+            <ScoreInfoIcon />
+          </div>
           <div className={`text-sm font-medium ${changeColor(topic.change)}`} data-testid="detail-change">
             {formatChange(topic.change)}
           </div>
@@ -230,6 +234,13 @@ export default function TopicDetailPage() {
           Sub-score breakdown unavailable — insufficient article data
         </div>
       )}
+
+      {/* Article count attribution */}
+      <div className="mb-4 text-sm text-stone-500 dark:text-gray-400" data-testid="article-count-line">
+        {topic.articleCount > 0
+          ? `Latest score based on ${topic.articleCount} article${topic.articleCount !== 1 ? "s" : ""}`
+          : "No articles available for this topic"}
+      </div>
 
       <div className="mb-6">
         <ScoreChart history={scoreHistory} />

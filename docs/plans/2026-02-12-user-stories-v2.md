@@ -1,3 +1,5 @@
+> **SUPERSEDED** — Stories converted to BMM epics in `_bmad-output/planning-artifacts/epic-*.md` (2026-02-17). This document retained as historical reference for persona journeys and design rationale.
+
 # EcoTicker v2 — User Stories (Deep Revision)
 
 **Date:** 2026-02-12

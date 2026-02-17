@@ -8,6 +8,10 @@ jest.mock("next/link", () => {
   };
 });
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 const mockTopics = [
   { id: 1, name: "Arctic Ice Decline", slug: "arctic-ice-decline", category: "climate", region: "Arctic", currentScore: 85, previousScore: 79, change: 6, urgency: "breaking", impactSummary: "Ice melting", imageUrl: null, articleCount: 5, updatedAt: "2026-02-07", sparkline: [80, 82, 85], healthScore: 85, ecoScore: 85, econScore: 85, scoreReasoning: null, hidden: false },
   { id: 2, name: "Ganges Cleanup", slug: "ganges-cleanup", category: "water", region: "South Asia", currentScore: 45, previousScore: 52, change: -7, urgency: "moderate", impactSummary: "Progress", imageUrl: null, articleCount: 3, updatedAt: "2026-02-07", sparkline: [50, 48, 45], healthScore: 45, ecoScore: 45, econScore: 45, scoreReasoning: null, hidden: false },
@@ -125,9 +129,9 @@ describe("TopicGrid", () => {
     });
     // "All Categories" + 3 unique categories (climate, energy, water) sorted alphabetically
     expect(screen.getByTestId("filter-category-all")).toBeInTheDocument();
-    expect(screen.getByText("Climate")).toBeInTheDocument();
-    expect(screen.getByText("Energy")).toBeInTheDocument();
-    expect(screen.getByText("Water")).toBeInTheDocument();
+    expect(screen.getByTestId("filter-category-climate")).toHaveTextContent("Climate");
+    expect(screen.getByTestId("filter-category-energy")).toHaveTextContent("Energy");
+    expect(screen.getByTestId("filter-category-water")).toHaveTextContent("Water");
   });
 
   test("does not show categories not present in topics", async () => {

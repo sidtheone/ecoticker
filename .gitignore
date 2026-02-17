@@ -38,6 +38,13 @@ yarn-error.log*
 .vscode/
 .idea/
 
+# Claude Code
+.claude/
+
+# BMM tooling
+_bmad/
+_bmad-output/
+
 # Docker
 .docker/
 .serena/

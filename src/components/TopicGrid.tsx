@@ -2,21 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { Topic, Urgency, Category } from "@/lib/types";
+import { CATEGORY_LABELS } from "@/lib/utils";
 import TopicCard from "./TopicCard";
 import { eventBus } from "@/lib/events";
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  air_quality: "Air Quality",
-  deforestation: "Deforestation",
-  ocean: "Ocean",
-  climate: "Climate",
-  pollution: "Pollution",
-  biodiversity: "Biodiversity",
-  wildlife: "Wildlife",
-  energy: "Energy",
-  waste: "Waste",
-  water: "Water",
-};
 
 export default function TopicGrid() {
   const [topics, setTopics] = useState<Topic[]>([]);

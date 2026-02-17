@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { TopicDetail, ScoreHistoryEntry } from "@/lib/types";
@@ -50,6 +50,25 @@ export default function TopicDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [expandedDimensions, setExpandedDimensions] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState(false);
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+      shareTimerRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (HTTP, no focus, permission denied)
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    };
+  }, []);
 
   const toggleReasoning = (key: string) => {
     setExpandedDimensions((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -119,6 +138,13 @@ export default function TopicDetailPage() {
             <UrgencyBadge urgency={topic.urgency} />
             {topic.region && <span className="text-sm text-stone-400 dark:text-gray-400">{topic.region}</span>}
             <span className="text-sm text-stone-400 dark:text-gray-500">{topic.category}</span>
+            <button
+              onClick={handleShare}
+              className="text-sm px-3 py-1 rounded-md border border-stone-300 dark:border-gray-600 text-stone-600 dark:text-gray-300 hover:bg-stone-100 dark:hover:bg-gray-800 transition-colors"
+              data-testid="share-button"
+            >
+              {copied ? "Link copied!" : "Share"}
+            </button>
           </div>
         </div>
         <div className="sm:text-right">

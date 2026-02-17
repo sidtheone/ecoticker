@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import TopicDetailPage from "@/app/topic/[slug]/page";
 
@@ -281,6 +281,53 @@ describe("Sub-Score Breakdown", () => {
     await waitFor(() => {
       expect(screen.getByTestId("article-count-line")).toHaveTextContent("No articles available for this topic");
     });
+  });
+
+  test("renders share button", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("share-button")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("share-button")).toHaveTextContent("Share");
+  });
+
+  test("share button copies URL to clipboard and shows confirmation", async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("share-button")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("share-button"));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(window.location.href);
+      expect(screen.getByTestId("share-button")).toHaveTextContent("Link copied!");
+    });
+  });
+
+  test("share button reverts to 'Share' after 2 seconds", async () => {
+    jest.useFakeTimers();
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("share-button")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("share-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("share-button")).toHaveTextContent("Link copied!");
+    });
+
+    act(() => { jest.advanceTimersByTime(2000); });
+
+    expect(screen.getByTestId("share-button")).toHaveTextContent("Share");
+    jest.useRealTimers();
   });
 
   test("falls back to impactSummary when overallSummary is null", async () => {

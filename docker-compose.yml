@@ -1,12 +1,31 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ecoticker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+
   app:
     build: .
     restart: unless-stopped
     env_file: .env
     environment:
-      - DATABASE_PATH=/data/ecoticker.db
-    volumes:
-      - ecoticker-data:/data
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ecoticker
+    depends_on:
+      postgres:
+        condition: service_healthy
     expose:
       - "3000"
     mem_limit: 1g
@@ -26,13 +45,15 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - DATABASE_PATH=/data/ecoticker.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ecoticker
     volumes:
-      - ecoticker-data:/data
       - ./crontab:/etc/crontabs/nextjs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     entrypoint: ["crond", "-f", "-l", "2"]
     user: root
     mem_limit: 512m
 
 volumes:
-  ecoticker-data:
+  pgdata:

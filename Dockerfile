@@ -28,24 +28,22 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Extra runtime files for batch script + native SQLite
-COPY --from=builder /app/db ./db
+# Extra runtime files for batch script (pg is pure JS, no native binaries needed)
 COPY --from=builder /app/scripts ./scripts
-COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
-COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
-COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 COPY --from=deps /app/node_modules/slugify ./node_modules/slugify
+COPY --from=deps /app/node_modules/pg ./node_modules/pg
+COPY --from=deps /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
 COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=builder /app/package.json ./package.json
 
-RUN mkdir -p /data && chown nextjs:nodejs /data
+# Copy Drizzle schema for runtime access
+COPY --from=builder /app/src/db ./src/db
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENV DATABASE_PATH=/data/ecoticker.db
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 

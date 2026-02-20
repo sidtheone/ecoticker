@@ -1,73 +1,88 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import type { TopicRow, ArticleRow, ScoreHistoryRow } from "@/lib/types";
+import { db } from "@/db";
+import { topics } from "@/db/schema";
+import { eq, desc, asc } from "drizzle-orm";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const db = getDb();
 
-  const topicRow = db.prepare(`
-    SELECT id, name, slug, category, region,
-      current_score, previous_score,
-      (current_score - previous_score) as change,
-      urgency, impact_summary, image_url, article_count, updated_at
-    FROM topics WHERE slug = ?
-  `).get(slug) as TopicRow | undefined;
+  // Drizzle relational query: fetch topic with articles and score history in one go
+  const result = await db.query.topics.findFirst({
+    where: eq(topics.slug, slug),
+    with: {
+      articles: {
+        orderBy: (articles, { desc }) => [desc(articles.publishedAt)],
+      },
+      scoreHistory: {
+        orderBy: (scoreHistory, { asc }) => [asc(scoreHistory.recordedAt)],
+      },
+    },
+  });
 
-  if (!topicRow) {
+  if (!result) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
 
-  const articles = db.prepare(`
-    SELECT id, topic_id, title, url, source, summary, image_url, published_at
-    FROM articles WHERE topic_id = ? ORDER BY published_at DESC
-  `).all(topicRow.id) as ArticleRow[];
+  // Transform to API response format (camelCase)
+  const change = (result.currentScore || 0) - (result.previousScore || 0);
 
-  const scoreHistory = db.prepare(`
-    SELECT score, health_score, eco_score, econ_score, impact_summary, recorded_at
-    FROM score_history WHERE topic_id = ? ORDER BY recorded_at ASC
-  `).all(topicRow.id) as ScoreHistoryRow[];
-
-  return NextResponse.json({
-    topic: {
-      id: topicRow.id,
-      name: topicRow.name,
-      slug: topicRow.slug,
-      category: topicRow.category,
-      region: topicRow.region,
-      currentScore: topicRow.current_score,
-      previousScore: topicRow.previous_score,
-      change: topicRow.change,
-      urgency: topicRow.urgency,
-      impactSummary: topicRow.impact_summary,
-      imageUrl: topicRow.image_url,
-      articleCount: topicRow.article_count,
-      updatedAt: topicRow.updated_at,
+  return NextResponse.json(
+    {
+      topic: {
+        id: result.id,
+        name: result.name,
+        slug: result.slug,
+        category: result.category,
+        region: result.region,
+        currentScore: result.currentScore,
+        previousScore: result.previousScore,
+        change,
+        urgency: result.urgency,
+        impactSummary: result.impactSummary,
+        imageUrl: result.imageUrl,
+        articleCount: result.articleCount,
+        healthScore: result.healthScore,
+        ecoScore: result.ecoScore,
+        econScore: result.econScore,
+        scoreReasoning: result.scoreReasoning,
+        hidden: result.hidden,
+        updatedAt: result.updatedAt ? new Date(result.updatedAt).toISOString() : null,
+      },
+      articles: result.articles.map((a) => ({
+        id: a.id,
+        topicId: a.topicId,
+        title: a.title,
+        url: a.url,
+        source: a.source,
+        summary: a.summary,
+        imageUrl: a.imageUrl,
+        sourceType: a.sourceType || "newsapi",
+        publishedAt: a.publishedAt?.toISOString() || null,
+      })),
+      scoreHistory: result.scoreHistory.map((s) => ({
+        score: s.score,
+        healthScore: s.healthScore,
+        ecoScore: s.ecoScore,
+        econScore: s.econScore,
+        impactSummary: s.impactSummary,
+        healthLevel: s.healthLevel,
+        ecoLevel: s.ecoLevel,
+        econLevel: s.econLevel,
+        healthReasoning: s.healthReasoning,
+        ecoReasoning: s.ecoReasoning,
+        econReasoning: s.econReasoning,
+        overallSummary: s.overallSummary,
+        anomalyDetected: s.anomalyDetected,
+        date: s.recordedAt ? new Date(s.recordedAt).toISOString() : null,
+      })),
     },
-    articles: articles.map((a) => ({
-      id: a.id,
-      topicId: a.topic_id,
-      title: a.title,
-      url: a.url,
-      source: a.source,
-      summary: a.summary,
-      imageUrl: a.image_url,
-      publishedAt: a.published_at,
-    })),
-    scoreHistory: scoreHistory.map((s) => ({
-      score: s.score,
-      healthScore: s.health_score,
-      ecoScore: s.eco_score,
-      econScore: s.econ_score,
-      impactSummary: s.impact_summary,
-      date: s.recorded_at,
-    })),
-  }, {
-    headers: {
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
+    {
+      headers: {
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+      },
     }
-  });
+  );
 }

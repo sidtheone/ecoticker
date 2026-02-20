@@ -1,6 +1,12 @@
 import { GET, POST } from '@/app/api/cron/batch/route';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Mock the database
+jest.mock('@/db', () => ({
+  db: {} as any,
+  pool: { end: jest.fn() }
+}));
+
 // Mock the seed and batch endpoints
 jest.mock('@/app/api/seed/route', () => ({
   POST: jest.fn(),

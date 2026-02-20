@@ -4,75 +4,6 @@
 
 Environmental news impact tracker. Aggregates news via NewsAPI, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.
 
-## 🚀 Efficient Context Loading
-
-**IMPORTANT: Always read `PROJECT_INDEX.md` first to understand the codebase efficiently.**
-
-### Token Efficiency
-
-- **Without index:** Reading all files = ~57,000 tokens per session
-- **With index:** Reading PROJECT_INDEX.md = ~3,500 tokens (94% reduction)
-- **Savings:** 53,500 tokens per session
-
-### Available Index Files
-
-1. **`PROJECT_INDEX.md`** (12 KB) — Human-readable comprehensive index
-   - Complete project structure with file purposes
-   - All 11 API endpoints documented (public + protected)
-   - All 10 React components mapped
-   - Database schema (5 tables)
-   - Security features, Docker services, CI/CD
-   - 100% accuracy verified
-
-2. **`PROJECT_INDEX.json`** (11 KB) — Machine-readable structured data
-   - Programmatic access to project metadata
-   - API definitions with parameters and responses
-   - Stack information, metrics, quick start guide
-
-3. **`docs/TOKEN_EFFICIENCY_REPORT.md`** — Detailed ROI analysis
-   - Token savings calculations
-   - Best practices and usage patterns
-
-### Recommended Workflow
-
-```bash
-# 1. Start every session by reading the index
-cat PROJECT_INDEX.md  # 3,500 tokens
-
-# 2. Identify relevant files from the index
-# Example: Need to modify auth? Index shows: src/lib/auth.ts
-
-# 3. Read ONLY those specific files
-cat src/lib/auth.ts  # 1,500 tokens
-
-# Total: 5,000 tokens vs 57,000 tokens (91% savings)
-```
-
-### When to Use the Index
-
-✅ **Use PROJECT_INDEX.md for:**
-- Starting any new coding session
-- Understanding project architecture
-- Finding entry points (pages, APIs, components)
-- Locating specific utilities or modules
-- Understanding database schema
-- Reviewing test coverage and security features
-
-❌ **Don't use for:**
-- Reading actual implementation code
-- Line-by-line debugging
-- Understanding complex algorithms
-
-### Keeping the Index Updated
-
-The index should be updated when:
-- Adding new API routes or components
-- Creating new database tables
-- Significant architecture changes
-- Major security features added
-
-**Update command:** Re-run the index-repo tool (see docs/TOKEN_EFFICIENCY_REPORT.md)
-
 ## ⚠️ CRITICAL: Pre-Commit Requirements
 
 **ALWAYS build and check for errors before committing:**
@@ -103,30 +34,33 @@ The index should be updated when:
 ## Tech Stack
 
 - **Next.js 16** (App Router, TypeScript, Tailwind CSS 4)
-- **SQLite** via better-sqlite3 (WAL mode)
+- **PostgreSQL 17** + **Drizzle ORM** (type-safe query builder)
 - **Recharts** for sparklines and score charts
 - **Zod** for input validation
-- **Docker Compose** (app + nginx + cron)
+- **Docker Compose** (app + nginx + cron + postgres)
 
 ## Key Commands
 
 ```bash
 npm run dev          # Dev server on :3000
+npx drizzle-kit push # Push schema changes to PostgreSQL
+npx drizzle-kit studio # Open Drizzle Studio (GUI for DB)
 npx jest             # Run all 132 tests (17 suites)
 npx jest --coverage  # With coverage (98.6% stmts)
 npx tsx scripts/seed.ts   # Seed sample data
 npx tsx scripts/batch.ts  # Run batch pipeline
 docker compose build      # Build Docker images
-docker compose up -d      # Start production stack
+docker compose up -d      # Start production stack (app + postgres + nginx + cron)
 ```
 
 ## Project Structure
 
 - `src/app/` — Pages (dashboard, topic detail) + API routes (topics, articles, ticker, movers, batch, seed, cleanup, audit-logs)
 - `src/components/` — ThemeProvider, ThemeToggle, TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
-- `src/lib/` — db.ts (SQLite singleton), types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
+- `src/lib/` — types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
+- `src/db/` — index.ts (Drizzle connection pool), schema.ts (Drizzle schema definitions)
 - `scripts/` — batch.ts (daily pipeline), seed.ts (demo data)
-- `db/schema.sql` — 5 tables: topics, articles, score_history, topic_keywords, audit_logs
+- `drizzle.config.ts` — Drizzle Kit configuration for migrations
 - `tests/` — Jest with two projects: node (.test.ts) and react/jsdom (.test.tsx)
 
 ## Security Features
@@ -147,8 +81,10 @@ docker compose up -d      # Start production stack
 - Theme: class-based dark mode (`@custom-variant dark`), warm cream/beige light theme, localStorage persistence, OS preference fallback
 - API input validation: urgency/category params validated against allowed enums (400 on invalid), write endpoints use Zod schemas
 - Batch pipeline: 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
-- SQLite dedup: UNIQUE on articles.url with INSERT OR IGNORE
-- Topic upsert rotates previous_score before updating current_score
+- Database operations: All async/await with Drizzle query builder (e.g., `db.select().from(topics)`)
+- Article dedup: UNIQUE constraint on articles.url with ON CONFLICT DO NOTHING
+- Topic upsert: Use Drizzle's `.onConflictDoUpdate()` to rotate previous_score before updating current_score
+- Connection pooling: PostgreSQL connection pool managed by Drizzle (pg library)
 - Authentication: requireAdminKey() check at start of all write handlers, returns 401 if missing/invalid
 
 ## Testing
@@ -156,13 +92,16 @@ docker compose up -d      # Start production stack
 - Mock `next/link` as `<a>` in component tests
 - Mock `recharts` as simple divs with data-testid in jsdom tests
 - Mock `global.fetch` for component tests that fetch API data
-- API tests use real SQLite in-memory DBs with schema loaded from db/schema.sql
+- API tests mock `@/db` module (Drizzle queries) for unit tests; local integration tests use real PostgreSQL
+- CI tests run with mocked database to avoid PostgreSQL dependency in GitHub Actions
 - Jest config: two projects — "node" (ts-jest, node env) and "react" (ts-jest, jsdom env, @/ path alias)
 
 ## Docker
 
 - Multi-stage Dockerfile with `output: "standalone"` in next.config.ts
-- Named volume `ecoticker-data` shared between app and cron containers for SQLite
+- PostgreSQL 17 service with named volume `pgdata` for data persistence
+- Named volume `ecoticker-data` removed (PostgreSQL replaces SQLite file storage)
+- App and cron containers connect to postgres service via DATABASE_URL
 - Alpine crond for daily batch at 6AM UTC
 - Nginx reverse proxy on :80 with gzip, static asset caching, and security headers (CSP, X-Frame-Options, etc.)
 

@@ -3,32 +3,32 @@ import type { NextRequest } from 'next/server';
 import { readLimiter, writeLimiter, batchLimiter } from '@/lib/rate-limit';
 
 export function middleware(request: NextRequest) {
-  // Rate limiting
-  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
   const path = request.nextUrl.pathname;
   const method = request.method;
 
-  // Determine which rate limiter to use based on endpoint and method
-  let limiter = readLimiter;
-  if (path.includes('/batch') || path.includes('/seed')) {
-    // Batch operations have strictest limits (2/hour)
-    limiter = batchLimiter;
-  } else if (method !== 'GET' && method !== 'HEAD') {
-    // Write operations (POST/PUT/DELETE) have moderate limits (10/min)
-    limiter = writeLimiter;
-  }
+  // Rate limiting — only for API routes
+  if (path.startsWith('/api/')) {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
-  if (!limiter.check(ip)) {
-    const resetTime = limiter.getResetTime(ip);
-    const retryAfter = Math.ceil((resetTime - Date.now()) / 1000);
+    let limiter = readLimiter;
+    if (path.includes('/batch') || path.includes('/seed')) {
+      limiter = batchLimiter;
+    } else if (method !== 'GET' && method !== 'HEAD') {
+      limiter = writeLimiter;
+    }
 
-    return new NextResponse('Too Many Requests', {
-      status: 429,
-      headers: {
-        'Retry-After': String(retryAfter),
-        'X-RateLimit-Reset': String(resetTime),
-      },
-    });
+    if (!limiter.check(ip)) {
+      const resetTime = limiter.getResetTime(ip);
+      const retryAfter = Math.ceil((resetTime - Date.now()) / 1000);
+
+      return new NextResponse('Too Many Requests', {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'X-RateLimit-Reset': String(resetTime),
+        },
+      });
+    }
   }
 
   const response = NextResponse.next();
@@ -56,5 +56,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/:path*',
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|svg|ico)$).*)'],
 };

@@ -1,5 +1,7 @@
 export type Urgency = "breaking" | "critical" | "moderate" | "informational";
 
+export type SeverityLevel = "MINIMAL" | "MODERATE" | "SIGNIFICANT" | "SEVERE" | "INSUFFICIENT_DATA";
+
 export type Category =
   | "air_quality"
   | "deforestation"
@@ -25,6 +27,13 @@ export interface Topic {
   impactSummary: string | null;
   imageUrl: string | null;
   articleCount: number;
+  // US-1.1: sub-scores
+  healthScore: number;
+  ecoScore: number;
+  econScore: number;
+  scoreReasoning: string | null;
+  // US-4.2: soft-hide
+  hidden: boolean;
   updatedAt: string;
   sparkline: number[];
 }
@@ -37,6 +46,8 @@ export interface Article {
   source: string | null;
   summary: string | null;
   imageUrl: string | null;
+  // US-5.2: source attribution
+  sourceType: string;
   publishedAt: string | null;
 }
 
@@ -46,6 +57,15 @@ export interface ScoreHistoryEntry {
   ecoScore: number | null;
   econScore: number | null;
   impactSummary: string | null;
+  // US-1.1: levels, reasoning, anomaly
+  healthLevel: string | null;
+  ecoLevel: string | null;
+  econLevel: string | null;
+  healthReasoning: string | null;
+  ecoReasoning: string | null;
+  econReasoning: string | null;
+  overallSummary: string | null;
+  anomalyDetected: boolean;
   date: string;
 }
 
@@ -62,49 +82,5 @@ export interface TopicDetail {
   scoreHistory: ScoreHistoryEntry[];
 }
 
-// Database row types (snake_case from SQLite)
-export interface TopicRow {
-  id: number;
-  name: string;
-  slug: string;
-  category: string;
-  region: string | null;
-  current_score: number;
-  previous_score: number;
-  change: number;
-  urgency: string;
-  impact_summary: string | null;
-  image_url: string | null;
-  article_count: number;
-  updated_at: string;
-  sparkline_scores?: string | null;
-}
-
-export interface ArticleRow {
-  id: number;
-  topic_id: number;
-  title: string;
-  url: string;
-  source: string | null;
-  summary: string | null;
-  image_url: string | null;
-  published_at: string | null;
-}
-
-export interface ScoreHistoryRow {
-  score: number;
-  health_score: number | null;
-  eco_score: number | null;
-  econ_score: number | null;
-  impact_summary: string | null;
-  recorded_at: string;
-}
-
-export interface MoverRow {
-  name: string;
-  slug: string;
-  current_score: number;
-  previous_score: number;
-  change: number;
-  urgency: string;
-}
+// Note: Database row types (TopicRow, ArticleRow, etc.) are now inferred from Drizzle schema.
+// Use `typeof topics.$inferSelect` for type-safe row types.

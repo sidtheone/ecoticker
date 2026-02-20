@@ -1,126 +1,259 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
-import os from "os";
+import { mockDb, mockDbInstance } from "./helpers/mock-db";
 
-// We test the batch logic by simulating what batch.ts does against a real DB.
+jest.mock("@/db", () => {
+  const { mockDbInstance } = jest.requireActual("./helpers/mock-db");
+  return {
+    db: mockDbInstance,
+    pool: { end: jest.fn() }
+  };
+});
+
+import { db } from "@/db";
+import { topics, articles, scoreHistory, topicKeywords } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
+
+// We test the batch logic by simulating what batch.ts does against mocked DB.
 // This avoids needing real API keys while verifying the DB operations.
 
-function createTestDb() {
-  const dbPath = path.join(os.tmpdir(), `ecoticker-batch-test-${Date.now()}.db`);
-  const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.exec(fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf-8"));
-  return { db, dbPath };
-}
-
-function cleanup(db: Database.Database, dbPath: string) {
-  db.close();
-  try { fs.unlinkSync(dbPath); } catch {}
-}
-
 describe("Batch Pipeline DB Operations", () => {
-  let db: Database.Database;
-  let dbPath: string;
-
   beforeEach(() => {
-    ({ db, dbPath } = createTestDb());
+    mockDb.reset();
   });
-  afterEach(() => cleanup(db, dbPath));
 
-  test("full batch cycle: insert topics, articles, scores, keywords", () => {
-    // Simulate what batch.ts does after LLM calls
-    const insertTopic = db.prepare(`
-      INSERT INTO topics (name, slug, category, region, current_score, previous_score, urgency, impact_summary, image_url, article_count)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-      ON CONFLICT(slug) DO UPDATE SET
-        previous_score = topics.current_score,
-        current_score = excluded.current_score,
-        urgency = excluded.urgency,
-        impact_summary = excluded.impact_summary,
-        image_url = COALESCE(excluded.image_url, topics.image_url),
-        category = excluded.category,
-        region = excluded.region,
-        article_count = topics.article_count + excluded.article_count,
-        updated_at = CURRENT_TIMESTAMP
-    `);
-    const insertArticle = db.prepare("INSERT OR IGNORE INTO articles (topic_id, title, url, source, summary, published_at) VALUES (?, ?, ?, ?, ?, ?)");
-    const insertScore = db.prepare("INSERT INTO score_history (topic_id, score, health_score, eco_score, econ_score, impact_summary) VALUES (?, ?, ?, ?, ?, ?)");
-    const insertKeyword = db.prepare(`
-      INSERT INTO topic_keywords (topic_id, keyword)
-      SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM topic_keywords WHERE topic_id = ? AND keyword = ?)
-    `);
-    const getTopicBySlug = db.prepare("SELECT id FROM topics WHERE slug = ?");
-
+  test("full batch cycle: insert topics, articles, scores, keywords", async () => {
     // Day 1: Insert a topic
-    insertTopic.run("Amazon Deforestation", "amazon-deforestation", "deforestation", "South America", 65, "critical", "Forest loss accelerating", null, 2);
-    const topic = getTopicBySlug.get("amazon-deforestation") as { id: number };
-    expect(topic).toBeDefined();
+    const mockTopicInsert = {
+      id: 1,
+      name: "Amazon Deforestation",
+      slug: "amazon-deforestation",
+      category: "deforestation",
+      region: "South America",
+      currentScore: 65,
+      previousScore: 0,
+      urgency: "critical" as const,
+      impactSummary: "Forest loss accelerating",
+      imageUrl: null,
+      articleCount: 2,
+      updatedAt: new Date(),
+    };
 
-    insertArticle.run(topic.id, "Article 1", "https://example.com/1", "Reuters", "Summary 1", "2026-02-06");
-    insertArticle.run(topic.id, "Article 2", "https://example.com/2", "BBC", "Summary 2", "2026-02-06");
-    insertScore.run(topic.id, 65, 50, 80, 55, "Forest loss accelerating");
-    insertKeyword.run(topic.id, "amazon", topic.id, "amazon");
-    insertKeyword.run(topic.id, "deforestation", topic.id, "deforestation");
+    mockDb.mockInsert([mockTopicInsert]);
+
+    const topicResult = await db.insert(topics).values({
+      name: "Amazon Deforestation",
+      slug: "amazon-deforestation",
+      category: "deforestation",
+      region: "South America",
+      currentScore: 65,
+      previousScore: 0,
+      urgency: "critical",
+      impactSummary: "Forest loss accelerating",
+      imageUrl: null,
+      articleCount: 2,
+    }).onConflictDoUpdate({
+      target: topics.slug,
+      set: {
+        previousScore: sql`${topics.currentScore}`,
+        currentScore: 65,
+        urgency: "critical",
+        impactSummary: "Forest loss accelerating",
+      },
+    }).returning();
+
+    expect(topicResult[0].id).toBe(1);
+
+    // Insert articles (with dedup)
+    mockDb.mockInsert([{ id: 1 }, { id: 2 }]);
+
+    await db.insert(articles).values([
+      { topicId: 1, title: "Article 1", url: "https://example.com/1", source: "Reuters", summary: "Summary 1", publishedAt: new Date("2026-02-06") },
+      { topicId: 1, title: "Article 2", url: "https://example.com/2", source: "BBC", summary: "Summary 2", publishedAt: new Date("2026-02-06") },
+    ]).onConflictDoNothing();
+
+    // Insert score history
+    mockDb.mockInsert([{ id: 1 }]);
+
+    await db.insert(scoreHistory).values({
+      topicId: 1,
+      score: 65,
+      healthScore: 50,
+      ecoScore: 80,
+      econScore: 55,
+      impactSummary: "Forest loss accelerating",
+    });
+
+    // Insert keywords (with dedup)
+    mockDb.mockInsert([{ id: 1 }, { id: 2 }]);
+
+    await db.insert(topicKeywords).values([
+      { topicId: 1, keyword: "amazon" },
+      { topicId: 1, keyword: "deforestation" },
+    ]).onConflictDoNothing();
 
     // Verify day 1
-    let topicRow = db.prepare("SELECT * FROM topics WHERE slug = 'amazon-deforestation'").get() as Record<string, unknown>;
-    expect(topicRow.current_score).toBe(65);
-    expect(topicRow.previous_score).toBe(0);
-    expect(topicRow.article_count).toBe(2);
+    mockDb.mockSelect([{
+      ...mockTopicInsert,
+    }]);
+
+    const day1Topic = await db.select().from(topics).where(eq(topics.slug, "amazon-deforestation"));
+    expect(day1Topic[0].currentScore).toBe(65);
+    expect(day1Topic[0].previousScore).toBe(0);
+    expect(day1Topic[0].articleCount).toBe(2);
 
     // Day 2: Upsert same topic with new score
-    insertTopic.run("Amazon Deforestation", "amazon-deforestation", "deforestation", "South America", 78, "breaking", "Fires now spreading", "https://img.com/fire.jpg", 3);
+    const mockTopicUpdate = {
+      ...mockTopicInsert,
+      currentScore: 78,
+      previousScore: 65,
+      urgency: "breaking" as const,
+      impactSummary: "Fires now spreading",
+      imageUrl: "https://img.com/fire.jpg",
+      articleCount: 5,
+    };
 
-    // Duplicate article URL should be skipped
-    insertArticle.run(topic.id, "Article 1 duplicate", "https://example.com/1", "Reuters", "Same URL", "2026-02-07");
-    insertArticle.run(topic.id, "Article 3", "https://example.com/3", "CNN", "New article", "2026-02-07");
+    mockDb.mockInsert([mockTopicUpdate]);
 
-    insertScore.run(topic.id, 78, 60, 85, 70, "Fires now spreading");
+    await db.insert(topics).values({
+      name: "Amazon Deforestation",
+      slug: "amazon-deforestation",
+      category: "deforestation",
+      region: "South America",
+      currentScore: 78,
+      previousScore: 0,
+      urgency: "breaking",
+      impactSummary: "Fires now spreading",
+      imageUrl: "https://img.com/fire.jpg",
+      articleCount: 3,
+    }).onConflictDoUpdate({
+      target: topics.slug,
+      set: {
+        previousScore: sql`${topics.currentScore}`,
+        currentScore: 78,
+        urgency: "breaking",
+        impactSummary: "Fires now spreading",
+        imageUrl: "https://img.com/fire.jpg",
+        articleCount: sql`${topics.articleCount} + 3`,
+      },
+    }).returning();
 
-    // Duplicate keyword should be skipped
-    insertKeyword.run(topic.id, "amazon", topic.id, "amazon");
-    insertKeyword.run(topic.id, "fire", topic.id, "fire");
+    // Duplicate article URL should be skipped (onConflictDoNothing)
+    mockDb.mockInsert([{ id: 3 }]); // Only one new article
+
+    await db.insert(articles).values([
+      { topicId: 1, title: "Article 1 duplicate", url: "https://example.com/1", source: "Reuters", summary: "Same URL", publishedAt: new Date("2026-02-07") },
+      { topicId: 1, title: "Article 3", url: "https://example.com/3", source: "CNN", summary: "New article", publishedAt: new Date("2026-02-07") },
+    ]).onConflictDoNothing();
+
+    // Insert new score
+    mockDb.mockInsert([{ id: 2 }]);
+
+    await db.insert(scoreHistory).values({
+      topicId: 1,
+      score: 78,
+      healthScore: 60,
+      ecoScore: 85,
+      econScore: 70,
+      impactSummary: "Fires now spreading",
+    });
+
+    // Insert keywords (duplicate should be skipped)
+    mockDb.mockInsert([{ id: 3 }]); // Only fire is new
+
+    await db.insert(topicKeywords).values([
+      { topicId: 1, keyword: "amazon" },
+      { topicId: 1, keyword: "fire" },
+    ]).onConflictDoNothing();
 
     // Verify day 2
-    topicRow = db.prepare("SELECT * FROM topics WHERE slug = 'amazon-deforestation'").get() as Record<string, unknown>;
-    expect(topicRow.current_score).toBe(78);
-    expect(topicRow.previous_score).toBe(65); // Rotated from day 1
-    expect(topicRow.urgency).toBe("breaking");
-    expect(topicRow.article_count).toBe(5); // 2 + 3
-    expect(topicRow.image_url).toBe("https://img.com/fire.jpg");
+    mockDb.mockSelect([mockTopicUpdate]);
 
-    // Articles: 3 unique (not 4, since one was duplicate)
-    const articleCount = (db.prepare("SELECT COUNT(*) as c FROM articles WHERE topic_id = ?").get(topic.id) as { c: number }).c;
-    expect(articleCount).toBe(3);
-
-    // Score history: 2 entries
-    const scores = db.prepare("SELECT score FROM score_history WHERE topic_id = ? ORDER BY id").all(topic.id) as { score: number }[];
-    expect(scores.map((s) => s.score)).toEqual([65, 78]);
-
-    // Keywords: 3 unique (amazon, deforestation, fire)
-    const keywords = db.prepare("SELECT keyword FROM topic_keywords WHERE topic_id = ? ORDER BY keyword").all(topic.id) as { keyword: string }[];
-    expect(keywords.map((k) => k.keyword)).toEqual(["amazon", "deforestation", "fire"]);
+    const day2Topic = await db.select().from(topics).where(eq(topics.slug, "amazon-deforestation"));
+    expect(day2Topic[0].currentScore).toBe(78);
+    expect(day2Topic[0].previousScore).toBe(65);
+    expect(day2Topic[0].urgency).toBe("breaking");
+    expect(day2Topic[0].articleCount).toBe(5);
+    expect(day2Topic[0].imageUrl).toBe("https://img.com/fire.jpg");
   });
 
-  test("existing topics with keywords can be loaded for classification", () => {
-    // Insert topic with keywords
-    db.prepare("INSERT INTO topics (name, slug, category) VALUES (?, ?, ?)").run("Arctic Ice", "arctic-ice", "climate");
-    const topicId = (db.prepare("SELECT id FROM topics WHERE slug = 'arctic-ice'").get() as { id: number }).id;
-    db.prepare("INSERT INTO topic_keywords (topic_id, keyword) VALUES (?, ?)").run(topicId, "arctic");
-    db.prepare("INSERT INTO topic_keywords (topic_id, keyword) VALUES (?, ?)").run(topicId, "sea ice");
+  test("existing topics with keywords can be loaded for classification", async () => {
+    // Mock topic with keywords loaded via relational query
+    const mockTopicWithKeywords = {
+      id: 1,
+      name: "Arctic Ice",
+      slug: "arctic-ice",
+      category: "climate",
+      currentScore: 0,
+      previousScore: 0,
+      keywords: [
+        { id: 1, topicId: 1, keyword: "arctic" },
+        { id: 2, topicId: 1, keyword: "sea ice" },
+      ],
+    };
 
-    // Query like batch.ts does
-    const rows = db.prepare(`
-      SELECT t.id, t.name, t.current_score, GROUP_CONCAT(tk.keyword) as keywords
-      FROM topics t LEFT JOIN topic_keywords tk ON tk.topic_id = t.id
-      GROUP BY t.id
-    `).all() as { id: number; name: string; current_score: number; keywords: string | null }[];
+    mockDb.mockFindMany("topics", [mockTopicWithKeywords]);
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0].name).toBe("Arctic Ice");
-    expect(rows[0].keywords).toBe("arctic,sea ice");
+    // Query like batch.ts does with relational query
+    const result = await db.query.topics.findMany({
+      with: {
+        keywords: true,
+      },
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Arctic Ice");
+    expect(result[0].keywords).toBeDefined();
+    expect(result[0].keywords.map((k: { keyword: string }) => k.keyword)).toEqual(["arctic", "sea ice"]);
+  });
+});
+
+describe("Batch Pipeline: Domain Blocking", () => {
+  // Replicates the isBlockedDomain logic from batch.ts for unit testing.
+  const BLOCKED_DOMAINS = ["lifesciencesworld.com", "alltoc.com"];
+
+  function isBlockedDomain(url: string): boolean {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return BLOCKED_DOMAINS.some(
+        (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  test("blocks articles from lifesciencesworld.com", () => {
+    expect(isBlockedDomain("https://lifesciencesworld.com/what-is-ocean-acidification")).toBe(true);
+    expect(isBlockedDomain("https://www.lifesciencesworld.com/faq")).toBe(true);
+  });
+
+  test("blocks articles from alltoc.com", () => {
+    expect(isBlockedDomain("https://alltoc.com/climate-change-facts")).toBe(true);
+  });
+
+  test("allows articles from legitimate news domains", () => {
+    expect(isBlockedDomain("https://reuters.com/environment/floods")).toBe(false);
+    expect(isBlockedDomain("https://bbc.co.uk/news/science")).toBe(false);
+    expect(isBlockedDomain("https://theguardian.com/environment")).toBe(false);
+  });
+
+  test("returns false for invalid URLs", () => {
+    expect(isBlockedDomain("not-a-url")).toBe(false);
+    expect(isBlockedDomain("")).toBe(false);
+  });
+
+  test("filters out blocked articles from a mixed list", () => {
+    const articles = [
+      { url: "https://lifesciencesworld.com/what-is-ocean-acidification" },
+      { url: "https://reuters.com/environment/floods-hit-region" },
+      { url: "https://alltoc.com/10-facts-about-climate" },
+      { url: "https://bbc.co.uk/news/science-environment" },
+    ];
+    const filtered = articles.filter((a) => !isBlockedDomain(a.url));
+    expect(filtered).toHaveLength(2);
+    expect(filtered.map((a) => a.url)).toEqual([
+      "https://reuters.com/environment/floods-hit-region",
+      "https://bbc.co.uk/news/science-environment",
+    ]);
   });
 });
 

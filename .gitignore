@@ -12,6 +12,7 @@ build/
 db/*.db
 db/*.db-wal
 db/*.db-shm
+drizzle/
 
 # environment
 .env
@@ -37,6 +38,14 @@ yarn-error.log*
 .vscode/
 .idea/
 
+# Claude Code
+.claude/
+
+# BMM tooling
+_bmad/
+_bmad-output/
+
 # Docker
 .docker/
 .serena/
+SECURITY_CHECKLIST.md

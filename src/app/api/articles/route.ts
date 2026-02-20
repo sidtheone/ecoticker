@@ -1,9 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { requireAdminKey, getUnauthorizedResponse } from '@/lib/auth';
-import { articleCreateSchema, articleDeleteSchema, validateRequest } from '@/lib/validation';
-import { createErrorResponse } from '@/lib/errors';
-import { logSuccess, logFailure } from '@/lib/audit-log';
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { articles, topics } from "@/db/schema";
+import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
+import {
+  articleCreateSchema,
+  articleDeleteSchema,
+  validateRequest,
+} from "@/lib/validation";
+import { createErrorResponse } from "@/lib/errors";
+import { logSuccess, logFailure } from "@/lib/audit-log";
+import { eq, and, like, inArray, count, desc, sql } from "drizzle-orm";
 
 /**
  * Articles CRUD API
@@ -12,18 +18,6 @@ import { logSuccess, logFailure } from '@/lib/audit-log';
  * POST /api/articles - Create new article (admin only)
  * DELETE /api/articles - Batch delete articles by IDs or filter (admin only)
  */
-
-interface Article {
-  id: number;
-  topic_id: number;
-  title: string;
-  url: string;
-  source: string | null;
-  summary: string | null;
-  image_url: string | null;
-  published_at: string | null;
-  fetched_at: string;
-}
 
 /**
  * GET /api/articles
@@ -38,63 +32,47 @@ interface Article {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const topicId = searchParams.get('topicId');
-    const source = searchParams.get('source');
-    const urlPattern = searchParams.get('url');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const topicId = searchParams.get("topicId");
+    const source = searchParams.get("source");
+    const urlPattern = searchParams.get("url");
+    const limitParam = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
+    const offsetParam = parseInt(searchParams.get("offset") || "0");
 
-    const db = getDb();
+    // Build dynamic WHERE conditions
+    const conditions = [];
+    if (topicId) conditions.push(eq(articles.topicId, parseInt(topicId)));
+    if (source) conditions.push(eq(articles.source, source));
+    if (urlPattern) conditions.push(eq(articles.url, urlPattern)); // Exact match
 
-    // Build dynamic query
-    const conditions: string[] = [];
-    const params: any[] = [];
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (topicId) {
-      conditions.push('topic_id = ?');
-      params.push(topicId);
-    }
-
-    if (source) {
-      conditions.push('source = ?');
-      params.push(source);
-    }
-
-    if (urlPattern) {
-      // Use exact match instead of LIKE to prevent SQL wildcard exploitation
-      conditions.push('url = ?');
-      params.push(urlPattern);
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const query = `
-      SELECT * FROM articles
-      ${whereClause}
-      ORDER BY published_at DESC, fetched_at DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    params.push(limit, offset);
-
-    const articles = db.prepare(query).all(...params) as Article[];
+    // Fetch articles
+    const articlesList = await db
+      .select()
+      .from(articles)
+      .where(whereClause)
+      .orderBy(desc(articles.publishedAt), desc(articles.fetchedAt))
+      .limit(limitParam)
+      .offset(offsetParam);
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM articles ${whereClause}`;
-    const countParams = params.slice(0, -2); // Remove limit and offset
-    const { total } = db.prepare(countQuery).get(...countParams) as { total: number };
+    const totalResult = await db
+      .select({ count: count() })
+      .from(articles)
+      .where(whereClause);
+    const total = totalResult[0]?.count || 0;
 
     return NextResponse.json({
-      articles,
+      articles: articlesList,
       pagination: {
         total,
-        limit,
-        offset,
-        hasMore: offset + limit < total,
+        limit: limitParam,
+        offset: offsetParam,
+        hasMore: offsetParam + limitParam < total,
       },
     });
   } catch (error) {
-    return createErrorResponse(error, 'Failed to fetch articles');
+    return createErrorResponse(error, "Failed to fetch articles");
   }
 }
 
@@ -117,57 +95,77 @@ export async function POST(request: NextRequest) {
     const validation = validateRequest(articleCreateSchema, body);
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: validation.error },
+        { error: "Validation failed", details: validation.error },
         { status: 400 }
       );
     }
 
-    const { topicId, title, url, source, summary, imageUrl, publishedAt } = validation.data;
-
-    const db = getDb();
+    const { topicId, title, url, source, summary, imageUrl, publishedAt } =
+      validation.data;
 
     // Check if topic exists
-    const topic = db.prepare('SELECT id FROM topics WHERE id = ?').get(topicId);
-    if (!topic) {
-      return NextResponse.json(
-        { error: 'Topic not found' },
-        { status: 404 }
-      );
+    const topic = await db
+      .select({ id: topics.id })
+      .from(topics)
+      .where(eq(topics.id, topicId))
+      .limit(1);
+
+    if (topic.length === 0) {
+      return NextResponse.json({ error: "Topic not found" }, { status: 404 });
     }
 
-    // Insert article (OR IGNORE to handle duplicate URLs)
-    const result = db.prepare(`
-      INSERT OR IGNORE INTO articles (topic_id, title, url, source, summary, image_url, published_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(topicId, title, url, source || null, summary || null, imageUrl || null, publishedAt || null);
+    // Insert article (onConflictDoNothing to handle duplicate URLs)
+    const inserted = await db
+      .insert(articles)
+      .values({
+        topicId,
+        title,
+        url,
+        source: source || null,
+        summary: summary || null,
+        imageUrl: imageUrl || null,
+        sourceType: "newsapi", // Default for API-created articles
+        publishedAt: publishedAt ? new Date(publishedAt) : null,
+      })
+      .onConflictDoNothing({ target: articles.url })
+      .returning();
 
-    if (result.changes === 0) {
+    if (inserted.length === 0) {
       return NextResponse.json(
-        { error: 'Article with this URL already exists' },
+        { error: "Article with this URL already exists" },
         { status: 409 }
       );
     }
 
-    // Get the created article
-    const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(result.lastInsertRowid) as Article;
+    const article = inserted[0];
 
     // Update topic article count
-    db.prepare('UPDATE topics SET article_count = article_count + 1 WHERE id = ?').run(topicId);
+    await db
+      .update(topics)
+      .set({ articleCount: sql`${topics.articleCount} + 1` })
+      .where(eq(topics.id, topicId));
 
     // Log successful article creation
-    logSuccess(request, 'create_article', {
+    await logSuccess(request, "create_article", {
       articleId: article.id,
       topicId,
       title: article.title,
     });
 
-    return NextResponse.json({
-      success: true,
-      article,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        article,
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    logFailure(request, 'create_article', error instanceof Error ? error.message : 'Unknown error');
-    return createErrorResponse(error, 'Failed to create article');
+    await logFailure(
+      request,
+      "create_article",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return createErrorResponse(error, "Failed to create article");
   }
 }
 
@@ -194,59 +192,87 @@ export async function DELETE(request: NextRequest) {
     const validation = validateRequest(articleDeleteSchema, body);
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: validation.error },
+        { error: "Validation failed", details: validation.error },
         { status: 400 }
       );
     }
 
-    const { ids, url, topicId, source } = validation.data;
+    const { ids, url, topicId: topicIdFilter, source: sourceFilter } = validation.data;
 
-    const db = getDb();
     let deletedCount = 0;
     const affectedTopics = new Set<number>();
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      // Delete by IDs
-      const placeholders = ids.map(() => '?').join(',');
-
       // Get topic IDs before deleting
-      const articles = db.prepare(`SELECT topic_id FROM articles WHERE id IN (${placeholders})`).all(...ids) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      const articlesToDelete = await db
+        .select({ topicId: articles.topicId })
+        .from(articles)
+        .where(inArray(articles.id, ids));
+      articlesToDelete.forEach((a) => affectedTopics.add(a.topicId));
 
-      const result = db.prepare(`DELETE FROM articles WHERE id IN (${placeholders})`).run(...ids);
-      deletedCount = result.changes;
+      // Delete by IDs
+      await db.delete(articles).where(inArray(articles.id, ids));
+      deletedCount = ids.length;
     } else if (url) {
+      // Get topic IDs before deleting
+      const articlesToDelete = await db
+        .select({ topicId: articles.topicId })
+        .from(articles)
+        .where(like(articles.url, url));
+      articlesToDelete.forEach((a) => affectedTopics.add(a.topicId));
+
       // Delete by URL pattern
-      const articles = db.prepare('SELECT topic_id FROM articles WHERE url LIKE ?').all(url) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      await db.delete(articles).where(like(articles.url, url));
+      deletedCount = articlesToDelete.length;
+    } else if (topicIdFilter) {
+      affectedTopics.add(topicIdFilter);
 
-      const result = db.prepare('DELETE FROM articles WHERE url LIKE ?').run(url);
-      deletedCount = result.changes;
-    } else if (topicId) {
+      // Get count before deleting
+      const countResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(eq(articles.topicId, topicIdFilter));
+      deletedCount = countResult[0]?.count || 0;
+
       // Delete by topic ID
-      affectedTopics.add(topicId);
-      const result = db.prepare('DELETE FROM articles WHERE topic_id = ?').run(topicId);
-      deletedCount = result.changes;
-    } else if (source) {
-      // Delete by source
-      const articles = db.prepare('SELECT topic_id FROM articles WHERE source = ?').all(source) as { topic_id: number }[];
-      articles.forEach(a => affectedTopics.add(a.topic_id));
+      await db.delete(articles).where(eq(articles.topicId, topicIdFilter));
+    } else if (sourceFilter) {
+      // Get topic IDs before deleting
+      const articlesToDelete = await db
+        .select({ topicId: articles.topicId })
+        .from(articles)
+        .where(eq(articles.source, sourceFilter));
+      articlesToDelete.forEach((a) => affectedTopics.add(a.topicId));
 
-      const result = db.prepare('DELETE FROM articles WHERE source = ?').run(source);
-      deletedCount = result.changes;
+      // Delete by source
+      await db.delete(articles).where(eq(articles.source, sourceFilter));
+      deletedCount = articlesToDelete.length;
     }
 
     // Update article counts for affected topics
-    for (const topicId of affectedTopics) {
-      const count = db.prepare('SELECT COUNT(*) as count FROM articles WHERE topic_id = ?').get(topicId) as { count: number };
-      db.prepare('UPDATE topics SET article_count = ? WHERE id = ?').run(count.count, topicId);
+    for (const topicIdValue of affectedTopics) {
+      const countResult = await db
+        .select({ count: count() })
+        .from(articles)
+        .where(eq(articles.topicId, topicIdValue));
+      const articleCount = countResult[0]?.count || 0;
+
+      await db
+        .update(topics)
+        .set({ articleCount })
+        .where(eq(topics.id, topicIdValue));
     }
 
     // Log successful article deletion
-    logSuccess(request, 'delete_articles', {
+    await logSuccess(request, "delete_articles", {
       deletedCount,
       affectedTopics: Array.from(affectedTopics).length,
-      filters: { ids: !!ids, url: !!url, topicId: !!topicId, source: !!source },
+      filters: {
+        ids: !!ids,
+        url: !!url,
+        topicId: !!topicIdFilter,
+        source: !!sourceFilter,
+      },
     });
 
     return NextResponse.json({
@@ -256,7 +282,11 @@ export async function DELETE(request: NextRequest) {
       message: `Deleted ${deletedCount} article(s)`,
     });
   } catch (error) {
-    logFailure(request, 'delete_articles', error instanceof Error ? error.message : 'Unknown error');
-    return createErrorResponse(error, 'Failed to delete articles');
+    await logFailure(
+      request,
+      "delete_articles",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return createErrorResponse(error, "Failed to delete articles");
   }
 }

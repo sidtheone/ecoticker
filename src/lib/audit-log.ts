@@ -1,5 +1,7 @@
-import { NextRequest } from 'next/server';
-import { getDb } from '@/lib/db';
+import { NextRequest } from "next/server";
+import { db } from "@/db";
+import { auditLogs } from "@/db/schema";
+import { desc, count, sql, and, gt } from "drizzle-orm";
 
 /**
  * Audit logging for security monitoring
@@ -14,7 +16,34 @@ export interface AuditLogEntry {
   success: boolean;
   errorMessage?: string;
   details?: Record<string, unknown>;
-  userAgent?: string;
+}
+
+/**
+ * GDPR: Truncate IP address before storage
+ * - IPv4: zero last octet (e.g., 192.168.1.0)
+ * - IPv6: zero last 80 bits (e.g., 2001:db8:85a3::0)
+ */
+function truncateIP(ip: string): string {
+  if (ip === "unknown" || !ip) return ip;
+
+  // IPv4: zero last octet
+  if (ip.includes(".") && !ip.includes(":")) {
+    const parts = ip.split(".");
+    if (parts.length === 4) {
+      parts[3] = "0";
+      return parts.join(".");
+    }
+  }
+
+  // IPv6: zero last 80 bits (keep first 48 bits)
+  if (ip.includes(":")) {
+    const parts = ip.split(":");
+    if (parts.length >= 3) {
+      return parts.slice(0, 3).join(":") + "::0";
+    }
+  }
+
+  return ip; // fallback: return as-is if format unrecognized
 }
 
 /**
@@ -26,66 +55,60 @@ export interface AuditLogEntry {
  * @param details - Optional additional details to log
  * @param errorMessage - Optional error message if operation failed
  */
-export function logAuditEvent(
+export async function logAuditEvent(
   request: NextRequest,
   action: string,
   success: boolean,
   details?: Record<string, unknown>,
   errorMessage?: string
-): void {
+): Promise<void> {
   try {
-    const db = getDb();
-
-    const ipAddress = request.headers.get('x-forwarded-for') ||
-                      request.headers.get('x-real-ip') ||
-                      'unknown';
+    const rawIP =
+      request.headers.get("cf-connecting-ip") || // Cloudflare real IP
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const ipAddress = truncateIP(rawIP); // GDPR: truncate before storage
     const endpoint = request.nextUrl.pathname;
     const method = request.method;
-    const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    db.prepare(`
-      INSERT INTO audit_logs (
-        ip_address, endpoint, method, action, success,
-        error_message, details, user_agent
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    await db.insert(auditLogs).values({
       ipAddress,
       endpoint,
       method,
       action,
-      success ? 1 : 0,
-      errorMessage || null,
-      details ? JSON.stringify(details) : null,
-      userAgent
-    );
+      success,
+      errorMessage: errorMessage || null,
+      details: details ? JSON.stringify(details) : null,
+    });
   } catch (error) {
     // Don't let audit logging failures break the main operation
     // Just log to console for debugging
-    console.error('Failed to write audit log:', error);
+    console.error("Failed to write audit log:", error);
   }
 }
 
 /**
  * Convenience wrapper for successful operations
  */
-export function logSuccess(
+export async function logSuccess(
   request: NextRequest,
   action: string,
   details?: Record<string, unknown>
-): void {
-  logAuditEvent(request, action, true, details);
+): Promise<void> {
+  await logAuditEvent(request, action, true, details);
 }
 
 /**
  * Convenience wrapper for failed operations
  */
-export function logFailure(
+export async function logFailure(
   request: NextRequest,
   action: string,
   errorMessage: string,
   details?: Record<string, unknown>
-): void {
-  logAuditEvent(request, action, false, details, errorMessage);
+): Promise<void> {
+  await logAuditEvent(request, action, false, details, errorMessage);
 }
 
 /**
@@ -93,79 +116,88 @@ export function logFailure(
  *
  * @param limit - Maximum number of entries to return
  * @param offset - Pagination offset
- * @returns Array of audit log entries
+ * @returns Array of audit log entries and total count
  */
-export function getAuditLogs(limit: number = 100, offset: number = 0) {
-  const db = getDb();
+export async function getAuditLogs(limit: number = 100, offset: number = 0) {
+  const logs = await db
+    .select()
+    .from(auditLogs)
+    .orderBy(desc(auditLogs.timestamp))
+    .limit(limit)
+    .offset(offset);
 
-  const logs = db.prepare(`
-    SELECT
-      id, timestamp, ip_address, endpoint, method, action,
-      success, error_message, details, user_agent, created_at
-    FROM audit_logs
-    ORDER BY timestamp DESC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset);
-
-  const total = db.prepare('SELECT COUNT(*) as count FROM audit_logs').get() as { count: number };
+  const totalResult = await db.select({ count: count() }).from(auditLogs);
+  const total = totalResult[0]?.count || 0;
 
   return {
-    logs: logs.map((log: any) => ({
+    logs: logs.map((log) => ({
       ...log,
-      success: Boolean(log.success),
-      details: log.details ? JSON.parse(log.details) : null,
+      details: log.details ? JSON.parse(log.details as string) : null,
     })),
-    total: total.count,
+    total,
   };
 }
 
 /**
  * Get audit log statistics
  */
-export function getAuditStats() {
-  const db = getDb();
+export async function getAuditStats() {
+  // Overall stats
+  const statsResult = await db
+    .select({
+      total: count(),
+      successful: sql<number>`COUNT(*) FILTER (WHERE ${auditLogs.success} = true)`,
+      failed: sql<number>`COUNT(*) FILTER (WHERE ${auditLogs.success} = false)`,
+      uniqueIPs: sql<number>`COUNT(DISTINCT ${auditLogs.ipAddress})`,
+      uniqueActions: sql<number>`COUNT(DISTINCT ${auditLogs.action})`,
+    })
+    .from(auditLogs);
 
-  const stats = db.prepare(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
-      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
-      COUNT(DISTINCT ip_address) as unique_ips,
-      COUNT(DISTINCT action) as unique_actions
-    FROM audit_logs
-  `).get() as {
-    total: number;
-    successful: number;
-    failed: number;
-    unique_ips: number;
-    unique_actions: number;
+  const stats = statsResult[0] || {
+    total: 0,
+    successful: 0,
+    failed: 0,
+    uniqueIPs: 0,
+    uniqueActions: 0,
   };
 
-  const recentFailures = db.prepare(`
-    SELECT action, COUNT(*) as count
-    FROM audit_logs
-    WHERE success = 0
-      AND timestamp > datetime('now', '-24 hours')
-    GROUP BY action
-    ORDER BY count DESC
-    LIMIT 5
-  `).all();
+  // Recent failures (last 24 hours)
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recentFailures = await db
+    .select({
+      action: auditLogs.action,
+      count: count(),
+    })
+    .from(auditLogs)
+    .where(
+      and(
+        sql`${auditLogs.success} = false`,
+        gt(auditLogs.timestamp, twentyFourHoursAgo)
+      )
+    )
+    .groupBy(auditLogs.action)
+    .orderBy(desc(sql`count(*)`))
+    .limit(5);
 
-  const topActions = db.prepare(`
-    SELECT action, COUNT(*) as count
-    FROM audit_logs
-    WHERE timestamp > datetime('now', '-7 days')
-    GROUP BY action
-    ORDER BY count DESC
-    LIMIT 10
-  `).all();
+  // Top actions (last 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const topActions = await db
+    .select({
+      action: auditLogs.action,
+      count: count(),
+    })
+    .from(auditLogs)
+    .where(gt(auditLogs.timestamp, sevenDaysAgo))
+    .groupBy(auditLogs.action)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
 
   return {
     total: stats.total,
     successful: stats.successful,
     failed: stats.failed,
-    uniqueIPs: stats.unique_ips,
-    uniqueActions: stats.unique_actions,
+    uniqueIPs: stats.uniqueIPs,
+    uniqueActions: stats.uniqueActions,
     recentFailures,
     topActions,
   };

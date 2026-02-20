@@ -11,6 +11,7 @@
 - [x] Railway account (sign up at https://railway.app)
 - [x] NewsAPI key (https://newsapi.org)
 - [x] OpenRouter API key (https://openrouter.ai)
+- [x] PostgreSQL plugin (Railway provides this)
 
 ---
 
@@ -23,15 +24,14 @@
 
 ---
 
-## Step 2: Add Persistent Volume (2 min)
+## Step 2: Add PostgreSQL Plugin (2 min)
 
-1. Go to project → **Settings** → **Volumes**
-2. Click **"New Volume"**
-3. **Mount path:** `/data`
-4. **Name:** `ecoticker-data`
-5. Click **Create**
+1. Go to project → **New Service** → **Database**
+2. Select **"PostgreSQL"**
+3. Railway automatically provisions PostgreSQL 17
+4. Note: Railway automatically sets `DATABASE_URL` environment variable
 
-This persists your SQLite database across deployments.
+This provides a managed PostgreSQL database for the application.
 
 ---
 
@@ -40,26 +40,37 @@ This persists your SQLite database across deployments.
 Go to project → **Variables** tab, add these:
 
 ```env
+# Database (automatically set by Railway PostgreSQL plugin)
+# DATABASE_URL=postgresql://... (do not manually set, Railway provides this)
+
+# External APIs
 NEWSAPI_KEY=<your_actual_newsapi_key>
 OPENROUTER_API_KEY=<your_actual_openrouter_key>
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
-DATABASE_PATH=/data/ecoticker.db
+
+# Batch processing
 BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
-NODE_ENV=production
+
+# Security
+ADMIN_API_KEY=<generate_random_32_char_string>
 CRON_SECRET=<generate_random_32_char_string>
+
+# Environment
+NODE_ENV=production
 ```
 
-**Generate CRON_SECRET:**
+**Generate secrets:**
 ```bash
-openssl rand -base64 32
+openssl rand -base64 32  # For ADMIN_API_KEY
+openssl rand -base64 32  # For CRON_SECRET
 # Or use: https://www.random.org/strings/
 ```
 
 ---
 
-## Step 4: Seed Database (2 min)
+## Step 4: Initialize Database Schema (2 min)
 
-After first deployment completes:
+After first deployment completes, push Drizzle schema to PostgreSQL:
 
 **Option A: Via Railway CLI**
 ```bash
@@ -70,14 +81,17 @@ npm i -g @railway/cli
 railway login
 railway link
 
-# Run seed script
-railway run npm run railway:seed
+# Push schema to create tables
+railway run npx drizzle-kit push
+
+# Then seed data
+railway run npx tsx scripts/seed.ts
 ```
 
-**Option B: Via Dashboard**
-1. Go to project → **Deployments** → Latest deployment
-2. Click **"View Logs"**
-3. If empty database, manually trigger seed in next deploy
+**Option B: Via One-time Command (Railway Dashboard)**
+1. Go to project → **Service** → **Settings**
+2. Add one-time deployment command: `npx drizzle-kit push && npx tsx scripts/seed.ts`
+3. Redeploy to run the command
 
 ---
 
@@ -168,9 +182,10 @@ railway logs
 ## Troubleshooting
 
 ### Database is empty after deploy
-Run seed script:
+Push schema and seed:
 ```bash
-railway run npm run railway:seed
+railway run npx drizzle-kit push
+railway run npx tsx scripts/seed.ts
 ```
 
 ### Cron job not running
@@ -191,10 +206,11 @@ docker build -t ecoticker .
 docker run -p 3000:3000 ecoticker
 ```
 
-### Volume not persisting
-Verify mount path in Railway:
-- Settings → Volumes → `/data` should be listed
-- Check DATABASE_PATH env var: `/data/ecoticker.db`
+### Database connection issues
+Verify PostgreSQL service:
+- Railway dashboard → PostgreSQL service should be healthy
+- DATABASE_URL is automatically set by Railway
+- Check app logs for connection errors
 
 ---
 
@@ -217,21 +233,26 @@ Verify mount path in Railway:
 
 ## Migration from Docker Compose
 
-If migrating from existing Docker setup:
+If migrating from existing Docker setup with SQLite:
 
-1. **Export existing database:**
+1. **Export existing SQLite data to PostgreSQL:**
    ```bash
-   cp db/ecoticker.db ecoticker-backup.db
+   # Use a migration tool like pgloader or write custom migration script
+   # This is needed because SQLite and PostgreSQL formats differ
    ```
 
-2. **Upload to Railway:**
+2. **Import to Railway PostgreSQL:**
    ```bash
-   railway volume add /data ./ecoticker-backup.db
+   # Connect to Railway PostgreSQL and import data
+   railway connect postgres
+   # Then use psql commands to import
    ```
 
 3. **Keep Docker running** until Railway is verified (48 hours)
 
 4. **Update DNS** to Railway when ready
+
+**Note:** For v2 migrations, you're starting fresh with PostgreSQL, so no data migration needed if coming from v1 SQLite.
 
 ---
 
@@ -266,8 +287,9 @@ git push origin main
 # 2. Watch Railway auto-deploy
 # (Railway dashboard will show build progress)
 
-# 3. After deploy, seed database
-railway run npm run railway:seed
+# 3. After deploy, initialize database
+railway run npx drizzle-kit push
+railway run npx tsx scripts/seed.ts
 
 # 4. Set up external cron at cron-job.org
 # URL: https://<your-app>.railway.app/api/cron/batch

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Topic } from "@/lib/types";
-import { changeColor, formatChange } from "@/lib/utils";
+import { changeColor, formatChange, CATEGORY_LABELS } from "@/lib/utils";
 import UrgencyBadge from "./UrgencyBadge";
+import ScoreInfoIcon from "./ScoreInfoIcon";
 import Sparkline from "./Sparkline";
 
 const scoreColors: Record<string, string> = {
@@ -29,7 +30,12 @@ export default function TopicCard({ topic }: { topic: Topic }) {
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <h3 className="text-sm font-semibold text-stone-800 dark:text-gray-100 leading-tight">{topic.name}</h3>
-        <UrgencyBadge urgency={topic.urgency} />
+        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+          <UrgencyBadge urgency={topic.urgency} />
+          <span className="text-xs px-2 py-0.5 rounded-full text-stone-400 bg-stone-100 dark:bg-gray-800 dark:text-gray-500" data-testid="category-chip">
+            {CATEGORY_LABELS[topic.category]}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-end justify-between mt-3">
@@ -43,6 +49,7 @@ export default function TopicCard({ topic }: { topic: Topic }) {
           >
             {formatChange(topic.change)}
           </span>
+          <span className="ml-1"><ScoreInfoIcon /></span>
         </div>
         <div className="text-xs text-gray-500">
           {topic.articleCount} article{topic.articleCount !== 1 ? "s" : ""}

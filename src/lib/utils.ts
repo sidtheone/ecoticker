@@ -1,4 +1,17 @@
-import type { Urgency } from "./types";
+import type { Category, Urgency } from "./types";
+
+export const CATEGORY_LABELS: Record<Category, string> = {
+  air_quality: "Air Quality",
+  deforestation: "Deforestation",
+  ocean: "Ocean",
+  climate: "Climate",
+  pollution: "Pollution",
+  biodiversity: "Biodiversity",
+  wildlife: "Wildlife",
+  energy: "Energy",
+  waste: "Waste",
+  water: "Water",
+};
 
 export function urgencyColor(urgency: Urgency) {
   switch (urgency) {

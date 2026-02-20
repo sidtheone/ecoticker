@@ -206,6 +206,57 @@ describe("Batch Pipeline DB Operations", () => {
   });
 });
 
+describe("Batch Pipeline: Domain Blocking", () => {
+  // Replicates the isBlockedDomain logic from batch.ts for unit testing.
+  const BLOCKED_DOMAINS = ["lifesciencesworld.com", "alltoc.com"];
+
+  function isBlockedDomain(url: string): boolean {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return BLOCKED_DOMAINS.some(
+        (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  test("blocks articles from lifesciencesworld.com", () => {
+    expect(isBlockedDomain("https://lifesciencesworld.com/what-is-ocean-acidification")).toBe(true);
+    expect(isBlockedDomain("https://www.lifesciencesworld.com/faq")).toBe(true);
+  });
+
+  test("blocks articles from alltoc.com", () => {
+    expect(isBlockedDomain("https://alltoc.com/climate-change-facts")).toBe(true);
+  });
+
+  test("allows articles from legitimate news domains", () => {
+    expect(isBlockedDomain("https://reuters.com/environment/floods")).toBe(false);
+    expect(isBlockedDomain("https://bbc.co.uk/news/science")).toBe(false);
+    expect(isBlockedDomain("https://theguardian.com/environment")).toBe(false);
+  });
+
+  test("returns false for invalid URLs", () => {
+    expect(isBlockedDomain("not-a-url")).toBe(false);
+    expect(isBlockedDomain("")).toBe(false);
+  });
+
+  test("filters out blocked articles from a mixed list", () => {
+    const articles = [
+      { url: "https://lifesciencesworld.com/what-is-ocean-acidification" },
+      { url: "https://reuters.com/environment/floods-hit-region" },
+      { url: "https://alltoc.com/10-facts-about-climate" },
+      { url: "https://bbc.co.uk/news/science-environment" },
+    ];
+    const filtered = articles.filter((a) => !isBlockedDomain(a.url));
+    expect(filtered).toHaveLength(2);
+    expect(filtered.map((a) => a.url)).toEqual([
+      "https://reuters.com/environment/floods-hit-region",
+      "https://bbc.co.uk/news/science-environment",
+    ]);
+  });
+});
+
 describe("Batch Pipeline: extractJSON", () => {
   // Replicate the extractJSON function from batch.ts
   function extractJSON(text: string): unknown {

@@ -120,6 +120,17 @@ describe("scoring.ts", () => {
         const result = validateScore("INSUFFICIENT_DATA", 50);
         expect(result).toEqual({ level: "INSUFFICIENT_DATA", score: -1, clamped: false });
       });
+
+      it("should treat undefined score as INSUFFICIENT_DATA (LLM omitted field)", () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = validateScore("MODERATE", undefined as any);
+        expect(result).toEqual({ level: "INSUFFICIENT_DATA", score: -1, clamped: true });
+      });
+
+      it("should treat NaN score as INSUFFICIENT_DATA", () => {
+        const result = validateScore("MODERATE", NaN);
+        expect(result).toEqual({ level: "INSUFFICIENT_DATA", score: -1, clamped: true });
+      });
     });
 
     describe("unknown level handling", () => {

@@ -24,6 +24,13 @@ const KEYWORDS = (
   process.env.BATCH_KEYWORDS || "climate change,pollution,deforestation,wildfire,flood"
 ).split(",");
 
+// Domains known to publish Q&A/educational junk content (not real news).
+// Articles from these domains are rejected before the LLM classifier runs.
+const BLOCKED_DOMAINS = [
+  "lifesciencesworld.com",
+  "alltoc.com",
+];
+
 // Future: RSS feed support (placeholder)
 // const RSS_FEEDS = (process.env.RSS_FEEDS || "").split(",").filter(Boolean);
 
@@ -42,6 +49,22 @@ const db = drizzle(pool, { schema });
 // ─────────────────────────────────────────────────────────────────
 // NEWSAPI FETCHER
 // ─────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the article URL belongs to a blocked domain.
+ * Blocked domains are known sources of Q&A/educational junk — not real news.
+ * Exported for unit testing.
+ */
+export function isBlockedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return BLOCKED_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
 
 interface NewsArticle {
   title: string;
@@ -78,13 +101,22 @@ async function fetchNews(): Promise<NewsArticle[]> {
     }
   }
 
-  // Deduplicate by URL
+  // Deduplicate by URL and remove articles from blocked domains
   const seen = new Set<string>();
-  return allArticles.filter((a) => {
+  const blocked: string[] = [];
+  const filtered = allArticles.filter((a) => {
     if (!a.url || seen.has(a.url)) return false;
+    if (isBlockedDomain(a.url)) {
+      blocked.push(a.url);
+      return false;
+    }
     seen.add(a.url);
     return true;
   });
+  if (blocked.length > 0) {
+    console.log(`🚫 Blocked ${blocked.length} articles from junk domains: ${[...new Set(blocked.map((u) => new URL(u).hostname))].join(", ")}`);
+  }
+  return filtered;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -179,6 +211,17 @@ TASK 1 - FILTER: Identify which articles are about ENVIRONMENTAL topics.
 - Technology (unless climate/environmental tech)
 - Pet care, animal trivia, lifestyle
 - Product reviews, shopping deals, promotions
+- Q&A articles, FAQs, and "What is..." / "How does..." / "Why do..." educational content
+- Evergreen/educational explainers with no specific date, event, or incident
+- Listicles and trivia ("3 effects of...", "10 facts about...")
+- Articles where the title is a question (strong signal of Q&A, not news)
+- Research papers or academic studies (unless reporting on NEW findings with real-world impact)
+
+🔍 NEWSWORTHINESS TEST — An article must pass ALL of these to be included:
+1. Reports on a SPECIFIC recent event, incident, or development (not general knowledge)
+2. Contains a date reference, named location, or specific actors/organizations
+3. Is written as journalism (news report, investigation, analysis) — NOT as Q&A, FAQ, tutorial, or educational explainer
+4. Title is a statement, not a question (questions indicate Q&A content)
 
 TASK 2 - CLASSIFY: Group relevant environmental articles into topics.
 

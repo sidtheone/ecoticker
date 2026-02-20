@@ -55,6 +55,11 @@ export interface ValidatedScore {
  * validateScore("INSUFFICIENT_DATA", -1)  // { level: "INSUFFICIENT_DATA", score: -1, clamped: false }
  */
 export function validateScore(level: string, score: number): ValidatedScore {
+  // Guard against undefined/null/NaN — LLM may omit fields; treat as INSUFFICIENT_DATA
+  if (typeof score !== "number" || isNaN(score)) {
+    return { level: "INSUFFICIENT_DATA", score: -1, clamped: true };
+  }
+
   // Handle insufficient data case
   if (level === "INSUFFICIENT_DATA" || score === -1) {
     return { level: "INSUFFICIENT_DATA", score: -1, clamped: false };

@@ -28,6 +28,10 @@
 - **[2026-02-13-us6.1-workflow.md](./2026-02-13-us6.1-workflow.md)** - US-6.1 social sharing + OG meta tags
 - **[2026-02-13-us2.1-workflow.md](./2026-02-13-us2.1-workflow.md)** - US-2.1 article count indicator — DONE
 
+## Pending Story Creation
+
+- **[2026-02-21-reconcile-batch-scoring-pipelines.md](./2026-02-21-reconcile-batch-scoring-pipelines.md)** - Align route.ts batch scoring with US-1.0 rubric (code review finding H1)
+
 ## Backlog Workflows
 
 - **[2026-02-13-us4.1-workflow.md](./2026-02-13-us4.1-workflow.md)** - US-4.1 add search keywords (admin)

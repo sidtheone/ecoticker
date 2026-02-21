@@ -17,7 +17,7 @@ import { POST as batchPOST } from "@/app/api/batch/route";
  * Schedule: 0 6 * * * (daily at 6am UTC)
  *
  * Behavior:
- * - If NEWSAPI_KEY and OPENROUTER_API_KEY are set: Fetches real news and processes with LLM
+ * - If GNEWS_API_KEY and OPENROUTER_API_KEY are set: Fetches real news and processes with LLM
  * - Otherwise: Seeds database with demo data
  */
 export async function GET(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const startTime = Date.now();
 
     // Check if API keys are configured for real data processing
-    const hasApiKeys = process.env.NEWSAPI_KEY && process.env.OPENROUTER_API_KEY;
+    const hasApiKeys = process.env.GNEWS_API_KEY && process.env.OPENROUTER_API_KEY;
 
     let response;
     if (hasApiKeys) {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     console.log(`Manual batch job trigger (force: ${force})`);
 
     // Check if API keys are configured for real data processing
-    const hasApiKeys = process.env.NEWSAPI_KEY && process.env.OPENROUTER_API_KEY;
+    const hasApiKeys = process.env.GNEWS_API_KEY && process.env.OPENROUTER_API_KEY;
 
     let response;
     if (hasApiKeys) {

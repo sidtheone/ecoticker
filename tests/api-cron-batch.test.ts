@@ -95,7 +95,7 @@ describe('/api/cron/batch', () => {
 
     it('should execute batch job with demo data when no API keys', async () => {
       process.env.CRON_SECRET = 'test-secret';
-      delete process.env.NEWSAPI_KEY;
+      delete process.env.GNEWS_API_KEY;
       delete process.env.OPENROUTER_API_KEY;
 
       mockSeedPOST.mockResolvedValue(
@@ -131,7 +131,7 @@ describe('/api/cron/batch', () => {
 
     it('should execute batch job with real data when API keys present', async () => {
       process.env.CRON_SECRET = 'test-secret';
-      process.env.NEWSAPI_KEY = 'fake-newsapi-key';
+      process.env.GNEWS_API_KEY = 'fake-gnews-key';
       process.env.OPENROUTER_API_KEY = 'fake-openrouter-key';
 
       mockBatchPOST.mockResolvedValue(

@@ -166,7 +166,7 @@ export default function ScoringPage() {
           Data Sources
         </h2>
         <p className="text-sm text-stone-600 dark:text-gray-300">
-          Articles are collected daily from major news sources via the NewsAPI service. Each article is analyzed by a large language model (LLM) that classifies its environmental topic and scores the severity across all three dimensions. Scores are then aggregated at the topic level using the weighted formula above.
+          Articles are collected daily from major news sources via the GNews service. Each article is analyzed by a large language model (LLM) that classifies its environmental topic and scores the severity across all three dimensions. Scores are then aggregated at the topic level using the weighted formula above.
         </p>
       </section>
 

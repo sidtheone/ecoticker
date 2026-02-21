@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Parser from "rss-parser";
 import { db } from "@/db";
 import { topics, articles, scoreHistory, topicKeywords } from "@/db/schema";
 import slugify from "slugify";
@@ -6,6 +7,12 @@ import { requireAdminKey, getUnauthorizedResponse } from "@/lib/auth";
 import { createErrorResponse } from "@/lib/errors";
 import { logSuccess, logFailure } from "@/lib/audit-log";
 import { sql } from "drizzle-orm";
+import {
+  validateScore,
+  computeOverallScore,
+  deriveUrgency,
+  detectAnomaly,
+} from "@/lib/scoring";
 
 /**
  * Batch processing endpoint - fetches real news and updates database
@@ -14,7 +21,7 @@ import { sql } from "drizzle-orm";
  * in standalone Next.js builds without tsx dependencies.
  *
  * Requires environment variables:
- * - NEWSAPI_KEY: API key from newsapi.org
+ * - GNEWS_API_KEY: API key from gnews.io
  * - OPENROUTER_API_KEY: API key from openrouter.ai
  * - OPENROUTER_MODEL: (optional) defaults to meta-llama/llama-3.1-8b-instruct:free
  * - BATCH_KEYWORDS: (optional) comma-separated keywords, defaults to environmental topics
@@ -22,13 +29,60 @@ import { sql } from "drizzle-orm";
  */
 
 // --- Config ---
-const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
+const GNEWS_API_KEY = process.env.GNEWS_API_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
 const KEYWORDS = (
   process.env.BATCH_KEYWORDS ||
   "climate change,pollution,deforestation,wildfire,flood"
 ).split(",");
+
+// SYNC: BLOCKED_DOMAINS must match scripts/batch.ts — keep in sync until pipeline consolidation
+// Domains known to publish Q&A/educational junk content (not real news).
+// Articles from these domains are rejected before the LLM classifier runs.
+const BLOCKED_DOMAINS = [
+  "lifesciencesworld.com",
+  "alltoc.com",
+];
+
+// SYNC: Few-shot examples must match scripts/batch.ts AND src/app/api/batch/route.ts
+const FEW_SHOT_EXAMPLES = `
+EXAMPLE 1 — Topic: "Community Recycling Initiative Launch"
+Articles describe a new recycling program in a small town.
+- healthLevel: MINIMAL, healthScore: 8
+  Reasoning: No direct health effects. Theoretical waste reduction benefits are long-term and minor. Community participation is voluntary.
+- ecoLevel: MINIMAL, ecoScore: 12
+  Reasoning: Small-scale program with negligible immediate ecosystem impact. Diverts minimal waste from landfills. No measurable biodiversity or habitat effects.
+- econLevel: MINIMAL, econScore: 5
+  Reasoning: Minimal cost savings for the town. No job creation or economic disruption. Budget impact is trivial.
+
+EXAMPLE 2 — Topic: "Delhi Air Quality Alert"
+Articles report PM2.5 levels at 180 µg/m³, schools advising indoor activities.
+- healthLevel: MODERATE, healthScore: 45
+  Reasoning: Elevated particulate matter causes respiratory irritation, especially in children and elderly. Short-term exposure, reversible with air quality improvement. No mass casualties.
+- ecoLevel: MODERATE, ecoScore: 28
+  Reasoning: Urban air pollution has localized ecosystem effects (vegetation stress, reduced visibility). No ecosystem collapse or biodiversity loss.
+- econLevel: MODERATE, econScore: 32
+  Reasoning: Schools close for a few days, affecting some businesses. Healthcare costs rise slightly. Tourism unaffected long-term.
+
+EXAMPLE 3 — Topic: "Great Barrier Reef Coral Bleaching"
+Articles describe widespread bleaching affecting 80% of the reef due to marine heatwaves.
+- healthLevel: MODERATE, healthScore: 28
+  Reasoning: No direct human health effects. Indirect impacts on coastal communities (food security, mental health) are moderate.
+- ecoLevel: SEVERE, ecoScore: 88
+  Reasoning: 80% of the world's largest coral reef system affected. Repeated bleaching events prevent recovery. Cascading effects on marine biodiversity are well-documented.
+- econLevel: SIGNIFICANT, econScore: 58
+  Reasoning: Reef tourism generates $6.4B annually. Fisheries decline affects thousands of livelihoods. Recovery costs are enormous.
+
+EXAMPLE 4 — Topic: "Fukushima Wastewater Release"
+Articles describe Japan beginning release of treated radioactive wastewater into the Pacific.
+- healthLevel: SIGNIFICANT, healthScore: 55
+  Reasoning: Tritium and other radionuclides released into ocean. While diluted, long-term bioaccumulation risks are uncertain. Seafood contamination fears are widespread.
+- ecoLevel: SEVERE, ecoScore: 78
+  Reasoning: Unprecedented release of radioactive material into the Pacific over decades. Marine ecosystem effects are unknown and potentially irreversible. Sets a precedent for nuclear waste disposal.
+- econLevel: SIGNIFICANT, econScore: 62
+  Reasoning: China and South Korea ban Japanese seafood imports. Japanese fishing industry devastated. Regional trade disrupted.
+`;
 
 // --- Types ---
 interface NewsArticle {
@@ -40,58 +94,126 @@ interface NewsArticle {
   publishedAt: string;
 }
 
+interface GNewsArticle {
+  title: string;
+  url: string;
+  source: { name: string; url: string };
+  description: string | null;
+  image: string | null;
+  publishedAt: string;
+}
+
 interface Classification {
   articleIndex: number;
   topicName: string;
   isNew: boolean;
 }
 
-interface TopicScore {
-  score: number;
+interface LLMScoreResponse {
+  healthReasoning: string;
+  healthLevel: string;
   healthScore: number;
+  ecoReasoning: string;
+  ecoLevel: string;
   ecoScore: number;
+  econReasoning: string;
+  econLevel: string;
   econScore: number;
-  urgency: string;
-  impactSummary: string;
+  overallSummary: string;
   category: string;
   region: string;
   keywords: string[];
 }
 
-// --- NewsAPI ---
+interface TopicScore {
+  // From LLM (validated):
+  healthReasoning: string;
+  healthLevel: string;
+  healthScore: number;
+  ecoReasoning: string;
+  ecoLevel: string;
+  ecoScore: number;
+  econReasoning: string;
+  econLevel: string;
+  econScore: number;
+  overallSummary: string;
+  category: string;
+  region: string;
+  keywords: string[];
+  // Computed server-side:
+  overallScore: number;
+  urgency: string;
+  anomalyDetected: boolean;
+  rawLlmResponse: unknown;
+  // Validation metadata:
+  clampedDimensions: string[];
+}
+
+// SYNC: isBlockedDomain must match scripts/batch.ts — keep in sync until pipeline consolidation
+/**
+ * Returns true if the article URL belongs to a blocked domain.
+ * Blocked domains are known sources of Q&A/educational junk — not real news.
+ */
+function isBlockedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return BLOCKED_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+// --- GNews ---
 async function fetchNews(): Promise<NewsArticle[]> {
   const allArticles: NewsArticle[] = [];
 
-  // Batch keywords into 2-3 requests to stay under 100/day limit
-  const keywordGroups = [];
+  // Batch keywords into groups — GNews supports OR syntax same as NewsAPI
+  const keywordGroups: string[] = [];
   for (let i = 0; i < KEYWORDS.length; i += 4) {
     keywordGroups.push(KEYWORDS.slice(i, i + 4).join(" OR "));
   }
 
   for (const query of keywordGroups) {
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
-      query
-    )}&searchIn=title&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&sortby=publishedAt&token=${GNEWS_API_KEY}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      const data = await res.json();
+      const data = (await res.json()) as { articles?: GNewsArticle[]; errors?: string[] };
 
-      if (data.status === "error") {
-        console.error(`NewsAPI error for "${query}":`, data.message);
+      if (data.errors && data.errors.length > 0) {
+        const errMsg = data.errors[0];
+        if (res.status === 401) {
+          console.error(`GNews auth failure for "${query}": ${errMsg}`);
+        } else if (res.status === 429) {
+          console.error(`GNews rate limit for "${query}": ${errMsg}`);
+        } else {
+          console.error(`GNews error for "${query}": ${errMsg}`);
+        }
         continue;
       }
 
       if (data.articles) {
-        const filteredArticles = data.articles.filter((a: NewsArticle) => {
-          const source = a.source?.name?.toLowerCase() || "";
-          return (
-            !source.includes("bringatrailer") &&
-            !source.includes("auction") &&
-            !source.includes("ebay") &&
-            a.title &&
-            a.description
-          );
-        });
+        // Map GNews shape → NewsArticle interface, apply source filter
+        const filteredArticles = data.articles
+          .filter((a: GNewsArticle) => {
+            const source = a.source?.name?.toLowerCase() || "";
+            return (
+              !source.includes("bringatrailer") &&
+              !source.includes("auction") &&
+              !source.includes("ebay") &&
+              a.title &&
+              a.description
+            );
+          })
+          .map((a: GNewsArticle): NewsArticle => ({
+            title: a.title,
+            url: a.url,
+            source: { name: a.source.name },
+            description: a.description,
+            urlToImage: a.image,
+            publishedAt: a.publishedAt,
+          }));
         allArticles.push(...filteredArticles);
       }
     } catch (err) {
@@ -99,32 +221,126 @@ async function fetchNews(): Promise<NewsArticle[]> {
     }
   }
 
-  // Deduplicate by URL
+  // Deduplicate by URL and remove articles from blocked domains
   const seen = new Set<string>();
-  return allArticles.filter((a) => {
+  const blocked: string[] = [];
+  const deduped = allArticles.filter((a) => {
     if (!a.url || seen.has(a.url)) return false;
+    if (isBlockedDomain(a.url)) {
+      blocked.push(a.url);
+      return false;
+    }
     seen.add(a.url);
     return true;
   });
+  if (blocked.length > 0) {
+    console.log(`🚫 Blocked ${blocked.length} articles from junk domains: ${[...new Set(blocked.map((u) => new URL(u).hostname))].join(", ")}`);
+  }
+  return deduped;
+}
+
+// SYNC: copied from scripts/rss.ts — keep in sync until pipeline consolidation
+// (Cannot import from scripts/ — Next.js standalone build excludes that directory)
+const DEFAULT_FEEDS = [
+  "https://www.theguardian.com/uk/environment/rss",
+  "https://grist.org/feed/",
+  "https://www.carbonbrief.org/feed/",
+  "https://insideclimatenews.org/feed/",
+  "https://www.eia.gov/rss/todayinenergy.xml",
+  "https://www.eea.europa.eu/en/newsroom/rss-feeds/eeas-press-releases-rss",
+  "https://www.ecowatch.com/feed",
+  "https://feeds.npr.org/1025/rss.xml",
+  "https://www.downtoearth.org.in/feed",
+  "https://india.mongabay.com/feed/",
+];
+
+const RSS_FEEDS = (process.env.RSS_FEEDS || DEFAULT_FEEDS.join(","))
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+
+// SYNC: mirrors scripts/rss.ts `parser` — renamed to `rssParser` to avoid collision with route-local vars
+const rssParser = new Parser({
+  timeout: 15000,
+  headers: { "User-Agent": "EcoTicker/1.0" },
+});
+
+// SYNC: copied from scripts/rss.ts — keep in sync until pipeline consolidation
+async function fetchRssFeeds(): Promise<NewsArticle[]> {
+  const results = await Promise.allSettled(
+    RSS_FEEDS.map((url) => rssParser.parseURL(url))
+  );
+
+  const rssArticles: NewsArticle[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled") {
+      const feed = result.value;
+      for (const item of feed.items) {
+        if (!item.title || !item.link) continue;
+        const publishedAt = item.isoDate || item.pubDate;
+        if (!publishedAt) {
+          console.warn(
+            `Skipping article "${item.title}" from "${feed.title || "Unknown"}": missing publication date`
+          );
+          continue;
+        }
+        rssArticles.push({
+          title: item.title,
+          url: item.link,
+          source: { name: feed.title || "Unknown" },
+          description: item.contentSnippet || item.content || null,
+          urlToImage: item.enclosure?.url || null,
+          publishedAt,
+        });
+      }
+    } else {
+      console.error(
+        `Failed to fetch RSS feed "${RSS_FEEDS[i]}":`,
+        result.reason
+      );
+    }
+  }
+
+  return rssArticles;
 }
 
 // --- OpenRouter LLM ---
-async function callLLM(prompt: string): Promise<string> {
+async function callLLM(prompt: string, options?: { jsonMode?: boolean }): Promise<string> {
+  const body: Record<string, unknown> = {
+    model: OPENROUTER_MODEL,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0, // US-1.0: greedy decoding for consistency
+  };
+  // US-1.0: enforce JSON output only for scoring calls (AC #2)
+  if (options?.jsonMode) {
+    body.response_format = { type: "json_object" };
+  }
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(30000), // US-1.0: 30s standard timeout
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-    }),
+    body: JSON.stringify(body),
   });
-  const data = await res.json();
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return data.choices?.[0]?.message?.content || "";
+}
+
+/**
+ * Safely parse a string into a JSONB-compatible value.
+ * If the string is valid JSON, returns the parsed object.
+ * If not, wraps it in an object so PostgreSQL JSONB accepts it.
+ */
+function safeJsonb(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return { raw: value, parseError: true };
+  }
 }
 
 function extractJSON(text: string): unknown {
@@ -135,6 +351,92 @@ function extractJSON(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+// --- Pass 2: Scoring (US-1.0 Rubric-Based) ---
+
+/**
+ * Process raw LLM score response:
+ * 1. Validate each dimension score (clamp to level range)
+ * 2. Compute overall score (weighted average, excluding INSUFFICIENT_DATA)
+ * 3. Derive urgency (from overall score)
+ * 4. Detect anomalies (if previous scores provided)
+ */
+function processScoreResult(
+  raw: LLMScoreResponse,
+  rawJson: string,
+  previousScores: { health: number; eco: number; econ: number } | null,
+  topicName: string
+): TopicScore {
+  // Validate each dimension
+  const healthValidated = validateScore(raw.healthLevel, raw.healthScore);
+  const ecoValidated = validateScore(raw.ecoLevel, raw.ecoScore);
+  const econValidated = validateScore(raw.econLevel, raw.econScore);
+
+  const clampedDimensions: string[] = [];
+  if (healthValidated.clamped) {
+    console.warn(
+      `Clamped health score for "${topicName}": ${raw.healthScore} → ${healthValidated.score} (${healthValidated.level})`
+    );
+    clampedDimensions.push("health");
+  }
+  if (ecoValidated.clamped) {
+    console.warn(
+      `Clamped eco score for "${topicName}": ${raw.ecoScore} → ${ecoValidated.score} (${ecoValidated.level})`
+    );
+    clampedDimensions.push("eco");
+  }
+  if (econValidated.clamped) {
+    console.warn(
+      `Clamped econ score for "${topicName}": ${raw.econScore} → ${econValidated.score} (${econValidated.level})`
+    );
+    clampedDimensions.push("econ");
+  }
+
+  // Compute overall score server-side
+  const overallScore = computeOverallScore(
+    healthValidated.score,
+    ecoValidated.score,
+    econValidated.score
+  );
+
+  // Derive urgency server-side
+  const urgency = deriveUrgency(overallScore);
+
+  // Detect anomalies (if previous scores exist)
+  let anomalyDetected = false;
+  if (previousScores) {
+    const healthAnomaly = detectAnomaly(
+      previousScores.health,
+      healthValidated.score,
+      topicName,
+      "health"
+    );
+    const ecoAnomaly = detectAnomaly(previousScores.eco, ecoValidated.score, topicName, "eco");
+    const econAnomaly = detectAnomaly(previousScores.econ, econValidated.score, topicName, "econ");
+    anomalyDetected = healthAnomaly || ecoAnomaly || econAnomaly;
+  }
+
+  return {
+    healthReasoning: raw.healthReasoning || "",
+    healthLevel: healthValidated.level,
+    healthScore: healthValidated.score,
+    ecoReasoning: raw.ecoReasoning || "",
+    ecoLevel: ecoValidated.level,
+    ecoScore: ecoValidated.score,
+    econReasoning: raw.econReasoning || "",
+    econLevel: econValidated.level,
+    econScore: econValidated.score,
+    overallSummary: raw.overallSummary || "",
+    category: raw.category || "climate",
+    region: raw.region || "Global",
+    keywords: Array.isArray(raw.keywords) ? raw.keywords : [],
+    overallScore,
+    urgency,
+    anomalyDetected,
+    rawLlmResponse: safeJsonb(rawJson),
+    clampedDimensions,
+  };
 }
 
 // --- Pass 1: Classification ---
@@ -193,53 +495,100 @@ Respond with ONLY valid JSON, no other text. Use empty array if no environmental
   return [];
 }
 
-// --- Pass 2: Scoring ---
 async function scoreTopic(
   topicName: string,
-  topicArticles: NewsArticle[]
+  topicArticles: NewsArticle[],
+  previousScores: { health: number; eco: number; econ: number } | null
 ): Promise<TopicScore> {
-  const summaries = topicArticles
+  const articleSummaries = topicArticles
     .map((a) => `- ${a.title}: ${a.description || "No description"}`)
     .join("\n");
 
-  const prompt = `You are an environmental impact analyst. Analyze the following news about "${topicName}".
+  // SYNC: Scoring rubric prompt must match scripts/batch.ts AND src/app/api/batch/route.ts
+  const prompt = `You are an environmental impact analyst scoring the severity of news events.
+Analyze the following articles about "${topicName}".
 
 Articles:
-${summaries}
+${articleSummaries}
 
-Rate severity on 0-100 scale. Respond with ONLY valid JSON, no other text:
+## Scoring Rubric
+
+For EACH of the three dimensions below, you MUST:
+1. First, write 2-3 sentences of reasoning citing specific articles
+2. Then, classify the severity level (MINIMAL / MODERATE / SIGNIFICANT / SEVERE)
+3. Then, assign a numeric score within the level's range
+
+### Severity Levels:
+- MINIMAL (0-25): No measurable impact. Theoretical or negligible risk. Routine monitoring only.
+- MODERATE (26-50): Localized, limited impact. Affects small population or confined area. Reversible.
+- SIGNIFICANT (51-75): Widespread or serious impact. Large population or critical ecosystem affected. Difficult to reverse.
+- SEVERE (76-100): Catastrophic, potentially irreversible. Mass casualties, ecosystem collapse, or economy-wide disruption.
+
+### Dimensions:
+1. **Health Impact**: Risk to human health and wellbeing — air/water quality, disease, food safety, physical harm, mortality
+2. **Ecological Impact**: Damage to ecosystems and biodiversity — species loss, habitat destruction, deforestation, ocean/water/soil damage
+3. **Economic Impact**: Financial and livelihood consequences — industry disruption, job losses, infrastructure damage, agricultural losses, cleanup costs
+
+${FEW_SHOT_EXAMPLES}
+
+## Anti-Bias Instructions
+- Do NOT default to MODERATE. Use the full range of levels based on evidence.
+- Base severity ONLY on what the articles describe, not on general knowledge about the topic.
+- If the articles do not contain enough information to assess a dimension, use "INSUFFICIENT_DATA" as the level and -1 as the score.
+- A new recycling program and a nuclear disaster should NOT receive similar scores.
+
+## Response Format
+
+Respond with ONLY valid JSON:
 {
-  "score": 50,
-  "healthScore": 40,
-  "ecoScore": 60,
-  "econScore": 45,
-  "urgency": "moderate",
-  "impactSummary": "Brief 1-2 sentence impact summary",
+  "healthReasoning": "2-3 sentences citing specific articles",
+  "healthLevel": "MODERATE",
+  "healthScore": 38,
+  "ecoReasoning": "2-3 sentences citing specific articles",
+  "ecoLevel": "SIGNIFICANT",
+  "ecoScore": 65,
+  "econReasoning": "2-3 sentences citing specific articles",
+  "econLevel": "MINIMAL",
+  "econScore": 18,
+  "overallSummary": "1-2 sentence synthesis of the combined environmental impact",
   "category": "climate",
   "region": "Global",
   "keywords": ["keyword1", "keyword2"]
 }
 
-Valid urgency values: breaking, critical, moderate, informational
-Valid categories: air_quality, deforestation, ocean, climate, pollution, biodiversity, wildlife, energy, waste, water`;
+IMPORTANT:
+- The numeric score MUST fall within the range for the level you chose.
+- The overall score and urgency will be computed server-side. Do NOT include them.
+- Use "INSUFFICIENT_DATA" and -1 if a dimension cannot be assessed from the articles.`;
 
-  const response = await callLLM(prompt);
-  const parsed = extractJSON(response) as TopicScore | null;
+  const response = await callLLM(prompt, { jsonMode: true });
+  const parsed = extractJSON(response) as LLMScoreResponse | null;
 
-  if (parsed?.score !== undefined) return parsed;
+  if (!parsed || typeof parsed.healthScore !== "number") {
+    console.warn(`Scoring LLM failed for "${topicName}", using defaults`);
+    return {
+      healthReasoning: `Recent news coverage about ${topicName}.`,
+      healthLevel: "MODERATE",
+      healthScore: 50,
+      ecoReasoning: `Recent news coverage about ${topicName}.`,
+      ecoLevel: "MODERATE",
+      ecoScore: 50,
+      econReasoning: `Recent news coverage about ${topicName}.`,
+      econLevel: "MODERATE",
+      econScore: 50,
+      overallSummary: `Recent news coverage about ${topicName}.`,
+      category: "climate",
+      region: "Global",
+      keywords: topicName.toLowerCase().split(" "),
+      overallScore: 50,
+      urgency: deriveUrgency(50),
+      anomalyDetected: false,
+      rawLlmResponse: safeJsonb(response),
+      clampedDimensions: [],
+    };
+  }
 
-  console.warn(`Scoring LLM failed for "${topicName}", using defaults`);
-  return {
-    score: 50,
-    healthScore: 50,
-    ecoScore: 50,
-    econScore: 50,
-    urgency: "moderate",
-    impactSummary: `Recent news coverage about ${topicName}.`,
-    category: "climate",
-    region: "Global",
-    keywords: topicName.toLowerCase().split(" "),
-  };
+  return processScoreResult(parsed, response, previousScores, topicName);
 }
 
 // --- Main Batch Logic ---
@@ -249,12 +598,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    if (!NEWSAPI_KEY || !OPENROUTER_API_KEY) {
+    if (!GNEWS_API_KEY || !OPENROUTER_API_KEY) {
       return NextResponse.json(
         {
           error: "Missing API keys",
           details:
-            "NEWSAPI_KEY and OPENROUTER_API_KEY must be set in environment variables",
+            "GNEWS_API_KEY and OPENROUTER_API_KEY must be set in environment variables",
         },
         { status: 500 }
       );
@@ -263,26 +612,81 @@ export async function POST(request: NextRequest) {
     console.log("=== EcoTicker Batch Pipeline ===");
     console.log(`Time: ${new Date().toISOString()}`);
 
-    // Step 1: Fetch news
+    // Step 1: Fetch news from all sources in parallel
     console.log("\n[1/4] Fetching news...");
-    const newsArticles = await fetchNews();
-    console.log(`Fetched ${newsArticles.length} articles`);
+    const [gnewsResult, rssResult] = await Promise.allSettled([
+      fetchNews(),
+      fetchRssFeeds(),
+    ]);
+
+    const gnewsArticles = gnewsResult.status === "fulfilled" ? gnewsResult.value : [];
+    const rssArticles = rssResult.status === "fulfilled" ? rssResult.value : [];
+
+    // Log catastrophic failures (per-source errors caught internally)
+    if (gnewsResult.status === "rejected") {
+      console.error("GNews fetch CRASHED:", gnewsResult.reason);
+    }
+    if (rssResult.status === "rejected") {
+      console.error("RSS fetch CRASHED:", rssResult.reason);
+    }
+
+    // Source health warnings (AC #10) — distinguish "no data" from "source down"
+    if (gnewsArticles.length === 0 && rssArticles.length > 0) {
+      console.warn("⚠️ GNews returned 0 articles while RSS is healthy — check API key / rate limits");
+    }
+    if (rssArticles.length === 0 && gnewsArticles.length > 0) {
+      console.warn("⚠️ RSS returned 0 articles while GNews is healthy — check feed URLs / network");
+    }
+
+    // SYNC: sourceMap + merge pattern must match scripts/batch.ts
+    // Build sourceMap — first-write-wins (matches Set dedup order below)
+    // RSS first so RSS wins attribution on cross-source URL duplicates
+    const sourceMap = new Map<string, "gnews" | "rss">();
+    for (const a of rssArticles) {
+      if (!sourceMap.has(a.url)) sourceMap.set(a.url, "rss");
+    }
+    for (const a of gnewsArticles) {
+      if (!sourceMap.has(a.url)) sourceMap.set(a.url, "gnews");
+    }
+
+    // Merge RSS first, then apply combined dedup + blocked domain filter
+    const mergedArticles = [...rssArticles, ...gnewsArticles];
+    const seenUrls = new Set<string>();
+    const newsArticles = mergedArticles.filter((a) => {
+      if (!a.url || seenUrls.has(a.url)) return false;
+      if (isBlockedDomain(a.url)) return false;
+      seenUrls.add(a.url);
+      return true;
+    });
+
+    console.log(
+      `Sources: GNews=${gnewsArticles.length}, RSS=${rssArticles.length} (before dedup) → ${newsArticles.length} unique (after dedup)`
+    );
 
     if (newsArticles.length === 0) {
       return NextResponse.json({
         success: true,
         message: "No new articles found",
-        stats: { topics: 0, articles: 0, scoreHistory: 0 },
+        stats: {
+          topics: 0,
+          articles: 0,
+          scoreHistory: 0,
+          gnewsArticles: gnewsArticles.length,
+          rssArticles: rssArticles.length,
+        },
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Load existing topics + keywords
+    // Load existing topics + keywords (includes dimension scores for anomaly detection)
     const existingTopicsRaw = await db
       .select({
         id: topics.id,
         name: topics.name,
         currentScore: topics.currentScore,
+        healthScore: topics.healthScore,
+        ecoScore: topics.ecoScore,
+        econScore: topics.econScore,
         keywords: sql<string | null>`STRING_AGG(${topicKeywords.keyword}, ',')`,
       })
       .from(topics)
@@ -345,15 +749,36 @@ export async function POST(request: NextRequest) {
     let topicCount = 0;
     let articleCount = 0;
     let scoreCount = 0;
+    let clampedCount = 0;
+    let totalDimensionCount = 0;
 
     for (const [topicName, topicArticles] of topicGroups) {
-      const scoreResult = await scoreTopic(topicName, topicArticles);
+      // Look up previous dimension scores for anomaly detection
+      const matchingTopic = topicsWithKeywords.find((t) => t.name === topicName);
+      const previousScores =
+        matchingTopic &&
+        matchingTopic.healthScore !== null &&
+        matchingTopic.ecoScore !== null &&
+        matchingTopic.econScore !== null
+          ? {
+              health: matchingTopic.healthScore!,
+              eco: matchingTopic.ecoScore!,
+              econ: matchingTopic.econScore!,
+            }
+          : null;
+
+      const scoreResult = await scoreTopic(topicName, topicArticles, previousScores);
       const slug = slugify(topicName, { lower: true, strict: true });
       const imageUrl = topicArticles.find((a) => a.urlToImage)?.urlToImage || null;
 
       console.log(
-        `  ${topicName}: score=${scoreResult.score}, urgency=${scoreResult.urgency}`
+        `  ${topicName}: overall=${scoreResult.overallScore}, urgency=${scoreResult.urgency}` +
+          (scoreResult.anomalyDetected ? " ⚠️ ANOMALY" : "")
       );
+
+      // Track batch-level clamping (model drift indicator)
+      totalDimensionCount += 3;
+      clampedCount += scoreResult.clampedDimensions.length;
 
       // Upsert topic
       const inserted = await db
@@ -363,28 +788,33 @@ export async function POST(request: NextRequest) {
           slug,
           category: scoreResult.category,
           region: scoreResult.region,
-          currentScore: scoreResult.score,
+          currentScore: scoreResult.overallScore,
           previousScore: 0,
           urgency: scoreResult.urgency,
-          impactSummary: scoreResult.impactSummary,
+          impactSummary: scoreResult.overallSummary,
           imageUrl,
           articleCount: topicArticles.length,
           healthScore: scoreResult.healthScore,
           ecoScore: scoreResult.ecoScore,
           econScore: scoreResult.econScore,
+          scoreReasoning: scoreResult.overallSummary,
         })
         .onConflictDoUpdate({
           target: topics.slug,
           set: {
             previousScore: sql`${topics.currentScore}`,
-            currentScore: scoreResult.score,
+            currentScore: scoreResult.overallScore,
+            healthScore: scoreResult.healthScore,
+            ecoScore: scoreResult.ecoScore,
+            econScore: scoreResult.econScore,
+            scoreReasoning: scoreResult.overallSummary,
             urgency: scoreResult.urgency,
-            impactSummary: scoreResult.impactSummary,
+            impactSummary: scoreResult.overallSummary,
             imageUrl: sql`COALESCE(${imageUrl}, ${topics.imageUrl})`,
             category: scoreResult.category,
             region: scoreResult.region,
             articleCount: sql`${topics.articleCount} + ${topicArticles.length}`,
-            updatedAt: new Date(),
+            updatedAt: sql`CURRENT_TIMESTAMP`,
           },
         })
         .returning({ id: topics.id });
@@ -403,21 +833,30 @@ export async function POST(request: NextRequest) {
             source: a.source?.name || null,
             summary: a.description,
             imageUrl: a.urlToImage,
-            sourceType: "newsapi",
-            publishedAt: new Date(a.publishedAt),
+            sourceType: sourceMap.get(a.url) ?? "gnews", // AC #8: never rely on schema default
+            publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
           })
           .onConflictDoNothing({ target: articles.url });
         articleCount++;
       }
 
-      // Insert score history
+      // Insert score history (with full rubric audit trail)
       await db.insert(scoreHistory).values({
         topicId,
-        score: scoreResult.score,
+        score: scoreResult.overallScore,
         healthScore: scoreResult.healthScore,
         ecoScore: scoreResult.ecoScore,
         econScore: scoreResult.econScore,
-        impactSummary: scoreResult.impactSummary,
+        healthLevel: scoreResult.healthLevel,
+        ecoLevel: scoreResult.ecoLevel,
+        econLevel: scoreResult.econLevel,
+        healthReasoning: scoreResult.healthReasoning,
+        ecoReasoning: scoreResult.ecoReasoning,
+        econReasoning: scoreResult.econReasoning,
+        overallSummary: scoreResult.overallSummary,
+        impactSummary: scoreResult.overallSummary,
+        rawLlmResponse: scoreResult.rawLlmResponse,
+        anomalyDetected: scoreResult.anomalyDetected,
       });
       scoreCount++;
 
@@ -431,6 +870,14 @@ export async function POST(request: NextRequest) {
           })
           .onConflictDoNothing();
       }
+    }
+
+    // Batch-level clamping warning (model drift indicator)
+    if (totalDimensionCount > 0 && clampedCount / totalDimensionCount > 0.3) {
+      console.warn(
+        `\n⚠️  WARNING: ${((clampedCount / totalDimensionCount) * 100).toFixed(1)}% of dimension scores were clamped. ` +
+          `Possible model drift. Review LLM responses.`
+      );
     }
 
     // Step 4: Summary
@@ -466,6 +913,8 @@ export async function POST(request: NextRequest) {
         scoresRecorded: scoreCount,
         totalTopics,
         totalArticles,
+        gnewsArticles: gnewsArticles.length,
+        rssArticles: rssArticles.length,
       },
       timestamp: new Date().toISOString(),
     });

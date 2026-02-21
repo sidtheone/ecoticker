@@ -1,16 +1,9 @@
 import Link from "next/link";
 import type { Topic } from "@/lib/types";
-import { changeColor, formatChange, CATEGORY_LABELS } from "@/lib/utils";
+import { changeColor, formatChange, CATEGORY_LABELS, scoreToHex } from "@/lib/utils";
 import UrgencyBadge from "./UrgencyBadge";
 import ScoreInfoIcon from "./ScoreInfoIcon";
 import Sparkline from "./Sparkline";
-
-const scoreColors: Record<string, string> = {
-  "text-red-500": "#ef4444",
-  "text-orange-500": "#f97316",
-  "text-yellow-500": "#eab308",
-  "text-green-500": "#22c55e",
-};
 
 export default function TopicCard({ topic }: { topic: Topic }) {
   const scoreColor =
@@ -61,7 +54,7 @@ export default function TopicCard({ topic }: { topic: Topic }) {
           <div className="text-xs text-gray-500">{topic.region}</div>
         ) : <div />}
         {topic.sparkline && topic.sparkline.length >= 2 && (
-          <Sparkline data={topic.sparkline} color={scoreColors[scoreColor]} />
+          <Sparkline data={topic.sparkline} color={scoreToHex(topic.currentScore)} />
         )}
       </div>
     </Link>

@@ -84,7 +84,7 @@ railway login
 
 In Railway dashboard → Variables tab, add:
 ```env
-NEWSAPI_KEY=<your_actual_newsapi_key>
+GNEWS_API_KEY=<your_actual_gnews_key>
 OPENROUTER_API_KEY=<your_actual_openrouter_key>
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 DATABASE_PATH=/data/ecoticker.db

@@ -21,13 +21,17 @@ describe("ScoreInfoIcon", () => {
     expect(button).toBeInTheDocument();
   });
 
-  test("tooltip contains all 4 severity levels", () => {
+  test("tooltip contains urgency scale with correct thresholds matching scoreToUrgency()", () => {
     render(<ScoreInfoIcon />);
-    expect(screen.getByText("Severity Scale")).toBeInTheDocument();
-    expect(screen.getByText("SEVERE")).toBeInTheDocument();
-    expect(screen.getByText("SIGNIFICANT")).toBeInTheDocument();
-    expect(screen.getByText("MODERATE")).toBeInTheDocument();
-    expect(screen.getByText("MINIMAL")).toBeInTheDocument();
+    expect(screen.getByText("Urgency Scale")).toBeInTheDocument();
+    expect(screen.getByText("80–100")).toBeInTheDocument();
+    expect(screen.getByText("60–79")).toBeInTheDocument();
+    expect(screen.getByText("30–59")).toBeInTheDocument();
+    expect(screen.getByText("0–29")).toBeInTheDocument();
+    expect(screen.getByText(/Breaking/)).toBeInTheDocument();
+    expect(screen.getByText(/Critical/)).toBeInTheDocument();
+    expect(screen.getByText(/Moderate/)).toBeInTheDocument();
+    expect(screen.getByText(/Informational/)).toBeInTheDocument();
   });
 
   test("tooltip contains learn more button", () => {

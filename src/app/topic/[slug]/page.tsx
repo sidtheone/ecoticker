@@ -49,6 +49,7 @@ export default function TopicDetailPage() {
   const [data, setData] = useState<TopicDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("Topic not found");
   const [expandedDimensions, setExpandedDimensions] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,10 +81,15 @@ export default function TopicDetailPage() {
 
     try {
       const r = await fetch(`/api/topics/${slug}`);
-      if (!r.ok) throw new Error("Not found");
+      if (!r.ok) {
+        setErrorMessage(r.status === 404 ? "Topic not found" : "Something went wrong. Please try again.");
+        setError(true);
+        return;
+      }
       const d = await r.json();
       setData(d);
     } catch {
+      setErrorMessage("Failed to load topic. Please check your connection.");
       setError(true);
     } finally {
       setLoading(false);
@@ -107,7 +113,7 @@ export default function TopicDetailPage() {
   if (error || !data) {
     return (
       <div data-testid="detail-error" className="text-center py-12">
-        <p className="text-gray-400 mb-4">Topic not found</p>
+        <p className="text-gray-400 mb-4">{errorMessage}</p>
         <Link href="/" className="text-amber-700 dark:text-blue-400 hover:underline">Back to dashboard</Link>
       </div>
     );
@@ -240,7 +246,7 @@ export default function TopicDetailPage() {
                           {expanded ? "Hide reasoning ▲" : "Show reasoning ▼"}
                         </button>
                         {expanded && (
-                          <p className="text-xs text-stone-500 dark:text-gray-400 mt-1" data-testid={`dimension-reasoning-${key}`}>
+                          <p className="text-xs text-stone-500 dark:text-gray-400 mt-1" data-testid={`dimension-reasoning-mobile-${key}`}>
                             {reasoning}
                           </p>
                         )}

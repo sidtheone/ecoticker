@@ -57,7 +57,7 @@ export default function InsightHeadline() {
     try {
       const r = await fetch("/api/topics");
       if (!r.ok) return;
-      const topics: Topic[] = await r.json();
+      const { topics }: { topics: Topic[] } = await r.json();
       setHeadline(computeHeadline(topics));
     } catch {
       // keep fallback headline

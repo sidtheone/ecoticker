@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { eventBus } from "@/lib/events";
 
 export default function RefreshButton() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, []);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -21,8 +28,9 @@ export default function RefreshButton() {
     setLastRefresh(new Date());
     setIsRefreshing(false);
 
-    // Auto-reset after 3 seconds
-    setTimeout(() => setLastRefresh(null), 3000);
+    // Auto-reset after 3 seconds (stored in ref for cleanup on unmount)
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => setLastRefresh(null), 3000);
   };
 
   return (

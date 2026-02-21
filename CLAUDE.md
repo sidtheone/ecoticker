@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Environmental news impact tracker. Aggregates news via NewsAPI, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.
+Environmental news impact tracker. Aggregates news via GNews API, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.
 
 ## ⚠️ CRITICAL: Pre-Commit Requirements
 

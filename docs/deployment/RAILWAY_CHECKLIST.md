@@ -18,7 +18,7 @@ Use this checklist to ensure smooth deployment to Railway.
 - [ ] Production mode works (`npm start`)
 
 ### Secrets Ready
-- [ ] NEWSAPI_KEY obtained from https://newsapi.org
+- [ ] GNEWS_API_KEY obtained from https://gnews.io
 - [ ] OPENROUTER_API_KEY obtained from https://openrouter.ai
 - [ ] CRON_SECRET generated (`openssl rand -base64 32`)
 - [ ] All secrets documented securely (password manager)
@@ -46,7 +46,7 @@ Use this checklist to ensure smooth deployment to Railway.
 ### Environment Variables
 Copy from `.env.railway.example` to Railway dashboard:
 
-- [ ] `NEWSAPI_KEY` = `<your_key>`
+- [ ] `GNEWS_API_KEY` = `<your_key>`
 - [ ] `OPENROUTER_API_KEY` = `<your_key>`
 - [ ] `OPENROUTER_MODEL` = `meta-llama/llama-3.1-8b-instruct:free`
 - [ ] `DATABASE_PATH` = `/data/ecoticker.db`

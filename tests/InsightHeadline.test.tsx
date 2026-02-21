@@ -93,9 +93,9 @@ describe("InsightHeadline component", () => {
   test("renders headline from fetched topics and shows EcoTicker subtitle", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve([
-        makeTopic({ name: "Amazon Fires", currentScore: 85, previousScore: 55 }),
-      ]),
+      json: () => Promise.resolve({
+        topics: [makeTopic({ name: "Amazon Fires", currentScore: 85, previousScore: 55 })],
+      }),
     }) as jest.Mock;
 
     render(<InsightHeadline />);

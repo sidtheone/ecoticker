@@ -11,4 +11,4 @@ healthcheckPath = "/api/ticker"
 healthcheckTimeout = 10
 
 # Environment variables (set in Railway dashboard)
-# NEWSAPI_KEY, OPENROUTER_API_KEY, DATABASE_PATH, etc.
+# GNEWS_API_KEY, OPENROUTER_API_KEY, DATABASE_URL, etc.

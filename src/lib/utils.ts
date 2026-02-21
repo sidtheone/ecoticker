@@ -44,3 +44,10 @@ export function scoreToUrgency(score: number): Urgency {
   if (score >= 30) return "moderate";
   return "informational";
 }
+
+export function scoreToHex(score: number): string {
+  if (score >= 80) return "#ef4444"; // red-500
+  if (score >= 60) return "#f97316"; // orange-500
+  if (score >= 30) return "#eab308"; // yellow-500
+  return "#22c55e"; // green-500
+}

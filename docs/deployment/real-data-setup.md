@@ -36,7 +36,7 @@ You'll need API keys from two services:
 4. Add the following environment variables:
 
 ```bash
-NEWSAPI_KEY=your_newsapi_key_here
+GNEWS_API_KEY=your_gnews_api_key_here
 OPENROUTER_API_KEY=sk-or-your_openrouter_key_here
 ```
 
@@ -190,7 +190,7 @@ railway variables
 
 Should show:
 ```
-NEWSAPI_KEY=...
+GNEWS_API_KEY=...
 OPENROUTER_API_KEY=sk-or-...
 ```
 

@@ -1,6 +1,6 @@
 # EcoTicker
 
-Environmental news impact tracker with a stock-ticker style UI. Aggregates news from NewsAPI, scores severity using AI via OpenRouter, and displays topics with real-time severity scores, sparklines, and trend indicators.
+Environmental news impact tracker with a stock-ticker style UI. Aggregates news from GNews API, scores severity using AI via OpenRouter, and displays topics with real-time severity scores, sparklines, and trend indicators.
 
 ## Features
 
@@ -62,12 +62,12 @@ npx tsx scripts/batch.ts
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEWSAPI_KEY` | Yes | API key from [newsapi.org](https://newsapi.org) (free tier) |
+| `GNEWS_API_KEY` | Yes | API key from [gnews.io](https://gnews.io) (Essential plan for production) |
 | `OPENROUTER_API_KEY` | Yes | API key from [openrouter.ai](https://openrouter.ai) (free models available) |
 | `OPENROUTER_MODEL` | No | Model ID (default: `meta-llama/llama-3.1-8b-instruct:free`) |
 | `ADMIN_API_KEY` | **Yes** | Admin API key for write operations (generate: `openssl rand -base64 32`) |
-| `DATABASE_PATH` | No | Path to SQLite database (default: `./db/ecoticker.db`, Docker: `/data/ecoticker.db`) |
-| `BATCH_KEYWORDS` | No | Comma-separated keywords for NewsAPI queries |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (Railway auto-injects in production) |
+| `BATCH_KEYWORDS` | No | Comma-separated keywords for GNews queries |
 
 **Security Note:** The `ADMIN_API_KEY` is required for all write operations (POST/PUT/DELETE). Generate a secure key and never commit it to version control.
 
@@ -95,7 +95,7 @@ npx tsx scripts/batch.ts
 | Database | SQLite via better-sqlite3 (WAL mode) |
 | Charts | Recharts |
 | AI Scoring | OpenRouter (free LLM models) |
-| News Source | NewsAPI (free tier, 100 req/day) |
+| News Source | GNews API (Essential plan, 1,000 req/day) |
 | Deployment | Docker Compose (3 services) |
 
 ## Docker Services
@@ -155,7 +155,7 @@ curl -X POST http://localhost:3000/api/seed \
 
 Runs daily at 6AM UTC via the cron container:
 
-1. **Fetch** — queries NewsAPI with environmental keywords (~5 requests)
+1. **Fetch** — queries GNews API with environmental keywords (~2-5 requests)
 2. **Classify** (LLM Pass 1) — groups articles into topics (existing or new)
 3. **Score** (LLM Pass 2) — scores each topic 0-100 with sub-dimensions
 4. **Store** — upserts topics, deduplicates articles by URL, appends score history

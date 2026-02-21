@@ -126,13 +126,22 @@ describe("TopicDetailPage", () => {
     });
   });
 
-  test("shows error state for missing topic", async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
+  test("shows error state for missing topic (404)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 404 });
     render(<TopicDetailPage />);
     await waitFor(() => {
       expect(screen.getByTestId("detail-error")).toBeInTheDocument();
     });
     expect(screen.getByText("Topic not found")).toBeInTheDocument();
+  });
+
+  test("shows generic error state for server errors (500)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 500 });
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("detail-error")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Something went wrong. Please try again.")).toBeInTheDocument();
   });
 });
 

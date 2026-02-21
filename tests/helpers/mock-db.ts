@@ -38,6 +38,8 @@ export interface MockDbChain {
   onConflictDoUpdate: jest.Mock;
   onConflictDoNothing: jest.Mock;
   returning: jest.Mock;
+  leftJoin: jest.Mock;
+  groupBy: jest.Mock;
 }
 
 export interface MockDbQuery {
@@ -95,6 +97,8 @@ export function createMockDbChain(): MockDbChain {
     onConflictDoUpdate: jest.fn(),
     onConflictDoNothing: jest.fn(),
     returning: jest.fn(),
+    leftJoin: jest.fn(),
+    groupBy: jest.fn(),
   };
 
   // Make methods chainable by default
@@ -194,6 +198,8 @@ export const mockDb = {
     this.chain.from.mockReturnValue(this.chain);
     this.chain.where.mockReturnValue(this.chain);
     this.chain.orderBy.mockReturnValue(this.chain);
+    this.chain.leftJoin.mockReturnValue(this.chain);
+    this.chain.groupBy.mockReturnValue(this.chain);
 
     // Terminal methods that execute the query return a Promise
     // These are called when the query is actually executed (no more chaining)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { Topic, Urgency, Category } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/utils";
 import TopicCard from "./TopicCard";
@@ -11,36 +11,33 @@ export default function TopicGrid() {
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchTopics = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const params = urgencyFilter ? `?urgency=${urgencyFilter}` : "";
+      const res = await fetch(`/api/topics${params}`);
+      const data = await res.json();
+      setTopics(data.topics || []);
+    } catch {
+      setError(true);
+      setTopics([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [urgencyFilter]);
 
   useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const params = urgencyFilter ? `?urgency=${urgencyFilter}` : "";
-        const res = await fetch(`/api/topics${params}`);
-        const data = await res.json();
-        setTopics(data.topics || []);
-      } catch {
-        setTopics([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    setLoading(true);
     fetchTopics();
-  }, [urgencyFilter]);
+  }, [fetchTopics]);
 
   // Listen for refresh events
   useEffect(() => {
-    const unsubscribe = eventBus.subscribe("ui-refresh", () => {
-      setLoading(true);
-      fetch(`/api/topics${urgencyFilter ? `?urgency=${urgencyFilter}` : ""}`)
-        .then((r) => r.json())
-        .then((data) => setTopics(data.topics || []))
-        .catch(() => setTopics([]))
-        .finally(() => setLoading(false));
-    });
+    const unsubscribe = eventBus.subscribe("ui-refresh", fetchTopics);
     return unsubscribe;
-  }, [urgencyFilter]);
+  }, [fetchTopics]);
 
   const urgencyFilters: { label: string; value: Urgency | null }[] = [
     { label: "All", value: null },
@@ -102,6 +99,10 @@ export default function TopicGrid() {
 
       {loading ? (
         <div className="text-gray-500 text-center py-12" data-testid="loading">Loading...</div>
+      ) : error ? (
+        <div className="text-red-400 text-center py-12" data-testid="error">
+          Failed to load topics. Please refresh and try again.
+        </div>
       ) : filteredTopics.length === 0 && topics.length > 0 ? (
         <div className="text-stone-400 dark:text-gray-500 text-center py-12" data-testid="no-matches">
           No topics match these filters.{" "}

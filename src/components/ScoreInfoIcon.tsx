@@ -18,12 +18,12 @@ export default function ScoreInfoIcon() {
         ?
       </button>
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 rounded-lg bg-white dark:bg-gray-800 border border-stone-200 dark:border-gray-700 shadow-lg text-xs text-stone-700 dark:text-gray-200 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity z-50">
-        <p className="font-semibold mb-1">Severity Scale</p>
+        <p className="font-semibold mb-1">Urgency Scale</p>
         <ul className="space-y-0.5">
-          <li><span className="text-red-500 font-bold">76-100</span> SEVERE</li>
-          <li><span className="text-orange-500 font-bold">51-75</span> SIGNIFICANT</li>
-          <li><span className="text-yellow-500 font-bold">26-50</span> MODERATE</li>
-          <li><span className="text-green-500 font-bold">0-25</span> MINIMAL</li>
+          <li><span className="text-red-500 font-bold">80–100</span> Breaking</li>
+          <li><span className="text-orange-500 font-bold">60–79</span> Critical</li>
+          <li><span className="text-yellow-500 font-bold">30–59</span> Moderate</li>
+          <li><span className="text-green-500 font-bold">0–29</span> Informational</li>
         </ul>
         <button
           type="button"

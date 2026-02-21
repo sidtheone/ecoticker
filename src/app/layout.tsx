@@ -18,6 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
   title: "EcoTicker — Environmental Impact Tracker",
   description: "Track environmental news and their impact with real-time severity scoring",
 };

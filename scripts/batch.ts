@@ -10,6 +10,7 @@ import {
   deriveUrgency,
   detectAnomaly,
 } from "../src/lib/scoring";
+import { fetchRssFeeds } from "./rss";
 
 const { topics, articles, scoreHistory, topicKeywords, auditLogs } = schema;
 
@@ -17,7 +18,7 @@ const { topics, articles, scoreHistory, topicKeywords, auditLogs } = schema;
 // CONFIG
 // ─────────────────────────────────────────────────────────────────
 
-const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
+const GNEWS_API_KEY = process.env.GNEWS_API_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
 const KEYWORDS = (
@@ -31,8 +32,6 @@ const BLOCKED_DOMAINS = [
   "alltoc.com",
 ];
 
-// Future: RSS feed support (placeholder)
-// const RSS_FEEDS = (process.env.RSS_FEEDS || "").split(",").filter(Boolean);
 
 // ─────────────────────────────────────────────────────────────────
 // DB SETUP
@@ -47,7 +46,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool, { schema });
 
 // ─────────────────────────────────────────────────────────────────
-// NEWSAPI FETCHER
+// GNEWS FETCHER
 // ─────────────────────────────────────────────────────────────────
 
 /**
@@ -76,25 +75,71 @@ interface NewsArticle {
 }
 
 /**
- * Fetches environmental news from NewsAPI.
- * Batches keywords into groups to stay under 100 requests/day limit.
+ * GNews raw article shape — `image` field maps to `urlToImage` in NewsArticle.
+ */
+interface GNewsArticle {
+  title: string;
+  url: string;
+  source: { name: string; url: string };
+  description: string | null;
+  image: string | null;
+  publishedAt: string;
+}
+
+/**
+ * Fetches environmental news from GNews API v4.
+ * Batches keywords into groups to stay well under 1,000 requests/day limit.
  */
 async function fetchNews(): Promise<NewsArticle[]> {
   const allArticles: NewsArticle[] = [];
 
-  // Batch keywords into 2-3 requests to stay well under 100/day limit
+  // Batch keywords into groups — GNews supports OR syntax same as NewsAPI
   const keywordGroups: string[] = [];
   for (let i = 0; i < KEYWORDS.length; i += 4) {
     keywordGroups.push(KEYWORDS.slice(i, i + 4).join(" OR "));
   }
 
   for (const query of keywordGroups) {
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWSAPI_KEY}`;
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&sortby=publishedAt&token=${GNEWS_API_KEY}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      const data = (await res.json()) as { articles?: NewsArticle[] };
+      const data = (await res.json()) as { articles?: GNewsArticle[]; errors?: string[] };
+
+      if (data.errors && data.errors.length > 0) {
+        const errMsg = data.errors[0];
+        if (res.status === 401) {
+          console.error(`GNews auth failure for "${query}": ${errMsg}`);
+        } else if (res.status === 429) {
+          console.error(`GNews rate limit for "${query}": ${errMsg}`);
+        } else {
+          console.error(`GNews error for "${query}": ${errMsg}`);
+        }
+        continue;
+      }
+
       if (data.articles) {
-        allArticles.push(...data.articles);
+        // Filter out auction/junk sources and articles missing title/description,
+        // then map GNews shape → NewsArticle interface
+        const mapped: NewsArticle[] = data.articles
+          .filter((a) => {
+            const source = a.source?.name?.toLowerCase() || "";
+            return (
+              !source.includes("bringatrailer") &&
+              !source.includes("auction") &&
+              !source.includes("ebay") &&
+              a.title &&
+              a.description
+            );
+          })
+          .map((a) => ({
+            title: a.title,
+            url: a.url,
+            source: { name: a.source.name },
+            description: a.description,
+            urlToImage: a.image,
+            publishedAt: a.publishedAt,
+          }));
+        allArticles.push(...mapped);
       }
     } catch (err) {
       console.error(`Failed to fetch news for "${query}":`, err);
@@ -568,13 +613,59 @@ async function main() {
   console.log("=== EcoTicker Batch Pipeline v2 (US-1.1) ===");
   console.log(`Time: ${new Date().toISOString()}`);
 
-  // Step 1: Fetch news
+  // Step 1: Fetch news from all sources in parallel
   console.log("\n[1/4] Fetching news...");
-  const newsArticles = await fetchNews();
-  console.log(`Fetched ${newsArticles.length} articles`);
+  const [gnewsResult, rssResult] = await Promise.allSettled([
+    fetchNews(),
+    fetchRssFeeds(),
+  ]);
+
+  const gnewsArticles = gnewsResult.status === "fulfilled" ? gnewsResult.value : [];
+  const rssArticles = rssResult.status === "fulfilled" ? rssResult.value : [];
+
+  // Log catastrophic failures (per-source errors are caught internally by each fetcher)
+  if (gnewsResult.status === "rejected") {
+    console.error("GNews fetch CRASHED:", gnewsResult.reason);
+  }
+  if (rssResult.status === "rejected") {
+    console.error("RSS fetch CRASHED:", rssResult.reason);
+  }
+
+  // Source health warnings (AC #10) — distinguish "no data" from "source down"
+  if (gnewsArticles.length === 0 && rssArticles.length > 0) {
+    console.warn("⚠️ GNews returned 0 articles while RSS is healthy — check API key / rate limits");
+  }
+  if (rssArticles.length === 0 && gnewsArticles.length > 0) {
+    console.warn("⚠️ RSS returned 0 articles while GNews is healthy — check feed URLs / network");
+  }
+
+  // SYNC: sourceMap + merge pattern must match src/app/api/batch/route.ts
+  // Build sourceMap — first-write-wins (matches Set dedup order below)
+  // RSS first so RSS wins attribution on cross-source URL duplicates
+  const sourceMap = new Map<string, "gnews" | "rss">();
+  for (const a of rssArticles) {
+    if (!sourceMap.has(a.url)) sourceMap.set(a.url, "rss");
+  }
+  for (const a of gnewsArticles) {
+    if (!sourceMap.has(a.url)) sourceMap.set(a.url, "gnews");
+  }
+
+  // Merge RSS first, then apply combined dedup + blocked domain filter
+  const mergedArticles = [...rssArticles, ...gnewsArticles];
+  const seenUrls = new Set<string>();
+  const newsArticles = mergedArticles.filter((a) => {
+    if (!a.url || seenUrls.has(a.url)) return false;
+    if (isBlockedDomain(a.url)) return false;
+    seenUrls.add(a.url);
+    return true;
+  });
+
+  console.log(
+    `Sources: GNews=${gnewsArticles.length}, RSS=${rssArticles.length} (before dedup) → ${newsArticles.length} unique (after dedup)`
+  );
 
   if (newsArticles.length === 0) {
-    console.log("No articles found, exiting.");
+    console.log("No articles from any source, exiting.");
     await pool.end();
     return;
   }
@@ -729,6 +820,7 @@ async function main() {
           source: a.source?.name || null,
           summary: a.description,
           imageUrl: a.urlToImage,
+          sourceType: sourceMap.get(a.url) ?? "gnews", // AC #8: never rely on schema default
           publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
         })
         .onConflictDoNothing({ target: articles.url });
@@ -784,7 +876,7 @@ async function main() {
   const topicCount = await db.select({ count: sql<number>`COUNT(*)` }).from(topics);
   const articleCount = await db.select({ count: sql<number>`COUNT(*)` }).from(articles);
   console.log(
-    `\n[4/4] Done! ${topicCount[0].count} topics, ${articleCount[0].count} articles in database.`
+    `\n[4/4] Done! ${topicCount[0]?.count ?? 0} topics, ${articleCount[0]?.count ?? 0} articles in database.`
   );
 
   await pool.end();
@@ -794,7 +886,13 @@ async function main() {
 // ENTRY POINT
 // ─────────────────────────────────────────────────────────────────
 
-main().catch((err) => {
-  console.error("Batch pipeline failed:", err);
-  process.exit(1);
-});
+export { main };
+
+// Only execute when run directly as a script (not when imported in tests)
+// ts-jest compiles to CJS: require.main === module correctly identifies direct execution
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("Batch pipeline failed:", err);
+    process.exit(1);
+  });
+}

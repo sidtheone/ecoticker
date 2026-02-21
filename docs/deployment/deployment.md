@@ -26,7 +26,7 @@ Edit `.env` with your API keys:
 DATABASE_URL=postgresql://ecoticker:your_secure_password@postgres:5432/ecoticker
 
 # External APIs
-NEWSAPI_KEY=your_newsapi_key        # https://newsapi.org
+GNEWS_API_KEY=your_gnews_api_key        # https://newsapi.org
 OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 

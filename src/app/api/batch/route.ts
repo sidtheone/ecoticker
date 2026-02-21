@@ -265,18 +265,46 @@ const rssParser = new Parser({
   headers: { "User-Agent": "EcoTicker/1.0" },
 });
 
+// SYNC: FeedHealth type must match scripts/rss.ts
+interface FeedHealth {
+  name: string;
+  url: string;
+  status: "ok" | "error";
+  articleCount: number;
+  durationMs: number;
+  error?: string;
+}
+
+function feedHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 // SYNC: copied from scripts/rss.ts — keep in sync until pipeline consolidation
-async function fetchRssFeeds(): Promise<NewsArticle[]> {
+async function fetchRssFeeds(): Promise<{ articles: NewsArticle[]; feedHealth: FeedHealth[] }> {
   const results = await Promise.allSettled(
-    RSS_FEEDS.map((url) => rssParser.parseURL(url))
+    RSS_FEEDS.map(async (url) => {
+      const start = Date.now();
+      try {
+        const feed = await rssParser.parseURL(url);
+        return { feed, durationMs: Date.now() - start, url };
+      } catch (err) {
+        throw { error: err, durationMs: Date.now() - start, url };
+      }
+    })
   );
 
   const rssArticles: NewsArticle[] = [];
+  const feedHealth: FeedHealth[] = [];
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status === "fulfilled") {
-      const feed = result.value;
+      const { feed, durationMs, url } = result.value;
+      let articleCount = 0;
       for (const item of feed.items) {
         if (!item.title || !item.link) continue;
         const publishedAt = item.isoDate || item.pubDate;
@@ -294,16 +322,36 @@ async function fetchRssFeeds(): Promise<NewsArticle[]> {
           urlToImage: item.enclosure?.url || null,
           publishedAt,
         });
+        articleCount++;
       }
+      feedHealth.push({
+        name: feed.title || feedHostname(url),
+        url,
+        status: "ok",
+        articleCount,
+        durationMs,
+      });
     } else {
+      const reason = result.reason as { error: unknown; durationMs: number; url: string };
+      const url = reason.url || RSS_FEEDS[i];
+      const durationMs = reason.durationMs || 0;
+      const error = reason.error instanceof Error ? reason.error.message : String(reason.error);
+      feedHealth.push({
+        name: feedHostname(url),
+        url,
+        status: "error",
+        articleCount: 0,
+        durationMs,
+        error,
+      });
       console.error(
-        `Failed to fetch RSS feed "${RSS_FEEDS[i]}":`,
-        result.reason
+        `Failed to fetch RSS feed "${url}":`,
+        reason.error
       );
     }
   }
 
-  return rssArticles;
+  return { articles: rssArticles, feedHealth };
 }
 
 // --- OpenRouter LLM ---
@@ -450,20 +498,41 @@ async function classifyArticles(
 
   const titlesList = newsArticles.map((a, i) => `${i}. ${a.title}`).join("\n");
 
-  const prompt = `You are an environmental news classifier. Group these articles into environmental topics.
+  // SYNC: classification prompt must match scripts/batch.ts
+  const prompt = `You are an environmental news filter and classifier.
 
-IMPORTANT: Only classify articles that are genuinely about environmental issues like:
-- Climate change, global warming, carbon emissions
-- Pollution (air, water, soil, ocean, plastic)
-- Deforestation, habitat loss, biodiversity
-- Natural disasters (hurricanes, floods, wildfires)
-- Renewable energy, sustainability
-- Wildlife conservation, endangered species
+TASK 1 - FILTER: Identify which articles are about ENVIRONMENTAL topics.
 
-SKIP any articles about:
-- Cars, vehicles, or auctions (unless specifically about electric vehicles/emissions)
-- General business news (unless directly about environmental impact)
-- Sports, entertainment, politics (unless environmental policy)
+✅ INCLUDE articles about:
+- Climate impacts: heatwaves, floods, droughts, storms, sea level rise
+- Biodiversity: species extinction, habitat loss, wildlife decline
+- Pollution: air quality, water contamination, plastic, chemicals (PFAS, etc.)
+- Oceans: coral bleaching, acidification, overfishing, marine pollution
+- Forests: deforestation, wildfires, forest degradation
+- Energy & emissions: fossil fuels, renewables, carbon emissions
+- Environmental policy: regulations, treaties, climate action
+
+❌ REJECT articles about:
+- Celebrity/entertainment news
+- Sports and games
+- General politics (unless environmental policy)
+- Business news (unless environmental impact)
+- Technology (unless climate/environmental tech)
+- Pet care, animal trivia, lifestyle
+- Product reviews, shopping deals, promotions
+- Q&A articles, FAQs, and "What is..." / "How does..." / "Why do..." educational content
+- Evergreen/educational explainers with no specific date, event, or incident
+- Listicles and trivia ("3 effects of...", "10 facts about...")
+- Articles where the title is a question (strong signal of Q&A, not news)
+- Research papers or academic studies (unless reporting on NEW findings with real-world impact)
+
+🔍 NEWSWORTHINESS TEST — An article must pass ALL of these to be included:
+1. Reports on a SPECIFIC recent event, incident, or development (not general knowledge)
+2. Contains a date reference, named location, or specific actors/organizations
+3. Is written as journalism (news report, investigation, analysis) — NOT as Q&A, FAQ, tutorial, or educational explainer
+4. Title is a statement, not a question (questions indicate Q&A content)
+
+TASK 2 - CLASSIFY: Group relevant environmental articles into topics.
 
 Use existing topics where they match. Create new topic names only when no existing topic fits.
 Each topic should be a clear environmental issue (e.g. "Amazon Deforestation", "Delhi Air Quality Crisis").
@@ -474,18 +543,35 @@ ${topicsList || "(none yet)"}
 Articles to classify:
 ${titlesList}
 
-Respond with ONLY valid JSON, no other text. Use empty array if no environmental articles:
-{"classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...]}`;
+Respond with ONLY valid JSON, no other text:
+{
+  "classifications": [{"articleIndex": 0, "topicName": "Topic Name", "isNew": false}, ...],
+  "rejected": [1, 3, 5],
+  "rejectionReasons": ["Celebrity news", "Pet care Q&A"]
+}`;
 
   const response = await callLLM(prompt);
-  console.log("LLM Classification Response:", response.substring(0, 500));
 
-  const parsed = extractJSON(response) as
-    | { classifications?: Classification[] }
-    | null;
+  const parsed = extractJSON(response) as {
+    classifications?: Classification[];
+    rejected?: number[];
+    rejectionReasons?: string[];
+  } | null;
 
   if (parsed?.classifications) {
-    console.log(`Successfully classified ${parsed.classifications.length} articles`);
+    // Log rejection statistics
+    if (parsed.rejected && parsed.rejected.length > 0) {
+      console.log(`📋 Filtered ${parsed.rejected.length} irrelevant articles:`);
+      parsed.rejectionReasons?.forEach((reason, i) => {
+        const articleIdx = parsed.rejected![i];
+        const article = newsArticles[articleIdx];
+        if (article) {
+          console.log(`   ❌ [${articleIdx}] "${article.title.substring(0, 60)}..." (${reason})`);
+        }
+      });
+      const relevanceRate = ((newsArticles.length - parsed.rejected.length) / newsArticles.length * 100).toFixed(1);
+      console.log(`✅ Relevance rate: ${relevanceRate}% (${newsArticles.length - parsed.rejected.length}/${newsArticles.length} articles)`);
+    }
     return parsed.classifications;
   }
 
@@ -620,7 +706,13 @@ export async function POST(request: NextRequest) {
     ]);
 
     const gnewsArticles = gnewsResult.status === "fulfilled" ? gnewsResult.value : [];
-    const rssArticles = rssResult.status === "fulfilled" ? rssResult.value : [];
+    let rssArticles: NewsArticle[] = [];
+    let rssFeedHealth: FeedHealth[] = [];
+
+    if (rssResult.status === "fulfilled") {
+      rssArticles = rssResult.value.articles;
+      rssFeedHealth = rssResult.value.feedHealth;
+    }
 
     // Log catastrophic failures (per-source errors caught internally)
     if (gnewsResult.status === "rejected") {
@@ -628,6 +720,27 @@ export async function POST(request: NextRequest) {
     }
     if (rssResult.status === "rejected") {
       console.error("RSS fetch CRASHED:", rssResult.reason);
+      console.log("RSS feed health: unavailable (fetch crashed)");
+    }
+
+    // SYNC: per-feed health logging must match scripts/batch.ts
+    if (rssFeedHealth.length > 0) {
+      for (const fh of rssFeedHealth) {
+        const hostname = feedHostname(fh.url);
+        if (fh.status === "ok") {
+          console.log(`  ✓ ${fh.name} (${hostname}): ${fh.articleCount} articles in ${fh.durationMs}ms`);
+        } else {
+          console.log(`  ✗ ${fh.name} (${hostname}): FAILED in ${fh.durationMs}ms — ${fh.error}`);
+        }
+      }
+      const healthyCount = rssFeedHealth.filter((f) => f.status === "ok").length;
+      const failedFeeds = rssFeedHealth.filter((f) => f.status === "error");
+      const failedList = failedFeeds.map((f) => `${feedHostname(f.url)}: ${f.error}`).join(", ");
+      if (failedFeeds.length > 0) {
+        console.log(`Feed health: ${healthyCount}/${rssFeedHealth.length} healthy, ${failedFeeds.length} failed [${failedList}]`);
+      } else {
+        console.log(`Feed health: ${healthyCount}/${rssFeedHealth.length} healthy`);
+      }
     }
 
     // Source health warnings (AC #10) — distinguish "no data" from "source down"

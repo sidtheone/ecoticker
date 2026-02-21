@@ -731,3 +731,170 @@ describe('/api/batch — RSS integration (Story 4.2)', () => {
     warnSpy.mockRestore();
   });
 });
+
+// ─── Story 4.6: Classification Pipeline Alignment ──────────────────────────────
+
+describe('/api/batch — classification pipeline alignment (Story 4.6)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDb.reset();
+    mockParseURL.mockResolvedValue({ title: 'Default Feed', items: [] });
+  });
+
+  function makeRequest() {
+    return new NextRequest('http://localhost:3000/api/batch', {
+      method: 'POST',
+      headers: { 'x-api-key': 'test-admin-key' },
+    });
+  }
+
+  it('classification prompt includes newsworthiness test, Q&A rejection, and rejection fields', async () => {
+    const fetchSpy = jest.fn()
+      .mockResolvedValueOnce(makeGNewsResponse([AMAZON_ARTICLE]))
+      .mockResolvedValueOnce(makeClassificationResponse(AMAZON_CLASSIFICATION))
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
+    global.fetch = fetchSpy;
+    mockDb.mockSelect([]);
+    mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
+
+    await POST(makeRequest());
+
+    // Find the classification LLM call (first OpenRouter call)
+    const openRouterCalls = fetchSpy.mock.calls.filter(
+      ([url]: [string]) => url === 'https://openrouter.ai/api/v1/chat/completions'
+    );
+    expect(openRouterCalls.length).toBeGreaterThanOrEqual(1);
+
+    const classificationBody = JSON.parse(openRouterCalls[0][1].body);
+    const prompt = classificationBody.messages[0].content;
+
+    // AC #1: Newsworthiness test present
+    expect(prompt).toContain('NEWSWORTHINESS TEST');
+    // AC #2: Q&A and listicle rejection
+    expect(prompt).toContain('Q&A');
+    expect(prompt).toContain('Listicles');
+    expect(prompt).toContain('question');
+    // AC #3: Rejection fields in JSON schema
+    expect(prompt).toContain('"rejected"');
+    expect(prompt).toContain('"rejectionReasons"');
+  });
+
+  it('logs rejected articles with titles and reasons', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeGNewsResponse([
+        AMAZON_ARTICLE,
+        { ...AMAZON_ARTICLE, title: 'What is deforestation?', url: 'https://example.com/qa-1' },
+        { ...AMAZON_ARTICLE, title: 'Amazon fires worsen', url: 'https://example.com/fires-1' },
+      ]))
+      // Classification returns 1 rejected article
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                classifications: [
+                  { articleIndex: 0, topicName: 'Amazon Deforestation', isNew: true },
+                  { articleIndex: 2, topicName: 'Amazon Fires', isNew: true },
+                ],
+                rejected: [1],
+                rejectionReasons: ['Q&A content'],
+              }),
+            },
+          }],
+        }),
+      })
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE))
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
+    mockDb.mockSelect([]);
+    mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    await POST(makeRequest());
+
+    const logCalls = logSpy.mock.calls.map((c) => c.join(' '));
+    // AC #4: rejected article logged with title and reason
+    expect(logCalls.some((c) => c.includes('❌') && c.includes('Q&A content'))).toBe(true);
+    expect(logCalls.some((c) => c.includes('Filtered 1 irrelevant'))).toBe(true);
+    // AC #5: relevance rate logged
+    expect(logCalls.some((c) => c.includes('Relevance rate:') && c.includes('66.7%'))).toBe(true);
+    logSpy.mockRestore();
+  });
+
+  it('handles missing rejected array gracefully (no crash, no rejection logging)', async () => {
+    // LLM returns old response shape without rejected/rejectionReasons
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeGNewsResponse([AMAZON_ARTICLE]))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                classifications: AMAZON_CLASSIFICATION,
+                // No rejected or rejectionReasons fields
+              }),
+            },
+          }],
+        }),
+      })
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
+    mockDb.mockSelect([]);
+    mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await POST(makeRequest());
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+
+    const logCalls = logSpy.mock.calls.map((c) => c.join(' '));
+    // No rejection logging should appear
+    expect(logCalls.some((c) => c.includes('❌'))).toBe(false);
+    expect(logCalls.some((c) => c.includes('Filtered'))).toBe(false);
+    logSpy.mockRestore();
+  });
+
+  it('logs correct relevance rate calculation', async () => {
+    // 3 articles, 1 rejected → 66.7%
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeGNewsResponse([
+        AMAZON_ARTICLE,
+        { ...AMAZON_ARTICLE, title: 'Pet care tips', url: 'https://example.com/pet-1' },
+        { ...AMAZON_ARTICLE, title: 'Amazon fires continue', url: 'https://example.com/fires-2' },
+      ]))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                classifications: [
+                  { articleIndex: 0, topicName: 'Amazon Deforestation', isNew: true },
+                  { articleIndex: 2, topicName: 'Amazon Fires', isNew: true },
+                ],
+                rejected: [1],
+                rejectionReasons: ['Pet care'],
+              }),
+            },
+          }],
+        }),
+      })
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE))
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
+    mockDb.mockSelect([]);
+    mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    await POST(makeRequest());
+
+    const logCalls = logSpy.mock.calls.map((c) => c.join(' '));
+    // 2/3 articles passed = 66.7%
+    expect(logCalls.some((c) => c.includes('66.7%') && c.includes('2/3'))).toBe(true);
+    logSpy.mockRestore();
+  });
+});

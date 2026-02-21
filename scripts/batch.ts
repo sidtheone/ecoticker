@@ -10,7 +10,7 @@ import {
   deriveUrgency,
   detectAnomaly,
 } from "../src/lib/scoring";
-import { fetchRssFeeds } from "./rss";
+import { fetchRssFeeds, feedHostname, type NewsArticle as RssNewsArticle, type FeedHealth } from "./rss";
 
 const { topics, articles, scoreHistory, topicKeywords, auditLogs } = schema;
 
@@ -621,7 +621,13 @@ async function main() {
   ]);
 
   const gnewsArticles = gnewsResult.status === "fulfilled" ? gnewsResult.value : [];
-  const rssArticles = rssResult.status === "fulfilled" ? rssResult.value : [];
+  let rssArticles: RssNewsArticle[] = [];
+  let feedHealth: FeedHealth[] = [];
+
+  if (rssResult.status === "fulfilled") {
+    rssArticles = rssResult.value.articles;
+    feedHealth = rssResult.value.feedHealth;
+  }
 
   // Log catastrophic failures (per-source errors are caught internally by each fetcher)
   if (gnewsResult.status === "rejected") {
@@ -629,6 +635,27 @@ async function main() {
   }
   if (rssResult.status === "rejected") {
     console.error("RSS fetch CRASHED:", rssResult.reason);
+    console.log("RSS feed health: unavailable (fetch crashed)");
+  }
+
+  // SYNC: per-feed health logging must match src/app/api/batch/route.ts
+  if (feedHealth.length > 0) {
+    for (const fh of feedHealth) {
+      const hostname = feedHostname(fh.url);
+      if (fh.status === "ok") {
+        console.log(`  ✓ ${fh.name} (${hostname}): ${fh.articleCount} articles in ${fh.durationMs}ms`);
+      } else {
+        console.log(`  ✗ ${fh.name} (${hostname}): FAILED in ${fh.durationMs}ms — ${fh.error}`);
+      }
+    }
+    const healthyCount = feedHealth.filter((f) => f.status === "ok").length;
+    const failedFeeds = feedHealth.filter((f) => f.status === "error");
+    const failedList = failedFeeds.map((f) => `${feedHostname(f.url)}: ${f.error}`).join(", ");
+    if (failedFeeds.length > 0) {
+      console.log(`Feed health: ${healthyCount}/${feedHealth.length} healthy, ${failedFeeds.length} failed [${failedList}]`);
+    } else {
+      console.log(`Feed health: ${healthyCount}/${feedHealth.length} healthy`);
+    }
   }
 
   // Source health warnings (AC #10) — distinguish "no data" from "source down"

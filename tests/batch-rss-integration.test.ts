@@ -292,6 +292,45 @@ describe('scripts/batch.ts — RSS integration', () => {
     warnSpy.mockRestore();
   });
 
+  it('logs per-feed health status and summary line (Story 4.4 AC #1-3)', async () => {
+    // GNews: 1 article; RSS: first feed succeeds (1 article), second feed fails, rest empty
+    setupDb();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE]))
+      .mockResolvedValueOnce(makeClassificationResponse([
+        { articleIndex: 0, topicName: 'Climate News', isNew: true },
+        { articleIndex: 1, topicName: 'Amazon Deforestation', isNew: true },
+      ]))
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE))
+      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
+
+    // Feed 1: success with article; Feed 2: failure; Feeds 3-10: empty success
+    mockParseURL
+      .mockResolvedValueOnce({ title: 'Guardian Environment', items: [RSS_ARTICLE_ITEM] })
+      .mockRejectedValueOnce(new Error('timeout'));
+    for (let i = 2; i < 10; i++) {
+      mockParseURL.mockResolvedValueOnce({ title: `Feed ${i}`, items: [] });
+    }
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await main();
+
+    const logCalls = logSpy.mock.calls.map((c) => c.join(' '));
+
+    // AC #1: per-feed status lines with name, duration, article count
+    expect(logCalls.some((c) => c.includes('✓') && c.includes('Guardian Environment') && c.includes('articles in'))).toBe(true);
+    // AC #2: failed feed with error message
+    expect(logCalls.some((c) => c.includes('✗') && c.includes('FAILED') && c.includes('timeout'))).toBe(true);
+    // AC #3: summary line with healthy/failed counts and failure list
+    expect(logCalls.some((c) => c.includes('Feed health:') && c.includes('healthy') && c.includes('failed'))).toBe(true);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it('cross-source URL dedup: RSS wins attribution when same URL appears in both (AC #11)', async () => {
     const SHARED_URL = 'https://reuters.com/env/shared-article';
     const gnewsArticleShared = { ...GNEWS_ARTICLE, url: SHARED_URL };

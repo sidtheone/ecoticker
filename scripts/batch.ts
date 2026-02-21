@@ -301,10 +301,12 @@ Respond with ONLY valid JSON, no other text:
         const articleIdx = parsed.rejected![i];
         const article = articles[articleIdx];
         if (article) {
-          console.log(`   ❌ [${articleIdx}] "${article.title.substring(0, 60)}..." (${reason})`);
+          console.log(`   ❌ [${articleIdx}] "${article.title.length > 60 ? article.title.substring(0, 60) + "..." : article.title}" (${reason})`);
         }
       });
-      const relevanceRate = ((articles.length - parsed.rejected.length) / articles.length * 100).toFixed(1);
+      const relevanceRate = articles.length > 0
+        ? ((articles.length - parsed.rejected.length) / articles.length * 100).toFixed(1)
+        : "0.0";
       console.log(`✅ Relevance rate: ${relevanceRate}% (${articles.length - parsed.rejected.length}/${articles.length} articles)`);
     }
     return parsed.classifications;

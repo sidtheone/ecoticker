@@ -779,7 +779,7 @@ describe('/api/batch — classification pipeline alignment (Story 4.6)', () => {
     expect(prompt).toContain('"rejectionReasons"');
   });
 
-  it('logs rejected articles with titles and reasons', async () => {
+  it('logs rejected articles with titles, reasons, and correct relevance rate', async () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce(makeGNewsResponse([
         AMAZON_ARTICLE,
@@ -817,8 +817,9 @@ describe('/api/batch — classification pipeline alignment (Story 4.6)', () => {
     // AC #4: rejected article logged with title and reason
     expect(logCalls.some((c) => c.includes('❌') && c.includes('Q&A content'))).toBe(true);
     expect(logCalls.some((c) => c.includes('Filtered 1 irrelevant'))).toBe(true);
-    // AC #5: relevance rate logged
+    // AC #5: relevance rate logged — 2/3 articles passed = 66.7%
     expect(logCalls.some((c) => c.includes('Relevance rate:') && c.includes('66.7%'))).toBe(true);
+    expect(logCalls.some((c) => c.includes('2/3'))).toBe(true);
     logSpy.mockRestore();
   });
 
@@ -858,14 +859,10 @@ describe('/api/batch — classification pipeline alignment (Story 4.6)', () => {
     logSpy.mockRestore();
   });
 
-  it('logs correct relevance rate calculation', async () => {
-    // 3 articles, 1 rejected → 66.7%
+  it('handles out-of-bounds rejected index gracefully (no crash)', async () => {
+    // LLM returns rejected: [99] but only 1 article exists — guard must prevent crash
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(makeGNewsResponse([
-        AMAZON_ARTICLE,
-        { ...AMAZON_ARTICLE, title: 'Pet care tips', url: 'https://example.com/pet-1' },
-        { ...AMAZON_ARTICLE, title: 'Amazon fires continue', url: 'https://example.com/fires-2' },
-      ]))
+      .mockResolvedValueOnce(makeGNewsResponse([AMAZON_ARTICLE]))
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -873,28 +870,29 @@ describe('/api/batch — classification pipeline alignment (Story 4.6)', () => {
           choices: [{
             message: {
               content: JSON.stringify({
-                classifications: [
-                  { articleIndex: 0, topicName: 'Amazon Deforestation', isNew: true },
-                  { articleIndex: 2, topicName: 'Amazon Fires', isNew: true },
-                ],
-                rejected: [1],
-                rejectionReasons: ['Pet care'],
+                classifications: AMAZON_CLASSIFICATION,
+                rejected: [99],
+                rejectionReasons: ['Out of bounds test'],
               }),
             },
           }],
         }),
       })
-      .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE))
       .mockResolvedValueOnce(makeScoringResponse(RUBRIC_SCORE));
     mockDb.mockSelect([]);
     mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
 
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    await POST(makeRequest());
+    const res = await POST(makeRequest());
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
 
     const logCalls = logSpy.mock.calls.map((c) => c.join(' '));
-    // 2/3 articles passed = 66.7%
-    expect(logCalls.some((c) => c.includes('66.7%') && c.includes('2/3'))).toBe(true);
+    // Filtered count logged, but no ❌ line for the invalid index (article guard fires)
+    expect(logCalls.some((c) => c.includes('Filtered 1 irrelevant'))).toBe(true);
+    expect(logCalls.filter((c) => c.includes('❌')).length).toBe(0);
     logSpy.mockRestore();
   });
 });

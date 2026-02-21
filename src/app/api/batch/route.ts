@@ -492,9 +492,9 @@ async function classifyArticles(
   newsArticles: NewsArticle[],
   existingTopics: { name: string; keywords: string[] }[]
 ): Promise<Classification[]> {
-  const topicsList = existingTopics
-    .map((t) => `- "${t.name}" (keywords: ${t.keywords.join(", ")})`)
-    .join("\n");
+  const topicsList =
+    existingTopics.map((t) => `- "${t.name}" (keywords: ${t.keywords.join(", ")})`).join("\n") ||
+    "(none yet)";
 
   const titlesList = newsArticles.map((a, i) => `${i}. ${a.title}`).join("\n");
 
@@ -538,7 +538,7 @@ Use existing topics where they match. Create new topic names only when no existi
 Each topic should be a clear environmental issue (e.g. "Amazon Deforestation", "Delhi Air Quality Crisis").
 
 Existing topics:
-${topicsList || "(none yet)"}
+${topicsList}
 
 Articles to classify:
 ${titlesList}
@@ -566,10 +566,12 @@ Respond with ONLY valid JSON, no other text:
         const articleIdx = parsed.rejected![i];
         const article = newsArticles[articleIdx];
         if (article) {
-          console.log(`   ❌ [${articleIdx}] "${article.title.substring(0, 60)}..." (${reason})`);
+          console.log(`   ❌ [${articleIdx}] "${article.title.length > 60 ? article.title.substring(0, 60) + "..." : article.title}" (${reason})`);
         }
       });
-      const relevanceRate = ((newsArticles.length - parsed.rejected.length) / newsArticles.length * 100).toFixed(1);
+      const relevanceRate = newsArticles.length > 0
+        ? ((newsArticles.length - parsed.rejected.length) / newsArticles.length * 100).toFixed(1)
+        : "0.0";
       console.log(`✅ Relevance rate: ${relevanceRate}% (${newsArticles.length - parsed.rejected.length}/${newsArticles.length} articles)`);
     }
     return parsed.classifications;

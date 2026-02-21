@@ -22,7 +22,16 @@ export default function ArticleList({ articles }: { articles: Article[] }) {
           >
             <div className="text-sm font-medium text-stone-700 dark:text-gray-200">{a.title}</div>
             <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-              {a.source && <span>{a.source}</span>}
+              {a.source && (
+                <span>
+                  {a.source}
+                  {a.sourceType && (
+                    <span className="text-stone-400 dark:text-stone-500">
+                      {" · "}{a.sourceType === "rss" ? "RSS" : "GNews"}
+                    </span>
+                  )}
+                </span>
+              )}
               {a.publishedAt && (
                 <span>{new Date(a.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
               )}

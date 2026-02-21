@@ -47,7 +47,7 @@ export interface Article {
   summary: string | null;
   imageUrl: string | null;
   // US-5.2: source attribution
-  sourceType: string;
+  sourceType: string | null;
   publishedAt: string | null;
 }
 

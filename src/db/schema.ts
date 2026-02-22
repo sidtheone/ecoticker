@@ -57,7 +57,7 @@ export const articles = pgTable(
     summary: text("summary"),
     imageUrl: text("image_url"),
     // US-5.2: source attribution
-    sourceType: text("source_type").default("newsapi"),
+    sourceType: text("source_type").default("unknown"),
     publishedAt: timestamp("published_at"),
     fetchedAt: timestamp("fetched_at").defaultNow(),
   },

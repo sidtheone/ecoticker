@@ -7,9 +7,6 @@ export default function ArticleList({ articles }: { articles: Article[] }) {
 
   return (
     <div data-testid="article-list">
-      <h3 className="text-sm font-semibold text-stone-600 dark:text-gray-300 mb-3">
-        Related Articles ({articles.length})
-      </h3>
       <div className="space-y-3">
         {articles.map((a) => (
           <a
@@ -25,16 +22,18 @@ export default function ArticleList({ articles }: { articles: Article[] }) {
               {a.source && (
                 <span>
                   {a.source}
-                  {a.sourceType && (
+                  {(a.sourceType === "rss" || a.sourceType === "gnews") && (
                     <span className="text-stone-400 dark:text-stone-500">
                       {" · "}{a.sourceType === "rss" ? "RSS" : "GNews"}
                     </span>
                   )}
                 </span>
               )}
-              {a.publishedAt && (
-                <span>{new Date(a.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-              )}
+              <span>
+                {a.publishedAt
+                  ? new Date(a.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                  : "Date unknown"}
+              </span>
             </div>
             {a.summary && (
               <p className="text-xs text-stone-400 dark:text-gray-400 mt-1 line-clamp-2">{a.summary}</p>

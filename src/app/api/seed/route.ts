@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
             url: `https://example.com/article-${slug}-${i}`,
             source: i % 2 === 0 ? "Reuters" : "Associated Press",
             summary: `Latest developments regarding ${topicData.name.toLowerCase()}`,
-            sourceType: "newsapi",
+            sourceType: "seed",
             publishedAt,
           })
           .onConflictDoNothing({ target: articles.url });

@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         source: source || null,
         summary: summary || null,
         imageUrl: imageUrl || null,
-        sourceType: "newsapi", // Default for API-created articles
+        sourceType: "api", // Explicitly set for API-created articles
         publishedAt: publishedAt ? new Date(publishedAt) : null,
       })
       .onConflictDoNothing({ target: articles.url })

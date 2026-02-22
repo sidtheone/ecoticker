@@ -59,7 +59,7 @@ export async function GET(
         source: a.source,
         summary: a.summary,
         imageUrl: a.imageUrl,
-        sourceType: a.sourceType || "newsapi",
+        sourceType: a.sourceType ?? "unknown",
         publishedAt: a.publishedAt?.toISOString() || null,
       })),
       scoreHistory: result.scoreHistory.map((s) => ({

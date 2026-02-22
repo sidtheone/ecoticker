@@ -9,9 +9,10 @@ const mockArticles: Article[] = [
 ];
 
 describe("ArticleList", () => {
-  test("renders article count in heading", () => {
+  test("renders article items without a standalone heading (parent section owns the heading)", () => {
     render(<ArticleList articles={mockArticles} />);
-    expect(screen.getByText("Related Articles (2)")).toBeInTheDocument();
+    expect(screen.getByTestId("article-list")).toBeInTheDocument();
+    expect(screen.queryByText(/Related Articles/)).not.toBeInTheDocument();
   });
 
   test("renders all article items", () => {
@@ -49,24 +50,29 @@ describe("ArticleList", () => {
   });
 });
 
+// ─── AC6 (Story 8-2): Badge only renders for rss and gnews ──────────────────
+// Badge guard: a.sourceType === "rss" || a.sourceType === "gnews"
+
 describe("source attribution badge", () => {
-  test("renders GNews badge for sourceType gnews", () => {
+  test('sourceType "gnews" renders "GNews" badge', () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: "gnews" },
     ];
     render(<ArticleList articles={articles} />);
     expect(screen.getByText("GNews", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
   });
 
-  test("renders RSS badge for sourceType rss", () => {
+  test('sourceType "rss" renders "RSS" badge', () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "The Guardian", summary: null, imageUrl: null, publishedAt: null, sourceType: "rss" },
     ];
     render(<ArticleList articles={articles} />);
     expect(screen.getByText("RSS", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("GNews", { exact: false })).not.toBeInTheDocument();
   });
 
-  test("renders source name only when sourceType is null", () => {
+  test("renders source name only when sourceType is null (no badge)", () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: null },
     ];
@@ -76,7 +82,7 @@ describe("source attribution badge", () => {
     expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
   });
 
-  test("renders source name only when sourceType is empty string", () => {
+  test("renders source name only when sourceType is empty string (no badge)", () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: "" },
     ];
@@ -86,16 +92,34 @@ describe("source attribution badge", () => {
     expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
   });
 
-  test("renders GNews for any non-rss sourceType", () => {
+  test('sourceType "api" renders NO badge', () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: "api" },
     ];
     render(<ArticleList articles={articles} />);
-    expect(screen.getByText("GNews", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("GNews", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
   });
 
-  test("renders nothing when source is null but sourceType exists", () => {
+  test('sourceType "unknown" renders NO badge', () => {
+    const articles: Article[] = [
+      { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: "unknown" },
+    ];
+    render(<ArticleList articles={articles} />);
+    expect(screen.queryByText("GNews", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
+  });
+
+  test('sourceType "seed" renders NO badge', () => {
+    const articles: Article[] = [
+      { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: "Reuters", summary: null, imageUrl: null, publishedAt: null, sourceType: "seed" },
+    ];
+    render(<ArticleList articles={articles} />);
+    expect(screen.queryByText("GNews", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("RSS", { exact: false })).not.toBeInTheDocument();
+  });
+
+  test("renders no badge when source is null but sourceType exists", () => {
     const articles: Article[] = [
       { id: 1, topicId: 1, title: "Test article", url: "https://example.com/1", source: null, summary: null, imageUrl: null, publishedAt: null, sourceType: "rss" },
     ];

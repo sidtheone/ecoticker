@@ -9,7 +9,7 @@
 
 - [x] GitHub account with `sidtheone/ecoticker` repo
 - [x] Railway account (sign up at https://railway.app)
-- [x] NewsAPI key (https://newsapi.org)
+- [x] GNews API key (https://gnews.io)
 - [x] OpenRouter API key (https://openrouter.ai)
 - [x] PostgreSQL plugin (Railway provides this)
 

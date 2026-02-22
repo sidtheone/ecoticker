@@ -5,7 +5,7 @@
 - A Linux VM (2-core, 4GB RAM minimum)
 - Docker and Docker Compose installed
 - SSH access to the server
-- API keys for NewsAPI and OpenRouter
+- API keys for GNews and OpenRouter
 - PostgreSQL 17 (via Docker)
 
 ## Step 1: Clone and Configure
@@ -26,7 +26,7 @@ Edit `.env` with your API keys:
 DATABASE_URL=postgresql://ecoticker:your_secure_password@postgres:5432/ecoticker
 
 # External APIs
-GNEWS_API_KEY=your_gnews_api_key        # https://newsapi.org
+GNEWS_API_KEY=your_gnews_api_key        # https://gnews.io
 OPENROUTER_API_KEY=your_openrouter_key  # https://openrouter.ai
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 

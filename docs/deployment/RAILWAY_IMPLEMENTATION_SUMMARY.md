@@ -77,7 +77,7 @@ Added script:
 **File:** `.env.railway.example`
 
 Documents all required Railway environment variables:
-- API keys (NewsAPI, OpenRouter)
+- API keys (GNews, OpenRouter)
 - Database path
 - Cron secret
 - Batch keywords

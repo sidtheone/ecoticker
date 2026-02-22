@@ -6,14 +6,14 @@ This guide shows you how to configure EcoTicker to fetch real environmental news
 
 You'll need API keys from two services:
 
-1. **NewsAPI** - For fetching news articles
+1. **GNews** - For fetching news articles
 2. **OpenRouter** - For AI classification and scoring
 
 ## Step 1: Get API Keys
 
-### NewsAPI Key
+### GNews API Key
 
-1. Visit https://newsapi.org
+1. Visit https://gnews.io
 2. Click "Get API Key"
 3. Sign up for a free account
 4. Copy your API key from the dashboard
@@ -140,7 +140,7 @@ command = "curl -H 'Authorization: Bearer $CRON_SECRET' http://localhost:3000/ap
 
 ### Batch Processing Flow
 
-1. **Fetch News** - NewsAPI retrieves recent articles about environmental keywords
+1. **Fetch News** - GNews retrieves recent articles about environmental keywords
 2. **Classify Topics** - OpenRouter LLM groups articles into environmental topics
 3. **Score Severity** - LLM rates each topic's impact on 0-100 scale
 4. **Update Database** - New topics, articles, and scores saved to SQLite
@@ -154,7 +154,7 @@ command = "curl -H 'Authorization: Bearer $CRON_SECRET' http://localhost:3000/ap
 
 ### Cost Estimates
 
-**NewsAPI Free Tier:**
+**GNews Free Tier:**
 - 100 requests/day
 - Batch job uses 2-3 requests
 - Cost: $0/month
@@ -170,9 +170,9 @@ command = "curl -H 'Authorization: Bearer $CRON_SECRET' http://localhost:3000/ap
 
 If you need more frequent updates or higher quality:
 
-**NewsAPI Developer Plan** ($449/month):
-- Unlimited requests
-- Run batch job hourly
+**GNews Developer Plan** (paid tiers available at https://gnews.io/pricing):
+- Higher request limits
+- Run batch job more frequently
 
 **OpenRouter Paid Models**:
 - `anthropic/claude-3.5-sonnet`: ~$3/1M input tokens
@@ -196,10 +196,10 @@ OPENROUTER_API_KEY=sk-or-...
 
 ### "Rate limit exceeded" Error
 
-NewsAPI free tier: 100 requests/day
+GNews free tier: 100 requests/day
 - Reduce `BATCH_KEYWORDS` count
 - Run cron job less frequently
-- Upgrade to paid plan
+- Upgrade to paid plan at https://gnews.io/pricing
 
 ### "Model not found" Error
 
@@ -215,7 +215,7 @@ curl https://openrouter.ai/api/v1/models \
 - Check cron job is running (check Railway logs)
 - Verify batch endpoint returns success
 - Try calling `/api/batch` directly to test
-- Check NewsAPI actually returns articles for your keywords
+- Check GNews actually returns articles for your keywords
 
 ## Monitoring
 
@@ -247,6 +247,6 @@ The batch endpoint returns detailed stats:
 ---
 
 **Need Help?**
-- NewsAPI docs: https://newsapi.org/docs
+- GNews docs: https://gnews.io/docs
 - OpenRouter docs: https://openrouter.ai/docs
 - Railway docs: https://docs.railway.app

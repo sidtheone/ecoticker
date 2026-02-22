@@ -12,7 +12,7 @@ Choose your deployment method based on your needs.
 - ✅ One-click deploy from GitHub
 - ✅ Automatic SSL certificates
 - ✅ Built-in monitoring
-- ✅ Persistent storage for SQLite
+- ✅ Managed PostgreSQL database
 - ✅ No server maintenance
 - ✅ Cost: $5-7/month
 
@@ -68,19 +68,17 @@ Choose your deployment method based on your needs.
 - ✅ Zero config deployment
 
 **Cons:**
-- ❌ **No persistent storage** (SQLite won't work)
-- ❌ Requires external database (PostgreSQL/Supabase)
 - ❌ Serverless cold starts
-- ❌ Batch job requires external service
+- ❌ Batch job requires external cron service
+- ❌ No built-in cron support
 
 **Required Changes:**
-- Migrate SQLite → PostgreSQL/Supabase
 - Move batch.ts to external cron service
-- Update database layer
+- Configure external PostgreSQL (e.g., Supabase, Neon)
 
-**Deployment Time:** 2-3 hours (migration work)
+**Deployment Time:** 1-2 hours
 
-**Not Recommended** unless you want to rewrite database layer.
+**Viable** but requires external cron and database services.
 
 ---
 
@@ -131,7 +129,7 @@ Choose your deployment method based on your needs.
 |---------|---------|----------------|--------|--------------|
 | **Setup Time** | 15 min | 30 min | 2-3 hrs | 30 min |
 | **Cost/Month** | $5-7 | $5-10* | Free-$20 | $5-12 |
-| **SQLite Support** | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes |
+| **PostgreSQL** | ✅ Managed | ✅ Self-hosted | ✅ External | ✅ Managed |
 | **Auto HTTPS** | ✅ Yes | ❌ Manual | ✅ Yes | ✅ Yes |
 | **Cron Jobs** | ✅ Native | ✅ Built-in | ❌ External | ✅ Native |
 | **Monitoring** | ✅ Built-in | ❌ Manual | ✅ Built-in | ✅ Built-in |
@@ -152,9 +150,9 @@ Choose your deployment method based on your needs.
 → **Docker Compose** (30 minutes setup, $5-10/month)
 - Read: [`deployment.md`](./deployment.md)
 
-### For Free Tier (with DB migration)
-→ **Vercel + Supabase** (2-3 hours, Free tier available)
-- Not documented (requires code changes)
+### For Free Tier (with external DB)
+→ **Vercel + Supabase/Neon** (1-2 hours, Free tier available)
+- Not documented (requires external cron setup)
 
 ### For Production/Enterprise
 → **AWS/GCP with Kubernetes** (hours, $20+/month)
@@ -193,9 +191,8 @@ If you're currently using **Docker Compose** and want to try **Railway**:
 - You want to avoid vendor lock-in
 
 **Choose Vercel if:**
-- You're willing to migrate SQLite → PostgreSQL
 - You want free tier
-- You don't mind external cron service
+- You don't mind external PostgreSQL (Supabase/Neon) and cron service
 - You prioritize global CDN performance
 
 ---
@@ -247,7 +244,7 @@ docker compose exec app npx tsx scripts/seed.ts
 - **Railway deployment:** See [`RAILWAY_QUICKSTART.md`](./RAILWAY_QUICKSTART.md)
 - **Docker deployment:** See [`deployment.md`](./deployment.md)
 - **Project overview:** See [`CLAUDE.md`](./CLAUDE.md)
-- **Recent improvements:** See [`IMPROVEMENTS.md`](./IMPROVEMENTS.md)
+
 
 **GitHub Issues:** https://github.com/sidtheone/ecoticker/issues
 

@@ -38,10 +38,9 @@ Use this checklist to ensure smooth deployment to Railway.
 - [ ] GitHub repo connected (`sidtheone/ecoticker`)
 - [ ] Dockerfile detected by Railway
 
-### Volume Configuration
-- [ ] Persistent volume created
-- [ ] Mount path: `/data`
-- [ ] Volume name: `ecoticker-data`
+### PostgreSQL Configuration
+- [ ] Railway PostgreSQL plugin added
+- [ ] `DATABASE_URL` automatically set by Railway
 
 ### Environment Variables
 Copy from `.env.railway.example` to Railway dashboard:
@@ -49,7 +48,7 @@ Copy from `.env.railway.example` to Railway dashboard:
 - [ ] `GNEWS_API_KEY` = `<your_key>`
 - [ ] `OPENROUTER_API_KEY` = `<your_key>`
 - [ ] `OPENROUTER_MODEL` = `meta-llama/llama-3.1-8b-instruct:free`
-- [ ] `DATABASE_PATH` = `/data/ecoticker.db`
+- [ ] `ADMIN_API_KEY` = `<generated_secret>`
 - [ ] `BATCH_KEYWORDS` = `climate,pollution,deforestation,...`
 - [ ] `CRON_SECRET` = `<generated_secret>`
 - [ ] `NODE_ENV` = `production`
@@ -82,8 +81,8 @@ Copy from `.env.railway.example` to Railway dashboard:
 - [ ] Railway URL accessible: `https://<project>.up.railway.app`
 
 ### Database Setup
+- [ ] Schema pushed: `railway run npx drizzle-kit push`
 - [ ] Database seeded: `railway run npm run railway:seed`
-- [ ] OR existing database uploaded to volume
 - [ ] Seed data visible at `/api/topics`
 
 ### Verification Tests
@@ -195,13 +194,13 @@ curl -H "Authorization: Bearer <CRON_SECRET>" \
 ### Deploy Succeeds but App Crashes
 1. Check Railway runtime logs
 2. Verify environment variables set correctly
-3. Ensure DATABASE_PATH points to volume
+3. Ensure DATABASE_URL points to Railway PostgreSQL
 4. Check healthcheck endpoint works
 
 ### Database Empty/Resets
-1. Verify volume mounted at `/data`
-2. Check DATABASE_PATH = `/data/ecoticker.db`
-3. Ensure volume not recreated on deploy
+1. Verify PostgreSQL plugin is running in Railway
+2. Check DATABASE_URL is set (auto-injected by Railway)
+3. Push schema: `railway run npx drizzle-kit push`
 4. Re-run seed script if needed
 
 ### Cron Not Running

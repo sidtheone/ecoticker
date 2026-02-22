@@ -108,7 +108,7 @@ Documents all required Railway environment variables:
 ├─────────────────┤
 │  cron (crond)   │ ← Alpine cron daemon
 ├─────────────────┤
-│  volume         │ ← SQLite database
+│  postgres:5432  │ ← PostgreSQL (pgdata volume)
 └─────────────────┘
 ```
 
@@ -121,7 +121,7 @@ Documents all required Railway environment variables:
 ├─────────────────┤
 │  External Cron  │ ← cron-job.org calls API
 ├─────────────────┤
-│  Volume         │ ← Persistent /data
+│  PostgreSQL     │ ← Railway managed DB
 └─────────────────┘
 ```
 
@@ -229,28 +229,20 @@ npm run build
 
 ## Migration Considerations
 
-### If Migrating from Existing Deployment
-
-1. **Backup database:**
-   ```bash
-   cp db/ecoticker.db ecoticker-backup.db
-   ```
-
-2. **Upload to Railway:**
-   ```bash
-   railway volume add /data ./ecoticker-backup.db
-   ```
-
-3. **Keep old deployment running** for 48 hours during verification
-
-4. **Update DNS** when Railway is confirmed working
-
 ### If Starting Fresh
 
-Just run seed script:
+Push schema and seed:
 ```bash
+railway run npx drizzle-kit push
 railway run npm run railway:seed
 ```
+
+### If Migrating from Existing Deployment
+
+1. **Export data** from existing PostgreSQL using `pg_dump`
+2. **Import to Railway PostgreSQL** using `psql` or `pg_restore`
+3. **Keep old deployment running** for 48 hours during verification
+4. **Update DNS** when Railway is confirmed working
 
 ---
 
@@ -387,8 +379,8 @@ railway logs
 curl -H "Authorization: Bearer <CRON_SECRET>" \
   https://<app>.railway.app/api/cron/batch
 
-# Upload existing database
-railway volume add /data ./db/ecoticker.db
+# Push schema to Railway PostgreSQL
+railway run npx drizzle-kit push
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 ## Deployment
 
-- **[deployment/real-data-setup.md](./deployment/real-data-setup.md)** - Guide for connecting real NewsAPI and OpenRouter APIs
+- **[deployment/real-data-setup.md](./deployment/real-data-setup.md)** - Guide for connecting GNews and OpenRouter APIs
 - **[deployment/DEPLOYMENT_OPTIONS.md](./deployment/DEPLOYMENT_OPTIONS.md)** - Deployment strategy comparison
 - **[deployment/RAILWAY_QUICKSTART.md](./deployment/RAILWAY_QUICKSTART.md)** - Railway quick start guide
 - **[deployment/RAILWAY_CHECKLIST.md](./deployment/RAILWAY_CHECKLIST.md)** - Railway deployment checklist

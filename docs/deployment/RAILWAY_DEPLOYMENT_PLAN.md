@@ -10,7 +10,7 @@
 
 Railway is a modern PaaS that simplifies deployment with:
 - **Auto-deploy from GitHub** with zero config
-- **Persistent volumes** for SQLite storage
+- **Managed PostgreSQL** database plugin
 - **Built-in HTTPS** and edge network (no nginx needed)
 - **Cron jobs** via Railway's native cron service
 - **Environment variables** managed in dashboard
@@ -19,7 +19,7 @@ Railway is a modern PaaS that simplifies deployment with:
 **Key Changes:**
 1. Remove nginx (Railway handles HTTPS/routing)
 2. Single Dockerfile deployment (Railway auto-detects)
-3. Persistent volume for SQLite database
+3. Managed PostgreSQL database (Railway plugin)
 4. Cron job via separate Railway service
 5. Environment variables via Railway dashboard
 
@@ -36,7 +36,7 @@ Railway is a modern PaaS that simplifies deployment with:
 │         ↓                            │
 │  cron (batch script 6am UTC)         │
 │         ↓                            │
-│  ecoticker-data volume (SQLite)      │
+│  PostgreSQL (Docker service)         │
 └─────────────────────────────────────┘
 ```
 
@@ -49,7 +49,7 @@ Railway is a modern PaaS that simplifies deployment with:
 │         ↓                            │
 │  cron service (batch.ts daily)       │
 │         ↓                            │
-│  Persistent Volume (SQLite)          │
+│  Railway PostgreSQL (managed)        │
 └─────────────────────────────────────┘
 ```
 
@@ -87,16 +87,16 @@ In Railway dashboard → Variables tab, add:
 GNEWS_API_KEY=<your_actual_gnews_key>
 OPENROUTER_API_KEY=<your_actual_openrouter_key>
 OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
-DATABASE_PATH=/data/ecoticker.db
+ADMIN_API_KEY=<generated_secret>
 BATCH_KEYWORDS=climate,pollution,deforestation,wildfire,flood,drought,oil spill,emissions,biodiversity,ocean
 NODE_ENV=production
 ```
 
-**1.4 Add Persistent Volume**
-- Go to Railway project → Settings → Volumes
-- Click "New Volume"
-- Mount path: `/data`
-- This persists SQLite database across deploys
+**Note:** `DATABASE_URL` is automatically set by the Railway PostgreSQL plugin.
+
+**1.4 Add PostgreSQL Plugin**
+- Go to Railway project → New Service → Database → PostgreSQL
+- Railway automatically provisions PostgreSQL 17 and injects `DATABASE_URL`
 
 ---
 
@@ -267,18 +267,11 @@ After first deployment:
 railway run npx tsx scripts/seed.ts
 ```
 
-**4.2 Migrate Existing Data (If Migrating)**
+**4.2 Push Database Schema**
 
-If you have existing data in local `db/ecoticker.db`:
-
+After first deployment, push Drizzle schema to Railway PostgreSQL:
 ```bash
-# 1. Connect to Railway service
-railway link
-
-# 2. Upload database file
-railway volume add /data ./db/ecoticker.db
-
-# Or use scp/rsync (Railway provides SSH access)
+railway run npx drizzle-kit push
 ```
 
 ---
@@ -364,7 +357,7 @@ Railway supports custom domains:
 **Comparison to Alternatives:**
 - DigitalOcean Droplet: $6/month (requires manual setup)
 - AWS Lightsail: $5/month (complex setup)
-- Vercel: Free tier (but no cron, no persistent SQLite)
+- Vercel: Free tier (but no cron, requires external DB)
 - Heroku: $7/month (deprecated free tier)
 
 **Railway wins on:** Simplicity + Cron + Persistent storage
@@ -390,7 +383,7 @@ Railway supports custom domains:
 - [ ] Create new Railway project
 - [ ] Connect GitHub repo
 - [ ] Add environment variables
-- [ ] Create persistent volume at `/data`
+- [ ] Add PostgreSQL plugin
 - [ ] Configure cron service or external cron
 - [ ] Set up custom domain (optional)
 
@@ -417,7 +410,7 @@ Railway supports custom domains:
 If Railway deployment fails:
 
 1. **Keep Docker setup intact** until Railway is verified
-2. **Database backup:** Export SQLite before migration
+2. **Database backup:** Export PostgreSQL with `pg_dump` before migration
 3. **Quick rollback:**
    ```bash
    docker compose up -d

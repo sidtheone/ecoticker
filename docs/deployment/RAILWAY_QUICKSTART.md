@@ -233,26 +233,22 @@ Verify PostgreSQL service:
 
 ## Migration from Docker Compose
 
-If migrating from existing Docker setup with SQLite:
+If migrating from an existing Docker Compose PostgreSQL setup:
 
-1. **Export existing SQLite data to PostgreSQL:**
+1. **Export data** from existing PostgreSQL:
    ```bash
-   # Use a migration tool like pgloader or write custom migration script
-   # This is needed because SQLite and PostgreSQL formats differ
+   docker compose exec postgres pg_dump -U ecoticker ecoticker > backup.sql
    ```
 
 2. **Import to Railway PostgreSQL:**
    ```bash
-   # Connect to Railway PostgreSQL and import data
    railway connect postgres
-   # Then use psql commands to import
+   # Then run: \i backup.sql
    ```
 
 3. **Keep Docker running** until Railway is verified (48 hours)
 
 4. **Update DNS** to Railway when ready
-
-**Note:** For v2 migrations, you're starting fresh with PostgreSQL, so no data migration needed if coming from v1 SQLite.
 
 ---
 

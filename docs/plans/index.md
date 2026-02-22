@@ -35,9 +35,15 @@
 - **[2026-02-13-us5.2-workflow.md](./2026-02-13-us5.2-workflow.md)** - US-5.2 source attribution badge (Story 4.3) — DONE
 - **[2026-02-21-reconcile-batch-scoring-pipelines.md](./2026-02-21-reconcile-batch-scoring-pipelines.md)** - Align route.ts batch scoring/classification with US-1.0 rubric (Stories 4.5, 4.6) — DONE
 
-## Current Sprint (Epic 7: UX Foundations — IN PROGRESS)
+## Completed Epic 7 (UX Foundations — DONE)
 
 - **[2026-02-22-architecture-audit-ux-spec.md](./2026-02-22-architecture-audit-ux-spec.md)** - Architecture audit: UX spec vs codebase (source for Epic 7)
+
+## Completed Epic 8 (Technical Debt Cleanup — DONE)
+
+- Story 8-1: Extract shared batch pipeline module — consolidated `route.ts` + `scripts/batch.ts` into `src/lib/batch-pipeline.ts`
+- Story 8-2: Fix stale `source_type` schema default — `"newsapi"` → `"unknown"`, ArticleList badge fix
+- Story 8-3: Rename `api-batch-gnews.test.ts` → `api-batch-route.test.ts`
 
 ## Backlog Workflows
 

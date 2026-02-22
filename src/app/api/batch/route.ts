@@ -135,6 +135,10 @@ export async function POST(request: NextRequest) {
     }));
 
     // Step 2: Classify articles into topics (in batches)
+    // NOTE: route.ts batches articles in groups of 10 to stay within web request timeout
+    // constraints (60s hard limit). scripts/batch.ts sends all articles in a single LLM call
+    // because the cron script has more lenient timeouts and simpler retry semantics.
+    // This divergence is intentional — do not "fix" either side to match the other.
     console.log("\n[2/4] Classifying articles into topics...");
     const allClassifications: Classification[] = [];
 

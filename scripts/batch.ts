@@ -111,8 +111,24 @@ async function main() {
   }));
 
   // Step 2: Classify articles into topics
+  // NOTE: batch.ts sends all articles at once (no batching). route.ts batches in groups of 10
+  // to fit within web request timeout constraints. The cron script has more lenient timeouts
+  // so a single LLM call for all articles is acceptable here. See Fix #3 comment in route.ts.
   console.log("\n[2/4] Classifying articles into topics...");
-  const classifications: Classification[] = await classifyArticles(newsArticles, existingTopics);
+  let classifications: Classification[] = await classifyArticles(newsArticles, existingTopics);
+
+  // Fallback: if classifyArticles returns [] and we have articles, group everything under
+  // "Environmental News" so no data is lost. The shared module intentionally returns []
+  // on LLM failure (Divergence #3) — the fallback decision belongs to each caller.
+  if (classifications.length === 0 && newsArticles.length > 0) {
+    console.warn("Classification returned empty result — falling back to 'Environmental News' grouping");
+    classifications = newsArticles.map((_, i) => ({
+      articleIndex: i,
+      topicName: "Environmental News",
+      isNew: true,
+    }));
+  }
+
   console.log(`Classified into ${new Set(classifications.map((c) => c.topicName)).size} topics`);
 
   // Group articles by topic name

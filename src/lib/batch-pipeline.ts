@@ -524,6 +524,12 @@ export async function callLLM(prompt: string, options?: { jsonMode?: boolean }):
     },
     body: JSON.stringify(body),
   });
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "(failed to read response body)");
+    throw new Error(`OpenRouter API error: ${res.status} ${res.statusText} — ${errorText}`);
+  }
+
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return data.choices?.[0]?.message?.content || "";
 }
@@ -604,7 +610,7 @@ export async function fetchNews(): Promise<NewsArticle[]> {
   });
   if (blocked.length > 0) {
     console.log(
-      `🚫 Blocked ${blocked.length} articles from junk domains: ${[...new Set(blocked.map((u) => new URL(u).hostname))].join(", ")}`
+      `🚫 Blocked ${blocked.length} articles from junk domains: ${[...new Set(blocked.map((u) => feedHostname(u)))].join(", ")}`
     );
   }
   return deduped;

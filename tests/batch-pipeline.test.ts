@@ -1,8 +1,5 @@
 /**
- * TDD tests for src/lib/batch-pipeline.ts (Story 8-1)
- *
- * These tests are intentionally in RED phase — the shared module does not
- * exist yet. They will fail until the extraction refactor is complete.
+ * Tests for src/lib/batch-pipeline.ts (Story 8-1)
  *
  * AC coverage:
  *   AC-1: Shared module exports (types, constants, pure functions, async functions)
@@ -34,8 +31,6 @@ const mockParseURL = jest.fn();
 }));
 
 // ─── Import the shared module under test ───────────────────────────────────────
-// This import will FAIL (MODULE NOT FOUND) until src/lib/batch-pipeline.ts exists.
-// That failure is the expected RED phase.
 import {
   // Constants
   BLOCKED_DOMAINS,
@@ -762,6 +757,17 @@ describe("AC-1: callLLM()", () => {
     const result = await callLLM("test prompt");
     expect(result).toBe("");
   });
+
+  it("throws an error when OpenRouter returns a non-ok HTTP status", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      text: async () => '{"error": "Model overloaded"}',
+    });
+
+    await expect(callLLM("test prompt")).rejects.toThrow("OpenRouter API error: 500");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1053,28 +1059,22 @@ describe("AC-1: scoreTopic()", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-2: Zero SYNC comments (manual verification note)
+// AC-2: Zero SYNC comments — verified by grepping the source tree
 // ─────────────────────────────────────────────────────────────────────────────
-//
-// AC-2 cannot be verified by Jest in the traditional sense. The verification
-// is: `grep -r "// SYNC" src/ scripts/` must return no results after the
-// extraction is complete.
-//
-// The test below documents this requirement and will act as a reminder.
-// It is a no-op at runtime — the real check is performed by the developer
-// after implementation as part of the task checklist.
-//
-// A post-extraction CI check can be added if desired:
-//   `grep -r "// SYNC" src/ scripts/ && exit 1 || exit 0`
-//
 
-describe("AC-2: SYNC comments eliminated (documented verification)", () => {
-  it("documents the grep verification command for AC-2", () => {
-    // After extraction, the developer must run:
-    //   grep -r "// SYNC" src/ scripts/
-    // and verify it returns no results.
-    // This test is a non-failing documentation placeholder.
-    expect(true).toBe(true);
+describe("AC-2: SYNC comments eliminated", () => {
+  it("finds no '// SYNC' comments in src/ or scripts/", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execSync } = require("child_process") as { execSync: (cmd: string, opts: object) => string };
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require("path") as { resolve: (...args: string[]) => string };
+    const repoRoot = path.resolve(__dirname, "..");
+    // `grep -r "// SYNC" ... || true` always exits 0; presence of output = failure.
+    const output = execSync(
+      `grep -r "// SYNC" "${repoRoot}/src" "${repoRoot}/scripts" || true`,
+      { encoding: "utf-8" }
+    );
+    expect(output.trim()).toBe("");
   });
 });
 

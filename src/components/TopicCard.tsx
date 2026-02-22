@@ -35,7 +35,7 @@ export default function TopicCard({ topic }: { topic: Topic }) {
       <h3 className="text-sm font-semibold text-stone-800 dark:text-gray-100 leading-tight mt-1">{topic.name}</h3>
 
       <div className="mt-2">
-        <SeverityGauge score={topic.currentScore} compact height={6} />
+        <SeverityGauge score={topic.currentScore} compact />
       </div>
 
       {trimmedSummary && (

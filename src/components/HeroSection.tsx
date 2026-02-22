@@ -83,7 +83,7 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
         </div>
       </div>
       <div className="mt-4 max-w-[400px]">
-        <SeverityGauge score={heroTopic.currentScore} height={isDramatic ? 10 : 6} />
+        <SeverityGauge score={heroTopic.currentScore} />
       </div>
       <div className="flex items-center gap-3 mt-3 text-sm text-stone-400 dark:text-gray-400">
         <span>Updated {relativeTime(heroTopic.updatedAt)}</span>

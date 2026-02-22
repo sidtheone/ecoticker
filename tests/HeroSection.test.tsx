@@ -8,8 +8,8 @@ import type { Topic } from "@/lib/types";
 
 // Mock SeverityGauge
 jest.mock("@/components/SeverityGauge", () => {
-  return function MockSeverityGauge(props: { score: number; compact?: boolean; height?: number }) {
-    return <div data-testid="severity-gauge" data-score={props.score} data-height={props.height} />;
+  return function MockSeverityGauge(props: { score: number; compact?: boolean }) {
+    return <div data-testid="severity-gauge" data-score={props.score} />;
   };
 });
 
@@ -86,12 +86,6 @@ describe("HeroSection component", () => {
       expect(scoreEl.className).toContain("text-[40px]");
     });
 
-    test("gauge has dramatic height (10px)", () => {
-      const topic = makeTopic({ currentScore: 75 });
-      render(<HeroSection heroTopic={topic} />);
-      const gauge = screen.getByTestId("severity-gauge");
-      expect(gauge).toHaveAttribute("data-height", "10");
-    });
   });
 
   describe("AC3: Calm mode (score < 30)", () => {
@@ -101,13 +95,6 @@ describe("HeroSection component", () => {
       const scoreEl = screen.getByTestId("hero-score");
       expect(scoreEl.className).toMatch(/font-mono/);
       expect(scoreEl.className).toContain("text-[28px]");
-    });
-
-    test("gauge has calm height (6px)", () => {
-      const topic = makeTopic({ currentScore: 15 });
-      render(<HeroSection heroTopic={topic} />);
-      const gauge = screen.getByTestId("severity-gauge");
-      expect(gauge).toHaveAttribute("data-height", "6");
     });
 
     test("stable calm topic shows calm fallback insight", () => {

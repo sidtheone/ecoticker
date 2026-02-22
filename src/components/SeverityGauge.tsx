@@ -3,10 +3,9 @@ import { severityColor } from "@/lib/utils";
 interface SeverityGaugeProps {
   score: number;
   compact?: boolean;
-  height?: number;
 }
 
-export default function SeverityGauge({ score, compact, height }: SeverityGaugeProps) {
+export default function SeverityGauge({ score, compact }: SeverityGaugeProps) {
   const colors = severityColor(score);
   const clampedScore = Math.max(0, Math.min(100, score));
 

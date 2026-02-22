@@ -91,7 +91,7 @@ export default function TopicGrid() {
               className={chipClass(categoryFilter === cat)}
               data-testid={`filter-category-${cat}`}
             >
-              {CATEGORY_LABELS[cat]}
+              {CATEGORY_LABELS[cat] || cat.replace(/\b\w/g, (c) => c.toUpperCase())}
             </button>
           ))}
         </div>

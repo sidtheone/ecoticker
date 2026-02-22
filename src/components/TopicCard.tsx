@@ -47,7 +47,7 @@ export default function TopicCard({ topic }: { topic: Topic }) {
       <div className="flex items-center justify-between mt-2 text-[11px] text-stone-400 dark:text-gray-500">
         <div className="flex items-center gap-2">
           <span className="px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-gray-800" data-testid="category-chip">
-            {CATEGORY_LABELS[topic.category]}
+            {CATEGORY_LABELS[topic.category] || topic.category.replace(/\b\w/g, (c) => c.toUpperCase())}
           </span>
           <span>{topic.articleCount} article{topic.articleCount !== 1 ? "s" : ""}</span>
           {topic.region && <span>{topic.region}</span>}

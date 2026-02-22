@@ -1,8 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import type { Topic } from "@/lib/types";
-import { computeHeadline, urgencyRank } from "@/components/InsightHeadline";
-import InsightHeadline from "@/components/InsightHeadline";
+import { computeHeadline, urgencyRank } from "@/lib/utils";
 
 const makeTopic = (overrides: Partial<Topic> = {}): Topic => ({
   id: 1, name: "Arctic Ice", slug: "arctic-ice", category: "climate",
@@ -84,33 +82,5 @@ describe("computeHeadline", () => {
     ];
     // 1 escalation + 1 de-escalation → single escalation rule wins
     expect(computeHeadline(topics)).toBe("Escalated reached BREAKING");
-  });
-});
-
-describe("InsightHeadline component", () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  test("renders headline from fetched topics and shows EcoTicker subtitle", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        topics: [makeTopic({ name: "Amazon Fires", currentScore: 85, previousScore: 55 })],
-      }),
-    }) as jest.Mock;
-
-    render(<InsightHeadline />);
-    await waitFor(() => {
-      expect(screen.getByTestId("insight-headline")).toHaveTextContent("Amazon Fires reached BREAKING");
-    });
-    expect(screen.getByText("EcoTicker")).toBeInTheDocument();
-  });
-
-  test("shows fallback on fetch error", async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error("Network error")) as jest.Mock;
-
-    render(<InsightHeadline />);
-    await waitFor(() => {
-      expect(screen.getByTestId("insight-headline")).toHaveTextContent("Environmental News Impact Tracker");
-    });
   });
 });

@@ -6,6 +6,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import RefreshButton from "@/components/RefreshButton";
 import Footer from "@/components/Footer";
+import StaleDataWarning from "@/components/StaleDataWarning";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,6 +48,7 @@ export default function RootLayout({
             <ThemeToggle />
           </div>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <StaleDataWarning />
             {children}
           </main>
           <Footer />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { changeColor, formatChange } from "@/lib/utils";
+import { changeDirectionColor, formatChange } from "@/lib/utils";
 import { eventBus } from "@/lib/events";
 
 interface Mover {
@@ -50,7 +50,7 @@ export default function BiggestMovers() {
             <div className="text-sm font-medium text-stone-700 dark:text-gray-200 truncate">{m.name}</div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-xl font-bold text-stone-800 dark:text-gray-100">{m.currentScore}</span>
-              <span className={`text-sm font-medium ${changeColor(m.change)}`}>
+              <span className={`text-sm font-medium ${changeDirectionColor(m.change)}`}>
                 {formatChange(m.change)}
               </span>
             </div>

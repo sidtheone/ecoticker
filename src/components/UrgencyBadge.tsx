@@ -1,11 +1,16 @@
-import type { Urgency } from "@/lib/types";
-import { urgencyColor } from "@/lib/utils";
+import { severityColor, scoreToUrgency } from "@/lib/utils";
 
-export default function UrgencyBadge({ urgency }: { urgency: Urgency }) {
-  const colors = urgencyColor(urgency);
+export default function UrgencyBadge({ score }: { score: number }) {
+  const colors = severityColor(score);
+  const urgency = scoreToUrgency(score);
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase ${colors.text} ${colors.bg} ${colors.border} border`}
+      className="inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase border"
+      style={{
+        color: colors.badge,
+        backgroundColor: `${colors.badge}1a`,
+        borderColor: `${colors.badge}33`,
+      }}
       data-testid="urgency-badge"
     >
       {urgency}

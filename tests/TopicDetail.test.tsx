@@ -88,10 +88,10 @@ describe("TopicDetailPage", () => {
     expect(screen.getByTestId("detail-change")).toHaveTextContent("+6 ▲");
   });
 
-  test("renders impact summary with overallSummary from latest score history", async () => {
+  test("renders insight lede with overallSummary from latest score history", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("impact-summary")).toBeInTheDocument();
+      expect(screen.getByTestId("insight-lede")).toBeInTheDocument();
     });
     expect(screen.getByText("Arctic ice decline accelerating with cascading effects across all dimensions.")).toBeInTheDocument();
   });
@@ -254,7 +254,7 @@ describe("Sub-Score Breakdown", () => {
   test("uses overallSummary instead of impactSummary when available", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("impact-summary")).toBeInTheDocument();
+      expect(screen.getByTestId("insight-lede")).toBeInTheDocument();
     });
 
     // overallSummary from latest scoreHistory takes precedence
@@ -349,7 +349,7 @@ describe("Sub-Score Breakdown", () => {
 
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("impact-summary")).toBeInTheDocument();
+      expect(screen.getByTestId("insight-lede")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Sea ice at record lows")).toBeInTheDocument();

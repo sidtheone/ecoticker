@@ -140,7 +140,7 @@ describe("AC-1: FEW_SHOT_EXAMPLES", () => {
     expect(FEW_SHOT_EXAMPLES).toContain("Fukushima Wastewater Release");
   });
 
-  it("contains EXAMPLE 1 marker (used by scoring prompt test in api-batch-gnews.test.ts)", () => {
+  it("contains EXAMPLE 1 marker (used by scoring prompt test in api-batch-route.test.ts)", () => {
     expect(FEW_SHOT_EXAMPLES).toContain("EXAMPLE 1");
   });
 });

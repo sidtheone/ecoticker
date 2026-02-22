@@ -1,0 +1,118 @@
+# generated: 2026-02-22
+# project: ecoticker-main
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-02-22
+project: ecoticker-main
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Scoring Foundation (Phase 1)
+  epic-1: done
+  1-1-research-scoring-approach: done
+  1-2-implement-scoring-architecture: done
+  epic-1-retrospective: optional
+
+  # Epic 2: Make It Visible (Phase 2)
+  epic-2: done
+  2-1-sub-score-breakdown-reasoning: done
+  2-2-toggle-sub-score-trend-lines: done
+  2-3-filter-dashboard-by-category: done
+  2-4-category-label-on-topic-card: done
+  2-5-scoring-methodology-page: done
+  2-6-gdpr-data-policy-page: done
+  epic-2-retrospective: optional
+
+  # Epic 3: Impact Sprint (Phase 3)
+  epic-3: done
+  3-1-dynamic-insight-headline: done
+  3-2-social-sharing-og-meta-tags: done
+  3-3-article-count-indicator: done
+  epic-3-retrospective: done
+
+  # EMERGENCY: Replace NewsAPI with GNews (launch blocker)
+  emergency-replace-newsapi-with-gnews: done
+
+  # Epic 4: Operational Resilience (Phase 4)
+  epic-4: done
+  4-1-rss-feed-fetching-parsing: done
+  4-2-integrate-rss-batch-pipeline: done
+  4-3-source-attribution-badge: done
+  4-4-rss-feed-health-logging: done
+  4-5-align-scoring-pipeline: done
+  4-6-align-classification-pipeline: done
+  epic-4-retrospective: done
+
+  # Epic 5: Admin & Measurement (Phase 5)
+  epic-5: backlog
+  5-1-add-search-keywords: backlog
+  5-2-deactivate-topic: backlog
+  5-3-view-keyword-status: backlog
+  5-4-track-page-views: backlog
+  5-5-analytics-dashboard: backlog
+  5-6-batch-health-dashboard: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Growth & Feedback Loop (Phase 6)
+  epic-6: backlog
+  6-1-embeddable-widget: backlog
+  6-2-dynamic-social-card-images: backlog
+  6-3-per-dimension-feedback: backlog
+  6-4-aggregated-feedback-view: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: UX Foundations (Phase 7)
+  epic-7: done
+  7-1-severity-gauge-color-utility: done
+  7-2-dashboard-hero-section: done
+  7-3-product-descriptor-stale-warning: done
+  7-4-topic-card-severity-enhancements: done
+  7-5-topic-detail-editorial-layout: done
+  epic-7-retrospective: done
+
+  # Epic 8: Technical Debt Cleanup (Phase 8)
+  epic-8: done
+  8-1-extract-shared-batch-pipeline-module: done
+  8-2-fix-stale-schema-default-source-type: done
+  8-3-rename-misnamed-test-file: done
+  epic-8-retrospective: done
+
+  # Backlog: Standalone Items
+  backlog-dynamic-category-type: backlog
+
+  # Dashboard Restyle: Direction 8 — Hybrid Best-of
+  dashboard-restyle-direction-8: done
+  dashboard-restyle-retrospective: review

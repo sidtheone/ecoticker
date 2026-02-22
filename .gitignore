@@ -41,9 +41,12 @@ yarn-error.log*
 # Claude Code
 .claude/
 
-# BMM tooling
+# BMAD framework (tooling, not project output)
 _bmad/
-_bmad-output/
+
+# BMAD output — planning & implementation artifacts are committed
+# Only ignore ephemeral/session files
+_bmad-output/brainstorming/
 
 # Docker
 .docker/

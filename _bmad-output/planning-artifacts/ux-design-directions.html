@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoTicker — Design Direction Showcase</title>
+<style>
+/* ========== RESET & FOUNDATIONS ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #faf7f2;
+  --fg: #292524;
+  --surface: #f5f0e8;
+  --muted: #78716c;
+  --border: #e7e0d5;
+  --bg-dark: #1a1a2e;
+  --fg-dark: #ededed;
+  --surface-dark: #24243a;
+  --muted-dark: #a8a29e;
+  --border-dark: #2e2e48;
+  --breaking: #dc2626;
+  --critical: #ea580c;
+  --moderate: #ca8a04;
+  --informational: #16a34a;
+  --breaking-bg: #991b1b;
+  --critical-bg: #9a3412;
+  --moderate-bg: #854d0e;
+  --informational-bg: #166534;
+  --sans: system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--fg);
+  transition: background 0.3s, color 0.3s;
+}
+body.dark {
+  background: var(--bg-dark);
+  color: var(--fg-dark);
+}
+
+/* ========== SHELL ========== */
+.shell-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .shell-header {
+  background: var(--surface-dark);
+  border-color: var(--border-dark);
+}
+.shell-logo {
+  font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
+}
+.shell-logo span { color: var(--breaking); }
+.shell-actions { display: flex; gap: 8px; align-items: center; }
+
+.theme-toggle {
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); cursor: pointer; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+body.dark .theme-toggle { background: var(--surface-dark); border-color: var(--border-dark); }
+
+/* Tabs */
+.tab-bar {
+  display: flex; gap: 0; overflow-x: auto;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .tab-bar { background: var(--surface-dark); border-color: var(--border-dark); }
+.tab-btn {
+  padding: 10px 16px; border: none; background: none; cursor: pointer;
+  font: 13px/1 var(--sans); font-weight: 600; color: var(--muted);
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--fg); }
+body.dark .tab-btn { color: var(--muted-dark); }
+body.dark .tab-btn:hover { color: var(--fg-dark); }
+.tab-btn.active {
+  color: var(--breaking); border-bottom-color: var(--breaking);
+}
+
+/* Direction panels */
+.direction { display: none; padding: 32px 24px; max-width: 1152px; margin: 0 auto; }
+.direction.active { display: block; }
+
+/* Intro section */
+.intro-panel {
+  max-width: 1152px; margin: 0 auto; padding: 32px 24px;
+}
+.intro-panel h1 { font-size: 30px; font-weight: 600; margin-bottom: 8px; }
+.intro-panel p { color: var(--muted); font-size: 16px; max-width: 720px; }
+body.dark .intro-panel p { color: var(--muted-dark); }
+
+/* Direction header */
+.dir-header { margin-bottom: 28px; }
+.dir-header h2 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.dir-header p { color: var(--muted); font-size: 15px; }
+body.dark .dir-header p { color: var(--muted-dark); }
+
+/* Key Characteristics box */
+.key-chars {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px 20px; margin-bottom: 28px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .key-chars { background: var(--surface-dark); border-color: var(--border-dark); }
+.key-chars h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+body.dark .key-chars h3 { color: var(--muted-dark); }
+.key-chars ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.key-chars li {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 12px; font-size: 13px; font-weight: 500;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .key-chars li { background: var(--bg-dark); border-color: var(--border-dark); }
+
+/* Shared badge */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 8px; border-radius: 4px;
+  font-family: var(--sans);
+}
+.badge-breaking { background: #dc262615; color: var(--breaking); }
+.badge-critical { background: #ea580c15; color: var(--critical); }
+.badge-moderate { background: #ca8a0415; color: var(--moderate); }
+.badge-informational { background: #16a34a15; color: var(--informational); }
+
+.delta-up { color: var(--breaking); font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.delta-down { color: var(--informational); font-family: var(--mono); font-size: 13px; font-weight: 600; }
+
+.meta-line { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+body.dark .meta-line { color: var(--muted-dark); }
+.share-btn {
+  border: 1px solid var(--border); background: var(--bg); border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; cursor: pointer; font-weight: 600;
+  transition: all 0.2s;
+}
+body.dark .share-btn { background: var(--surface-dark); border-color: var(--border-dark); color: var(--fg-dark); }
+
+/* ========== DIRECTION 1: BLOOMBERG TERMINAL ========== */
+.d1-ticker {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 6px 0; overflow: hidden; font-size: 12px; font-family: var(--mono);
+  white-space: nowrap;
+}
+body.dark .d1-ticker { background: var(--surface-dark); border-color: var(--border-dark); }
+.d1-ticker-inner {
+  display: inline-block;
+  animation: ticker-scroll 20s linear infinite;
+}
+@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.d1-ticker-item { display: inline-block; margin-right: 24px; }
+.d1-ticker-item .name { font-weight: 600; margin-right: 6px; }
+
+.d1-table {
+  width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px;
+}
+.d1-table th {
+  text-align: left; padding: 6px 10px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); border-bottom: 2px solid var(--border);
+  font-weight: 600;
+}
+body.dark .d1-table th { color: var(--muted-dark); border-color: var(--border-dark); }
+.d1-table td {
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+}
+body.dark .d1-table td { border-color: var(--border-dark); }
+.d1-table tr:hover { background: var(--surface); }
+body.dark .d1-table tr:hover { background: var(--surface-dark); }
+.d1-score { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+.d1-gauge { width: 80px; height: 2px; background: var(--border); border-radius: 1px; position: relative; }
+body.dark .d1-gauge { background: var(--border-dark); }
+.d1-gauge-fill { height: 100%; border-radius: 1px; }
+
+/* ========== DIRECTION 2: WEATHER RADAR ========== */
+.d2-ticker {
+  background: var(--breaking); color: white; padding: 8px 0;
+  overflow: hidden; font-size: 13px; font-weight: 600; font-family: var(--mono);
+  white-space: nowrap;
+}
+.d2-ticker-inner { display: inline-block; animation: ticker-scroll 18s linear infinite; }
+.d2-ticker-item { display: inline-block; margin-right: 32px; }
+
+.d2-hero {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--breaking); border-radius: 8px;
+  padding: 40px 36px; margin-bottom: 24px; text-align: center;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d2-hero { background: var(--surface-dark); border-color: var(--border-dark); border-left-color: var(--breaking); }
+.d2-hero-score {
+  font-family: var(--mono); font-size: 72px; font-weight: 800;
+  color: var(--breaking); line-height: 1;
+}
+.d2-hero-title { font-size: 28px; font-weight: 700; margin: 8px 0 4px; }
+.d2-gauge-thick {
+  width: 100%; max-width: 480px; height: 14px; border-radius: 7px;
+  background: var(--border); margin: 16px auto 0; position: relative; overflow: hidden;
+}
+body.dark .d2-gauge-thick { background: var(--border-dark); }
+.d2-gauge-fill {
+  height: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, var(--informational-bg), var(--moderate-bg), var(--critical-bg), var(--breaking-bg));
+}
+.d2-gauge-marker {
+  position: absolute; top: -3px; width: 4px; height: 20px;
+  background: var(--fg); border-radius: 2px;
+}
+body.dark .d2-gauge-marker { background: var(--fg-dark); }
+
+.d2-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.d2-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d2-card { background: var(--surface-dark); border-color: var(--border-dark); }
+.d2-card-score { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+
+/* ========== DIRECTION 3: EDITORIAL ========== */
+.d3-ticker {
+  border-bottom: 1px solid var(--border); padding: 6px 0; font-size: 13px;
+  overflow: hidden; white-space: nowrap; color: var(--muted);
+}
+body.dark .d3-ticker { border-color: var(--border-dark); color: var(--muted-dark); }
+.d3-ticker-inner { display: inline-block; animation: ticker-scroll 22s linear infinite; }
+.d3-ticker-item { display: inline-block; margin-right: 28px; }
+
+.d3-hero {
+  border-bottom: 2px solid var(--fg); padding: 36px 0; margin-bottom: 32px;
+}
+body.dark .d3-hero { border-color: var(--fg-dark); }
+.d3-hero-kicker {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--breaking); margin-bottom: 8px;
+}
+.d3-hero-headline { font-size: 38px; font-weight: 700; line-height: 1.15; margin-bottom: 12px; }
+.d3-hero-lede { font-size: 18px; color: var(--muted); line-height: 1.6; max-width: 640px; }
+body.dark .d3-hero-lede { color: var(--muted-dark); }
+.d3-hero-byline { font-size: 13px; color: var(--muted); margin-top: 12px; }
+body.dark .d3-hero-byline { color: var(--muted-dark); }
+.d3-hero-score-inline {
+  font-family: var(--mono); font-size: 14px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.d3-gauge-inline {
+  display: inline-block; width: 48px; height: 4px; background: var(--border);
+  border-radius: 2px; vertical-align: middle; position: relative;
+}
+body.dark .d3-gauge-inline { background: var(--border-dark); }
+.d3-gauge-inline-fill { height: 100%; border-radius: 2px; }
+
+.d3-articles { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.d3-article {
+  border-left: 3px solid var(--border); padding-left: 20px;
+  transition: border-color 0.3s;
+}
+body.dark .d3-article { border-color: var(--border-dark); }
+.d3-article h3 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.d3-article .insight { font-size: 14px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+body.dark .d3-article .insight { color: var(--muted-dark); }
+
+/* ========== DIRECTION 4: MINIMAL NORDIC ========== */
+.d4-ticker {
+  padding: 8px 0; font-size: 12px; color: var(--muted);
+  overflow: hidden; white-space: nowrap;
+}
+body.dark .d4-ticker { color: var(--muted-dark); }
+.d4-ticker-inner { display: inline-block; animation: ticker-scroll 24s linear infinite; }
+.d4-ticker-item { display: inline-block; margin-right: 40px; }
+
+.d4-hero { padding: 60px 0; text-align: center; }
+.d4-hero-score {
+  font-family: var(--mono); font-size: 48px; font-weight: 300;
+  letter-spacing: -2px; color: var(--breaking);
+}
+.d4-hero-title { font-size: 22px; font-weight: 400; margin: 12px 0 4px; letter-spacing: -0.3px; }
+.d4-gauge-hairline {
+  width: 120px; height: 1px; background: var(--border); margin: 20px auto;
+  position: relative;
+}
+body.dark .d4-gauge-hairline { background: var(--border-dark); }
+.d4-gauge-dot {
+  position: absolute; top: -3px; width: 7px; height: 7px; border-radius: 50%;
+}
+
+.d4-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; padding-top: 40px; }
+.d4-item { text-align: center; }
+.d4-item-score { font-family: var(--mono); font-size: 30px; font-weight: 300; }
+.d4-item-name { font-size: 14px; margin-top: 8px; font-weight: 500; }
+.d4-item-gauge {
+  width: 60px; height: 1px; background: var(--border); margin: 12px auto;
+  position: relative;
+}
+body.dark .d4-item-gauge { background: var(--border-dark); }
+
+/* ========== DIRECTION 5: DARK DASHBOARD ========== */
+.d5-wrap {
+  background: var(--bg-dark); color: var(--fg-dark); border-radius: 12px;
+  padding: 0; overflow: hidden;
+}
+.d5-ticker {
+  background: #16162a; padding: 8px 0; font-size: 12px; font-family: var(--mono);
+  overflow: hidden; white-space: nowrap; color: var(--muted-dark);
+}
+.d5-ticker-inner { display: inline-block; animation: ticker-scroll 20s linear infinite; }
+.d5-ticker-item { display: inline-block; margin-right: 28px; }
+
+.d5-content { padding: 28px; }
+.d5-hero {
+  background: var(--surface-dark); border: 1px solid var(--border-dark);
+  border-left: 3px solid var(--breaking); border-radius: 10px;
+  padding: 32px; margin-bottom: 24px;
+}
+.d5-hero-score {
+  font-family: var(--mono); font-size: 56px; font-weight: 800;
+  color: var(--breaking); text-shadow: 0 0 20px #dc262640;
+}
+.d5-hero-title { font-size: 24px; font-weight: 600; margin: 4px 0; }
+.d5-gauge-glow {
+  width: 100%; max-width: 400px; height: 8px; border-radius: 4px;
+  background: var(--border-dark); margin-top: 16px; position: relative; overflow: hidden;
+}
+.d5-gauge-glow-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--informational), var(--moderate), var(--critical), var(--breaking));
+  box-shadow: 0 0 12px #dc262640;
+}
+
+.d5-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.d5-card {
+  background: var(--surface-dark); border: 1px solid var(--border-dark);
+  border-radius: 10px; padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.d5-card-score {
+  font-family: var(--mono); font-size: 28px; font-weight: 700;
+}
+.d5-card-name { font-size: 14px; font-weight: 600; margin-top: 4px; }
+.d5-card-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: 3px; margin-top: 6px;
+}
+
+/* ========== DIRECTION 6: CARD-FORWARD ========== */
+.d6-ticker {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 8px 0; font-size: 13px; font-family: var(--mono);
+  overflow: hidden; white-space: nowrap;
+}
+body.dark .d6-ticker { background: var(--surface-dark); border-color: var(--border-dark); }
+.d6-ticker-inner { display: inline-block; animation: ticker-scroll 20s linear infinite; }
+.d6-ticker-item { display: inline-block; margin-right: 28px; }
+
+.d6-hero-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 4px solid var(--breaking); border-radius: 12px;
+  padding: 32px; margin-bottom: 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d6-hero-card {
+  background: var(--surface-dark); border-color: var(--border-dark);
+  border-left-color: var(--breaking);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+.d6-hero-top { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.d6-hero-score { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--breaking); }
+.d6-hero-title { font-size: 22px; font-weight: 600; }
+.d6-gauge-med {
+  width: 100%; max-width: 360px; height: 6px; background: var(--border);
+  border-radius: 3px; margin-top: 12px; overflow: hidden;
+}
+body.dark .d6-gauge-med { background: var(--border-dark); }
+.d6-gauge-med-fill { height: 100%; border-radius: 3px; }
+
+.d6-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.d6-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+body.dark .d6-card {
+  background: var(--surface-dark); border-color: var(--border-dark);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.d6-card-score { font-family: var(--mono); font-size: 28px; font-weight: 700; }
+
+/* ========== DIRECTION 7: TICKER-DOMINANT ========== */
+.d7-ticker-mega {
+  background: var(--surface); border-bottom: 2px solid var(--border);
+  padding: 20px 0; font-size: 16px; font-family: var(--mono);
+  overflow: hidden; white-space: nowrap; font-weight: 600;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d7-ticker-mega { background: var(--surface-dark); border-color: var(--border-dark); }
+.d7-ticker-mega-inner { display: inline-block; animation: ticker-scroll 20s linear infinite; }
+.d7-ticker-mega-item { display: inline-block; margin-right: 48px; }
+.d7-ticker-mega-item .score { font-weight: 800; margin-right: 4px; }
+
+.d7-split { display: grid; grid-template-columns: 3fr 2fr; gap: 24px; margin-bottom: 24px; }
+.d7-hero-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--breaking); border-radius: 8px; padding: 28px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d7-hero-panel { background: var(--surface-dark); border-color: var(--border-dark); border-left-color: var(--breaking); }
+.d7-hero-score { font-family: var(--mono); font-size: 40px; font-weight: 800; color: var(--breaking); }
+.d7-hero-title { font-size: 20px; font-weight: 600; margin: 4px 0; }
+.d7-gauge-compact {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 8px;
+}
+.d7-gauge-bar {
+  width: 64px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+body.dark .d7-gauge-bar { background: var(--border-dark); }
+.d7-gauge-bar-fill { height: 100%; border-radius: 2px; }
+
+.d7-movers {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d7-movers { background: var(--surface-dark); border-color: var(--border-dark); }
+.d7-movers h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+body.dark .d7-movers h3 { color: var(--muted-dark); }
+.d7-mover-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+body.dark .d7-mover-row { border-color: var(--border-dark); }
+.d7-mover-row:last-child { border: none; }
+
+.d7-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.d7-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--border); border-radius: 8px; padding: 16px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d7-card { background: var(--surface-dark); border-color: var(--border-dark); }
+.d7-card-header { display: flex; justify-content: space-between; align-items: center; }
+.d7-card-score { font-family: var(--mono); font-size: 24px; font-weight: 700; }
+
+/* ========== DIRECTION 8: HYBRID ========== */
+.d8-ticker {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 7px 0; font-size: 13px; font-family: var(--mono);
+  overflow: hidden; white-space: nowrap;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d8-ticker { background: var(--surface-dark); border-color: var(--border-dark); }
+.d8-ticker-inner { display: inline-block; animation: ticker-scroll 20s linear infinite; }
+.d8-ticker-item { display: inline-block; margin-right: 28px; }
+
+.d8-hero {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--breaking); border-radius: 10px;
+  padding: 32px; margin-bottom: 24px;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d8-hero { background: var(--surface-dark); border-color: var(--border-dark); border-left-color: var(--breaking); }
+.d8-hero-top { display: flex; align-items: center; gap: 16px; }
+.d8-hero-score { font-family: var(--mono); font-size: 48px; font-weight: 800; color: var(--breaking); }
+.d8-hero-info { flex: 1; }
+.d8-hero-title { font-size: 22px; font-weight: 600; }
+.d8-hero-insight { font-size: 14px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+body.dark .d8-hero-insight { color: var(--muted-dark); }
+.d8-gauge {
+  width: 100%; max-width: 400px; height: 10px; background: var(--border);
+  border-radius: 5px; margin-top: 14px; overflow: hidden; position: relative;
+}
+body.dark .d8-gauge { background: var(--border-dark); }
+.d8-gauge-fill {
+  height: 100%; border-radius: 5px;
+  background: linear-gradient(90deg, var(--informational), var(--moderate), var(--critical), var(--breaking));
+}
+.d8-gauge-marker {
+  position: absolute; top: -2px; width: 3px; height: 14px;
+  background: var(--fg); border-radius: 1.5px;
+}
+body.dark .d8-gauge-marker { background: var(--fg-dark); }
+
+.d8-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 32px; }
+.d8-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; position: relative;
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d8-card { background: var(--surface-dark); border-color: var(--border-dark); }
+.d8-card-left-border {
+  position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
+}
+.d8-card-body { padding-left: 12px; }
+.d8-card-top { display: flex; justify-content: space-between; align-items: center; }
+.d8-card-score { font-family: var(--mono); font-size: 24px; font-weight: 700; }
+.d8-card-name { font-size: 14px; font-weight: 600; margin-top: 2px; }
+.d8-card-gauge {
+  width: 100%; height: 4px; background: var(--border); border-radius: 2px;
+  margin-top: 8px; overflow: hidden;
+}
+body.dark .d8-card-gauge { background: var(--border-dark); }
+.d8-card-gauge-fill { height: 100%; border-radius: 2px; }
+.d8-card-insight { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+body.dark .d8-card-insight { color: var(--muted-dark); }
+
+/* Mobile preview for D8 */
+.d8-mobile-frame {
+  width: 375px; margin: 0 auto; border: 2px solid var(--border);
+  border-radius: 24px; overflow: hidden; background: var(--bg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  transition: background 0.3s, border-color 0.3s;
+}
+body.dark .d8-mobile-frame { background: var(--bg-dark); border-color: var(--border-dark); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.d8-mobile-notch {
+  width: 120px; height: 5px; background: var(--border); border-radius: 3px;
+  margin: 8px auto;
+}
+body.dark .d8-mobile-notch { background: var(--border-dark); }
+.d8-mobile-content { padding: 12px; }
+.d8-mobile-hero {
+  border-left: 3px solid var(--breaking); padding: 12px; margin-bottom: 12px;
+  background: var(--surface); border-radius: 8px;
+  transition: background 0.3s;
+}
+body.dark .d8-mobile-hero { background: var(--surface-dark); }
+.d8-mobile-cards { display: flex; flex-direction: column; gap: 8px; }
+.d8-mobile-card {
+  background: var(--surface); border-radius: 8px; padding: 12px;
+  border-left: 3px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+  transition: background 0.3s;
+}
+body.dark .d8-mobile-card { background: var(--surface-dark); }
+
+.d8-viewport-label {
+  text-align: center; font-size: 13px; color: var(--muted);
+  margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+}
+body.dark .d8-viewport-label { color: var(--muted-dark); }
+</style>
+</head>
+<body>
+
+<!-- Shell Header -->
+<div class="shell-header">
+  <div class="shell-logo">Eco<span>Ticker</span> Design Directions</div>
+  <div class="shell-actions">
+    <button class="theme-toggle" onclick="document.body.classList.toggle('dark'); this.textContent = document.body.classList.contains('dark') ? '\u2600' : '\u263E';" title="Toggle dark mode">&#9790;</button>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showDir('intro', this)">Overview</button>
+  <button class="tab-btn" onclick="showDir('d1', this)">1. Bloomberg</button>
+  <button class="tab-btn" onclick="showDir('d2', this)">2. Weather Radar</button>
+  <button class="tab-btn" onclick="showDir('d3', this)">3. Editorial</button>
+  <button class="tab-btn" onclick="showDir('d4', this)">4. Nordic</button>
+  <button class="tab-btn" onclick="showDir('d5', this)">5. Dark Dashboard</button>
+  <button class="tab-btn" onclick="showDir('d6', this)">6. Card-Forward</button>
+  <button class="tab-btn" onclick="showDir('d7', this)">7. Ticker-Dominant</button>
+  <button class="tab-btn" onclick="showDir('d8', this)">8. Hybrid Best-of</button>
+</div>
+
+<!-- INTRO -->
+<div id="intro" class="direction active">
+  <div class="intro-panel" style="padding:0;">
+    <h1>EcoTicker Design Direction Showcase</h1>
+    <p style="margin-bottom:20px;">
+      Eight distinct visual directions for the EcoTicker dashboard. Each uses the same locked palette, typography, and severity system, but explores a fundamentally different information hierarchy and visual personality.
+    </p>
+    <p style="margin-bottom:20px;">
+      <strong>Locked foundations:</strong> warm cream/dark slate palette, severity colors (BREAKING red, CRITICAL orange, MODERATE amber, INFORMATIONAL green), 3px left-border card accents, system-ui + monospace fonts, 1152px max-width.
+    </p>
+    <p style="margin-bottom:20px;">
+      <strong>Sample data:</strong> Amazon Deforestation (87, BREAKING, +12), Ocean Acidification (72, CRITICAL, +5), Air Quality Delhi (65, CRITICAL, -3), Arctic Ice Loss (45, MODERATE, +8), Coral Reef Decline (58, MODERATE, +2), Water Quality Index (24, INFORMATIONAL, -1).
+    </p>
+    <p>Use the tabs above to explore each direction. Toggle dark mode with the moon icon (top right).</p>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 1: BLOOMBERG TERMINAL ========== -->
+<div id="d1" class="direction">
+  <div class="dir-header">
+    <h2>Direction 1: Bloomberg Terminal</h2>
+    <p>Maximum data density. Pure information. Every pixel earns its place.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Table-based layout, no hero section</li>
+      <li>Ultra-thin 2px gauge bars</li>
+      <li>Dense ticker strip, compact rows</li>
+      <li>All topics visible without scrolling</li>
+      <li>Professional trading-floor aesthetic</li>
+    </ul>
+  </div>
+
+  <div class="d1-ticker">
+    <div class="d1-ticker-inner">
+      <span class="d1-ticker-item"><span class="name">AMZN-DEF</span> <span style="color:var(--breaking);font-weight:700;">87</span> <span class="delta-up">&#9650;12</span></span>
+      <span class="d1-ticker-item"><span class="name">OCN-ACD</span> <span style="color:var(--critical);font-weight:700;">72</span> <span class="delta-up">&#9650;5</span></span>
+      <span class="d1-ticker-item"><span class="name">AIR-DEL</span> <span style="color:var(--critical);font-weight:700;">65</span> <span class="delta-down">&#9660;3</span></span>
+      <span class="d1-ticker-item"><span class="name">ARC-ICE</span> <span style="color:var(--moderate);font-weight:700;">45</span> <span class="delta-up">&#9650;8</span></span>
+      <span class="d1-ticker-item"><span class="name">CRL-REF</span> <span style="color:var(--moderate);font-weight:700;">58</span> <span class="delta-up">&#9650;2</span></span>
+      <span class="d1-ticker-item"><span class="name">WTR-QAL</span> <span style="color:var(--informational);font-weight:700;">24</span> <span class="delta-down">&#9660;1</span></span>
+      <span class="d1-ticker-item"><span class="name">AMZN-DEF</span> <span style="color:var(--breaking);font-weight:700;">87</span> <span class="delta-up">&#9650;12</span></span>
+      <span class="d1-ticker-item"><span class="name">OCN-ACD</span> <span style="color:var(--critical);font-weight:700;">72</span> <span class="delta-up">&#9650;5</span></span>
+      <span class="d1-ticker-item"><span class="name">AIR-DEL</span> <span style="color:var(--critical);font-weight:700;">65</span> <span class="delta-down">&#9660;3</span></span>
+      <span class="d1-ticker-item"><span class="name">ARC-ICE</span> <span style="color:var(--moderate);font-weight:700;">45</span> <span class="delta-up">&#9650;8</span></span>
+      <span class="d1-ticker-item"><span class="name">CRL-REF</span> <span style="color:var(--moderate);font-weight:700;">58</span> <span class="delta-up">&#9650;2</span></span>
+      <span class="d1-ticker-item"><span class="name">WTR-QAL</span> <span style="color:var(--informational);font-weight:700;">24</span> <span class="delta-down">&#9660;1</span></span>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <table class="d1-table">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Score</th>
+          <th>Severity</th>
+          <th>Change</th>
+          <th>Gauge</th>
+          <th>Insight</th>
+          <th style="width:80px;">Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Amazon Deforestation</td>
+          <td><span class="d1-score" style="color:var(--breaking);">87</span></td>
+          <td><span class="badge badge-breaking">BREAKING</span></td>
+          <td><span class="delta-up">&#9650; +12</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:87%;background:var(--breaking);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">Satellite data confirmed record clearing rates</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Ocean Acidification</td>
+          <td><span class="d1-score" style="color:var(--critical);">72</span></td>
+          <td><span class="badge badge-critical">CRITICAL</span></td>
+          <td><span class="delta-up">&#9650; +5</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:72%;background:var(--critical);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">pH levels dropping across Pacific monitoring stations</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Air Quality Delhi</td>
+          <td><span class="d1-score" style="color:var(--critical);">65</span></td>
+          <td><span class="badge badge-critical">CRITICAL</span></td>
+          <td><span class="delta-down">&#9660; -3</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:65%;background:var(--critical);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">Slight improvement with wind pattern shift</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Coral Reef Decline</td>
+          <td><span class="d1-score" style="color:var(--moderate);">58</span></td>
+          <td><span class="badge badge-moderate">MODERATE</span></td>
+          <td><span class="delta-up">&#9650; +2</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:58%;background:var(--moderate);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">Bleaching events expanding to new reef systems</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Arctic Ice Loss</td>
+          <td><span class="d1-score" style="color:var(--moderate);">45</span></td>
+          <td><span class="badge badge-moderate">MODERATE</span></td>
+          <td><span class="delta-up">&#9650; +8</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:45%;background:var(--moderate);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">Winter recovery below seasonal average</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">Water Quality Index</td>
+          <td><span class="d1-score" style="color:var(--informational);">24</span></td>
+          <td><span class="badge badge-informational">INFO</span></td>
+          <td><span class="delta-down">&#9660; -1</span></td>
+          <td><div class="d1-gauge"><div class="d1-gauge-fill" style="width:24%;background:var(--informational);"></div></div></td>
+          <td style="font-size:13px;color:var(--muted);max-width:280px;">Stable within normal parameters</td>
+          <td style="font-size:12px;color:var(--muted);">6h ago</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="meta-line" style="margin-top:12px;">
+      <span>Last batch: 6h ago</span>
+      <button class="share-btn">Share</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 2: WEATHER RADAR ========== -->
+<div id="d2" class="direction">
+  <div class="dir-header">
+    <h2>Direction 2: Weather Radar Command Center</h2>
+    <p>Dramatic, urgent, emergency-broadcast energy. The hero dominates the viewport.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Hero takes 40%+ of viewport with massive score</li>
+      <li>Thick 14px gradient gauge with marker</li>
+      <li>Red emergency-style ticker bar</li>
+      <li>Score numbers are 60-72px</li>
+      <li>Weather-emergency-broadcast feel</li>
+    </ul>
+  </div>
+
+  <div class="d2-ticker">
+    <div class="d2-ticker-inner">
+      <span class="d2-ticker-item">&#9888; BREAKING: Amazon Deforestation 87 &#9650;12</span>
+      <span class="d2-ticker-item">CRITICAL: Ocean Acidification 72 &#9650;5</span>
+      <span class="d2-ticker-item">CRITICAL: Air Quality Delhi 65 &#9660;3</span>
+      <span class="d2-ticker-item">MODERATE: Arctic Ice Loss 45 &#9650;8</span>
+      <span class="d2-ticker-item">MODERATE: Coral Reef Decline 58 &#9650;2</span>
+      <span class="d2-ticker-item">INFO: Water Quality Index 24 &#9660;1</span>
+      <span class="d2-ticker-item">&#9888; BREAKING: Amazon Deforestation 87 &#9650;12</span>
+      <span class="d2-ticker-item">CRITICAL: Ocean Acidification 72 &#9650;5</span>
+      <span class="d2-ticker-item">CRITICAL: Air Quality Delhi 65 &#9660;3</span>
+      <span class="d2-ticker-item">MODERATE: Arctic Ice Loss 45 &#9650;8</span>
+    </div>
+  </div>
+
+  <div class="d2-hero">
+    <span class="badge badge-breaking" style="font-size:14px;padding:4px 14px;">BREAKING</span>
+    <div class="d2-hero-score">87</div>
+    <div class="d2-hero-title">Amazon Deforestation</div>
+    <div class="delta-up" style="font-size:18px;">&#9650; +12 from previous assessment</div>
+    <p style="color:var(--muted);margin-top:8px;font-size:15px;">Severity increased after satellite data confirmed record clearing rates</p>
+    <div class="d2-gauge-thick">
+      <div class="d2-gauge-fill" style="width:100%;"></div>
+      <div class="d2-gauge-marker" style="left:calc(87% - 2px);"></div>
+    </div>
+    <div class="meta-line" style="justify-content:center;margin-top:12px;">
+      <span>Updated 6h ago</span>
+      <button class="share-btn">Share</button>
+    </div>
+  </div>
+
+  <div class="d2-cards">
+    <div class="d2-card" style="border-left:3px solid var(--critical);">
+      <span class="badge badge-critical">CRITICAL</span>
+      <div class="d2-card-score" style="color:var(--critical);">72</div>
+      <div style="font-weight:600;">Ocean Acidification</div>
+      <div class="delta-up">&#9650; +5</div>
+    </div>
+    <div class="d2-card" style="border-left:3px solid var(--critical);">
+      <span class="badge badge-critical">CRITICAL</span>
+      <div class="d2-card-score" style="color:var(--critical);">65</div>
+      <div style="font-weight:600;">Air Quality Delhi</div>
+      <div class="delta-down">&#9660; -3</div>
+    </div>
+    <div class="d2-card" style="border-left:3px solid var(--moderate);">
+      <span class="badge badge-moderate">MODERATE</span>
+      <div class="d2-card-score" style="color:var(--moderate);">58</div>
+      <div style="font-weight:600;">Coral Reef Decline</div>
+      <div class="delta-up">&#9650; +2</div>
+    </div>
+    <div class="d2-card" style="border-left:3px solid var(--moderate);">
+      <span class="badge badge-moderate">MODERATE</span>
+      <div class="d2-card-score" style="color:var(--moderate);">45</div>
+      <div style="font-weight:600;">Arctic Ice Loss</div>
+      <div class="delta-up">&#9650; +8</div>
+    </div>
+    <div class="d2-card" style="border-left:3px solid var(--informational);">
+      <span class="badge badge-informational">INFO</span>
+      <div class="d2-card-score" style="color:var(--informational);">24</div>
+      <div style="font-weight:600;">Water Quality Index</div>
+      <div class="delta-down">&#9660; -1</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 3: EDITORIAL ========== -->
+<div id="d3" class="direction">
+  <div class="dir-header">
+    <h2>Direction 3: Editorial / News Magazine</h2>
+    <p>Journalistic credibility meets data. The Guardian meets environmental scoring.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Newspaper front-page hero with kicker + headline + lede</li>
+      <li>Generous editorial whitespace and rhythm</li>
+      <li>Subtle inline gauge in metadata lines</li>
+      <li>Article-style cards with visible insight text</li>
+      <li>Restrained, credibility-first aesthetic</li>
+    </ul>
+  </div>
+
+  <div class="d3-ticker">
+    <div class="d3-ticker-inner">
+      <span class="d3-ticker-item">Amazon Deforestation <strong style="color:var(--breaking);">87</strong> &#9650;12</span>
+      <span class="d3-ticker-item">Ocean Acidification <strong style="color:var(--critical);">72</strong> &#9650;5</span>
+      <span class="d3-ticker-item">Air Quality Delhi <strong style="color:var(--critical);">65</strong> &#9660;3</span>
+      <span class="d3-ticker-item">Arctic Ice Loss <strong style="color:var(--moderate);">45</strong> &#9650;8</span>
+      <span class="d3-ticker-item">Coral Reef Decline <strong style="color:var(--moderate);">58</strong> &#9650;2</span>
+      <span class="d3-ticker-item">Water Quality Index <strong style="color:var(--informational);">24</strong> &#9660;1</span>
+      <span class="d3-ticker-item">Amazon Deforestation <strong style="color:var(--breaking);">87</strong> &#9650;12</span>
+      <span class="d3-ticker-item">Ocean Acidification <strong style="color:var(--critical);">72</strong> &#9650;5</span>
+      <span class="d3-ticker-item">Air Quality Delhi <strong style="color:var(--critical);">65</strong> &#9660;3</span>
+    </div>
+  </div>
+
+  <div class="d3-hero">
+    <div class="d3-hero-kicker">Breaking &mdash; Severity Score 87</div>
+    <h1 class="d3-hero-headline">Amazon Deforestation Reaches Record Levels as Satellite Data Confirms Accelerated Clearing</h1>
+    <p class="d3-hero-lede">Severity increased after satellite data confirmed record clearing rates. The environmental impact score has risen 12 points from the previous assessment period, triggering a BREAKING classification.</p>
+    <div class="d3-hero-byline">
+      <span class="d3-hero-score-inline" style="color:var(--breaking);">
+        87 <span class="delta-up">&#9650;12</span>
+        <span class="d3-gauge-inline"><span class="d3-gauge-inline-fill" style="width:87%;background:var(--breaking);"></span></span>
+      </span>
+      &middot; Updated 6h ago &middot; <button class="share-btn">Share</button>
+    </div>
+  </div>
+
+  <h2 style="font-size:20px;font-weight:600;margin-bottom:20px;">Also Tracking</h2>
+  <div class="d3-articles">
+    <div class="d3-article" style="border-left-color:var(--critical);">
+      <h3>Ocean Acidification</h3>
+      <div class="d3-hero-score-inline" style="color:var(--critical);font-size:13px;">
+        <span class="badge badge-critical" style="margin-right:6px;">CRITICAL</span> 72 <span class="delta-up">&#9650;5</span>
+        <span class="d3-gauge-inline"><span class="d3-gauge-inline-fill" style="width:72%;background:var(--critical);"></span></span>
+      </div>
+      <p class="insight">pH levels dropping across Pacific monitoring stations. Marine ecosystems face compounding stress from both warming and acidification.</p>
+    </div>
+    <div class="d3-article" style="border-left-color:var(--critical);">
+      <h3>Air Quality Delhi</h3>
+      <div class="d3-hero-score-inline" style="color:var(--critical);font-size:13px;">
+        <span class="badge badge-critical" style="margin-right:6px;">CRITICAL</span> 65 <span class="delta-down">&#9660;3</span>
+        <span class="d3-gauge-inline"><span class="d3-gauge-inline-fill" style="width:65%;background:var(--critical);"></span></span>
+      </div>
+      <p class="insight">Slight improvement with wind pattern shift. AQI remains hazardous but trending downward for the first time in two weeks.</p>
+    </div>
+    <div class="d3-article" style="border-left-color:var(--moderate);">
+      <h3>Coral Reef Decline</h3>
+      <div class="d3-hero-score-inline" style="color:var(--moderate);font-size:13px;">
+        <span class="badge badge-moderate" style="margin-right:6px;">MODERATE</span> 58 <span class="delta-up">&#9650;2</span>
+        <span class="d3-gauge-inline"><span class="d3-gauge-inline-fill" style="width:58%;background:var(--moderate);"></span></span>
+      </div>
+      <p class="insight">Bleaching events expanding to new reef systems along the Great Barrier Reef northern section.</p>
+    </div>
+    <div class="d3-article" style="border-left-color:var(--moderate);">
+      <h3>Arctic Ice Loss</h3>
+      <div class="d3-hero-score-inline" style="color:var(--moderate);font-size:13px;">
+        <span class="badge badge-moderate" style="margin-right:6px;">MODERATE</span> 45 <span class="delta-up">&#9650;8</span>
+        <span class="d3-gauge-inline"><span class="d3-gauge-inline-fill" style="width:45%;background:var(--moderate);"></span></span>
+      </div>
+      <p class="insight">Winter recovery below seasonal average. Multi-year ice extent continues its long-term downward trend.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 4: MINIMAL NORDIC ========== -->
+<div id="d4" class="direction">
+  <div class="dir-header">
+    <h2>Direction 4: Minimal Nordic</h2>
+    <p>Extreme restraint. Lots of white space. Calm, contemplative, Scandinavian design.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Hairline 1px gauge with tiny dot marker</li>
+      <li>Almost borderless cards, floating elements</li>
+      <li>Wide spacing, one idea at a time</li>
+      <li>Light typographic weight (300-400)</li>
+      <li>Meditative, unhurried information consumption</li>
+    </ul>
+  </div>
+
+  <div class="d4-ticker">
+    <div class="d4-ticker-inner">
+      <span class="d4-ticker-item">Amazon Deforestation &mdash; 87</span>
+      <span class="d4-ticker-item">Ocean Acidification &mdash; 72</span>
+      <span class="d4-ticker-item">Air Quality Delhi &mdash; 65</span>
+      <span class="d4-ticker-item">Arctic Ice Loss &mdash; 45</span>
+      <span class="d4-ticker-item">Coral Reef Decline &mdash; 58</span>
+      <span class="d4-ticker-item">Water Quality Index &mdash; 24</span>
+      <span class="d4-ticker-item">Amazon Deforestation &mdash; 87</span>
+      <span class="d4-ticker-item">Ocean Acidification &mdash; 72</span>
+      <span class="d4-ticker-item">Air Quality Delhi &mdash; 65</span>
+    </div>
+  </div>
+
+  <div class="d4-hero">
+    <span class="badge badge-breaking">BREAKING</span>
+    <div class="d4-hero-score">87</div>
+    <div class="d4-hero-title">Amazon Deforestation</div>
+    <div style="font-size:14px;color:var(--muted);margin-top:4px;" class="d4-muted">&#9650; 12 &middot; Updated 6h ago</div>
+    <div class="d4-gauge-hairline">
+      <div class="d4-gauge-dot" style="left:calc(87% - 3.5px);background:var(--breaking);"></div>
+    </div>
+    <p style="font-size:15px;color:var(--muted);max-width:400px;margin:0 auto;line-height:1.7;" class="d4-muted">Severity increased after satellite data confirmed record clearing rates</p>
+    <div style="margin-top:16px;">
+      <button class="share-btn">Share</button>
+    </div>
+  </div>
+
+  <div class="d4-grid">
+    <div class="d4-item">
+      <div class="d4-item-score" style="color:var(--critical);">72</div>
+      <div class="d4-item-name">Ocean Acidification</div>
+      <span class="badge badge-critical" style="margin-top:4px;">CRITICAL</span>
+      <div class="d4-item-gauge"><div class="d4-gauge-dot" style="left:calc(72% - 3.5px);background:var(--critical);"></div></div>
+      <div style="font-size:13px;color:var(--muted);" class="d4-muted">&#9650; 5</div>
+    </div>
+    <div class="d4-item">
+      <div class="d4-item-score" style="color:var(--critical);">65</div>
+      <div class="d4-item-name">Air Quality Delhi</div>
+      <span class="badge badge-critical" style="margin-top:4px;">CRITICAL</span>
+      <div class="d4-item-gauge"><div class="d4-gauge-dot" style="left:calc(65% - 3.5px);background:var(--critical);"></div></div>
+      <div style="font-size:13px;color:var(--muted);" class="d4-muted">&#9660; 3</div>
+    </div>
+    <div class="d4-item">
+      <div class="d4-item-score" style="color:var(--moderate);">58</div>
+      <div class="d4-item-name">Coral Reef Decline</div>
+      <span class="badge badge-moderate" style="margin-top:4px;">MODERATE</span>
+      <div class="d4-item-gauge"><div class="d4-gauge-dot" style="left:calc(58% - 3.5px);background:var(--moderate);"></div></div>
+      <div style="font-size:13px;color:var(--muted);" class="d4-muted">&#9650; 2</div>
+    </div>
+    <div class="d4-item">
+      <div class="d4-item-score" style="color:var(--moderate);">45</div>
+      <div class="d4-item-name">Arctic Ice Loss</div>
+      <span class="badge badge-moderate" style="margin-top:4px;">MODERATE</span>
+      <div class="d4-item-gauge"><div class="d4-gauge-dot" style="left:calc(45% - 3.5px);background:var(--moderate);"></div></div>
+      <div style="font-size:13px;color:var(--muted);" class="d4-muted">&#9650; 8</div>
+    </div>
+    <div class="d4-item">
+      <div class="d4-item-score" style="color:var(--informational);">24</div>
+      <div class="d4-item-name">Water Quality Index</div>
+      <span class="badge badge-informational" style="margin-top:4px;">INFO</span>
+      <div class="d4-item-gauge"><div class="d4-gauge-dot" style="left:calc(24% - 3.5px);background:var(--informational);"></div></div>
+      <div style="font-size:13px;color:var(--muted);" class="d4-muted">&#9660; 1</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 5: DARK DASHBOARD ========== -->
+<div id="d5" class="direction">
+  <div class="dir-header">
+    <h2>Direction 5: Dark Dashboard</h2>
+    <p>Dark mode as the primary design. Mission control at night. Glowing severity against dark slate.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Dark-first design (always dark, regardless of toggle)</li>
+      <li>Glowing severity colors with text-shadow</li>
+      <li>Luminous gradient gauge with glow</li>
+      <li>Elevated cards with deep box-shadows</li>
+      <li>Night-shift monitoring station aesthetic</li>
+    </ul>
+  </div>
+
+  <div class="d5-wrap">
+    <div class="d5-ticker">
+      <div class="d5-ticker-inner">
+        <span class="d5-ticker-item"><span style="color:var(--breaking);font-weight:700;">AMZN-DEF 87</span> <span style="color:var(--breaking);">&#9650;12</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--critical);font-weight:700;">OCN-ACD 72</span> <span style="color:var(--critical);">&#9650;5</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--critical);font-weight:700;">AIR-DEL 65</span> <span style="color:var(--informational);">&#9660;3</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--moderate);font-weight:700;">ARC-ICE 45</span> <span style="color:var(--breaking);">&#9650;8</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--moderate);font-weight:700;">CRL-REF 58</span> <span style="color:var(--breaking);">&#9650;2</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--informational);font-weight:700;">WTR-QAL 24</span> <span style="color:var(--informational);">&#9660;1</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--breaking);font-weight:700;">AMZN-DEF 87</span> <span style="color:var(--breaking);">&#9650;12</span></span>
+        <span class="d5-ticker-item"><span style="color:var(--critical);font-weight:700;">OCN-ACD 72</span> <span style="color:var(--critical);">&#9650;5</span></span>
+      </div>
+    </div>
+
+    <div class="d5-content">
+      <div class="d5-hero">
+        <span class="badge badge-breaking">BREAKING</span>
+        <div class="d5-hero-score">87</div>
+        <div class="d5-hero-title">Amazon Deforestation</div>
+        <div style="color:var(--breaking);font-family:var(--mono);font-size:14px;font-weight:600;">&#9650; +12</div>
+        <p style="color:var(--muted-dark);font-size:14px;margin-top:6px;">Severity increased after satellite data confirmed record clearing rates</p>
+        <div class="d5-gauge-glow">
+          <div class="d5-gauge-glow-fill" style="width:87%;"></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted-dark);margin-top:10px;display:flex;align-items:center;gap:12px;">
+          <span>Updated 6h ago</span>
+          <button style="border:1px solid var(--border-dark);background:var(--surface-dark);color:var(--fg-dark);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600;">Share</button>
+        </div>
+      </div>
+
+      <div class="d5-cards">
+        <div class="d5-card" style="border-left:3px solid var(--critical);">
+          <div class="d5-card-badge" style="background:#ea580c20;color:var(--critical);">CRITICAL</div>
+          <div class="d5-card-score" style="color:var(--critical);text-shadow:0 0 12px #ea580c40;">72</div>
+          <div class="d5-card-name">Ocean Acidification</div>
+          <div style="color:var(--critical);font-family:var(--mono);font-size:12px;">&#9650; +5</div>
+        </div>
+        <div class="d5-card" style="border-left:3px solid var(--critical);">
+          <div class="d5-card-badge" style="background:#ea580c20;color:var(--critical);">CRITICAL</div>
+          <div class="d5-card-score" style="color:var(--critical);text-shadow:0 0 12px #ea580c40;">65</div>
+          <div class="d5-card-name">Air Quality Delhi</div>
+          <div style="color:var(--informational);font-family:var(--mono);font-size:12px;">&#9660; -3</div>
+        </div>
+        <div class="d5-card" style="border-left:3px solid var(--moderate);">
+          <div class="d5-card-badge" style="background:#ca8a0420;color:var(--moderate);">MODERATE</div>
+          <div class="d5-card-score" style="color:var(--moderate);text-shadow:0 0 12px #ca8a0440;">58</div>
+          <div class="d5-card-name">Coral Reef Decline</div>
+          <div style="color:var(--breaking);font-family:var(--mono);font-size:12px;">&#9650; +2</div>
+        </div>
+        <div class="d5-card" style="border-left:3px solid var(--moderate);">
+          <div class="d5-card-badge" style="background:#ca8a0420;color:var(--moderate);">MODERATE</div>
+          <div class="d5-card-score" style="color:var(--moderate);text-shadow:0 0 12px #ca8a0440;">45</div>
+          <div class="d5-card-name">Arctic Ice Loss</div>
+          <div style="color:var(--breaking);font-family:var(--mono);font-size:12px;">&#9650; +8</div>
+        </div>
+        <div class="d5-card" style="border-left:3px solid var(--informational);">
+          <div class="d5-card-badge" style="background:#16a34a20;color:var(--informational);">INFO</div>
+          <div class="d5-card-score" style="color:var(--informational);text-shadow:0 0 12px #16a34a40;">24</div>
+          <div class="d5-card-name">Water Quality Index</div>
+          <div style="color:var(--informational);font-family:var(--mono);font-size:12px;">&#9660; -1</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 6: CARD-FORWARD ========== -->
+<div id="d6" class="direction">
+  <div class="dir-header">
+    <h2>Direction 6: Card-Forward / Material</h2>
+    <p>Elevated cards with shadows as the primary visual structure. Modern app dashboard, approachable and organized.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Cards with prominent box-shadows and elevation</li>
+      <li>Hero is just a larger, more prominent card</li>
+      <li>Medium gauge bar inside each card</li>
+      <li>Rounded corners, subtle depth layers</li>
+      <li>Self-contained severity units per card</li>
+    </ul>
+  </div>
+
+  <div class="d6-ticker">
+    <div class="d6-ticker-inner">
+      <span class="d6-ticker-item"><span style="font-weight:700;">AMZN-DEF</span> <span style="color:var(--breaking);">87 &#9650;12</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">OCN-ACD</span> <span style="color:var(--critical);">72 &#9650;5</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">AIR-DEL</span> <span style="color:var(--critical);">65 &#9660;3</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">ARC-ICE</span> <span style="color:var(--moderate);">45 &#9650;8</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">CRL-REF</span> <span style="color:var(--moderate);">58 &#9650;2</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">WTR-QAL</span> <span style="color:var(--informational);">24 &#9660;1</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">AMZN-DEF</span> <span style="color:var(--breaking);">87 &#9650;12</span></span>
+      <span class="d6-ticker-item"><span style="font-weight:700;">OCN-ACD</span> <span style="color:var(--critical);">72 &#9650;5</span></span>
+    </div>
+  </div>
+
+  <div class="d6-hero-card">
+    <div class="d6-hero-top">
+      <div class="d6-hero-score">87</div>
+      <div>
+        <span class="badge badge-breaking">BREAKING</span>
+        <span class="delta-up" style="margin-left:8px;">&#9650; +12</span>
+      </div>
+    </div>
+    <div class="d6-hero-title">Amazon Deforestation</div>
+    <p style="font-size:14px;color:var(--muted);margin-top:4px;">Severity increased after satellite data confirmed record clearing rates</p>
+    <div class="d6-gauge-med">
+      <div class="d6-gauge-med-fill" style="width:87%;background:var(--breaking);"></div>
+    </div>
+    <div class="meta-line">
+      <span>Updated 6h ago</span>
+      <button class="share-btn">Share</button>
+    </div>
+  </div>
+
+  <div class="d6-cards">
+    <div class="d6-card" style="border-left:4px solid var(--critical);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="d6-card-score" style="color:var(--critical);">72</div>
+        <span class="badge badge-critical">CRITICAL</span>
+      </div>
+      <div style="font-weight:600;margin-top:4px;">Ocean Acidification</div>
+      <div class="delta-up" style="margin-top:2px;">&#9650; +5</div>
+      <div class="d6-gauge-med" style="max-width:100%;margin-top:10px;">
+        <div class="d6-gauge-med-fill" style="width:72%;background:var(--critical);"></div>
+      </div>
+    </div>
+    <div class="d6-card" style="border-left:4px solid var(--critical);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="d6-card-score" style="color:var(--critical);">65</div>
+        <span class="badge badge-critical">CRITICAL</span>
+      </div>
+      <div style="font-weight:600;margin-top:4px;">Air Quality Delhi</div>
+      <div class="delta-down" style="margin-top:2px;">&#9660; -3</div>
+      <div class="d6-gauge-med" style="max-width:100%;margin-top:10px;">
+        <div class="d6-gauge-med-fill" style="width:65%;background:var(--critical);"></div>
+      </div>
+    </div>
+    <div class="d6-card" style="border-left:4px solid var(--moderate);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="d6-card-score" style="color:var(--moderate);">58</div>
+        <span class="badge badge-moderate">MODERATE</span>
+      </div>
+      <div style="font-weight:600;margin-top:4px;">Coral Reef Decline</div>
+      <div class="delta-up" style="margin-top:2px;">&#9650; +2</div>
+      <div class="d6-gauge-med" style="max-width:100%;margin-top:10px;">
+        <div class="d6-gauge-med-fill" style="width:58%;background:var(--moderate);"></div>
+      </div>
+    </div>
+    <div class="d6-card" style="border-left:4px solid var(--moderate);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="d6-card-score" style="color:var(--moderate);">45</div>
+        <span class="badge badge-moderate">MODERATE</span>
+      </div>
+      <div style="font-weight:600;margin-top:4px;">Arctic Ice Loss</div>
+      <div class="delta-up" style="margin-top:2px;">&#9650; +8</div>
+      <div class="d6-gauge-med" style="max-width:100%;margin-top:10px;">
+        <div class="d6-gauge-med-fill" style="width:45%;background:var(--moderate);"></div>
+      </div>
+    </div>
+    <div class="d6-card" style="border-left:4px solid var(--informational);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="d6-card-score" style="color:var(--informational);">24</div>
+        <span class="badge badge-informational">INFO</span>
+      </div>
+      <div style="font-weight:600;margin-top:4px;">Water Quality Index</div>
+      <div class="delta-down" style="margin-top:2px;">&#9660; -1</div>
+      <div class="d6-gauge-med" style="max-width:100%;margin-top:10px;">
+        <div class="d6-gauge-med-fill" style="width:24%;background:var(--informational);"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 7: TICKER-DOMINANT ========== -->
+<div id="d7" class="direction">
+  <div class="dir-header">
+    <h2>Direction 7: Ticker-Dominant</h2>
+    <p>The ticker IS the product identity. Stock trading platform energy. The crawl is king.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Massive full-width ticker band (not a thin strip)</li>
+      <li>Split layout: hero left (60%), movers right (40%)</li>
+      <li>Compact inline gauge next to score</li>
+      <li>2-column card grid below</li>
+      <li>Stock trading platform identity</li>
+    </ul>
+  </div>
+
+  <div class="d7-ticker-mega">
+    <div class="d7-ticker-mega-inner">
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--breaking);">87</span> Amazon Deforestation <span class="delta-up">&#9650;12</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--critical);">72</span> Ocean Acidification <span class="delta-up">&#9650;5</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--critical);">65</span> Air Quality Delhi <span class="delta-down">&#9660;3</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--moderate);">45</span> Arctic Ice Loss <span class="delta-up">&#9650;8</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--moderate);">58</span> Coral Reef Decline <span class="delta-up">&#9650;2</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--informational);">24</span> Water Quality Index <span class="delta-down">&#9660;1</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--breaking);">87</span> Amazon Deforestation <span class="delta-up">&#9650;12</span></span>
+      <span class="d7-ticker-mega-item"><span class="score" style="color:var(--critical);">72</span> Ocean Acidification <span class="delta-up">&#9650;5</span></span>
+    </div>
+  </div>
+
+  <div class="d7-split">
+    <div class="d7-hero-panel">
+      <span class="badge badge-breaking">BREAKING</span>
+      <div class="d7-hero-score">87</div>
+      <div class="d7-hero-title">Amazon Deforestation</div>
+      <div class="d7-gauge-compact">
+        <div class="d7-gauge-bar"><div class="d7-gauge-bar-fill" style="width:87%;background:var(--breaking);"></div></div>
+        <span class="delta-up">&#9650; +12</span>
+      </div>
+      <p style="font-size:14px;color:var(--muted);margin-top:10px;">Severity increased after satellite data confirmed record clearing rates</p>
+      <div class="meta-line">
+        <span>Updated 6h ago</span>
+        <button class="share-btn">Share</button>
+      </div>
+    </div>
+    <div class="d7-movers">
+      <h3>Biggest Movers</h3>
+      <div class="d7-mover-row">
+        <div>
+          <div style="font-weight:600;">Amazon Deforestation</div>
+          <span class="badge badge-breaking">BREAKING</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--mono);font-weight:700;color:var(--breaking);">87</div>
+          <div class="delta-up">&#9650; +12</div>
+        </div>
+      </div>
+      <div class="d7-mover-row">
+        <div>
+          <div style="font-weight:600;">Arctic Ice Loss</div>
+          <span class="badge badge-moderate">MODERATE</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--mono);font-weight:700;color:var(--moderate);">45</div>
+          <div class="delta-up">&#9650; +8</div>
+        </div>
+      </div>
+      <div class="d7-mover-row">
+        <div>
+          <div style="font-weight:600;">Ocean Acidification</div>
+          <span class="badge badge-critical">CRITICAL</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--mono);font-weight:700;color:var(--critical);">72</div>
+          <div class="delta-up">&#9650; +5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d7-grid">
+    <div class="d7-card" style="border-left-color:var(--critical);">
+      <div class="d7-card-header">
+        <div style="font-weight:600;">Ocean Acidification</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d7-card-score" style="color:var(--critical);">72</div>
+          <div class="d7-gauge-bar" style="width:48px;"><div class="d7-gauge-bar-fill" style="width:72%;background:var(--critical);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;"><span class="badge badge-critical">CRITICAL</span> <span class="delta-up" style="margin-left:4px;">&#9650; +5</span></div>
+    </div>
+    <div class="d7-card" style="border-left-color:var(--critical);">
+      <div class="d7-card-header">
+        <div style="font-weight:600;">Air Quality Delhi</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d7-card-score" style="color:var(--critical);">65</div>
+          <div class="d7-gauge-bar" style="width:48px;"><div class="d7-gauge-bar-fill" style="width:65%;background:var(--critical);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;"><span class="badge badge-critical">CRITICAL</span> <span class="delta-down" style="margin-left:4px;">&#9660; -3</span></div>
+    </div>
+    <div class="d7-card" style="border-left-color:var(--moderate);">
+      <div class="d7-card-header">
+        <div style="font-weight:600;">Coral Reef Decline</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d7-card-score" style="color:var(--moderate);">58</div>
+          <div class="d7-gauge-bar" style="width:48px;"><div class="d7-gauge-bar-fill" style="width:58%;background:var(--moderate);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;"><span class="badge badge-moderate">MODERATE</span> <span class="delta-up" style="margin-left:4px;">&#9650; +2</span></div>
+    </div>
+    <div class="d7-card" style="border-left-color:var(--moderate);">
+      <div class="d7-card-header">
+        <div style="font-weight:600;">Arctic Ice Loss</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d7-card-score" style="color:var(--moderate);">45</div>
+          <div class="d7-gauge-bar" style="width:48px;"><div class="d7-gauge-bar-fill" style="width:45%;background:var(--moderate);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;"><span class="badge badge-moderate">MODERATE</span> <span class="delta-up" style="margin-left:4px;">&#9650; +8</span></div>
+    </div>
+    <div class="d7-card" style="border-left-color:var(--informational);">
+      <div class="d7-card-header">
+        <div style="font-weight:600;">Water Quality Index</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d7-card-score" style="color:var(--informational);">24</div>
+          <div class="d7-gauge-bar" style="width:48px;"><div class="d7-gauge-bar-fill" style="width:24%;background:var(--informational);"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:4px;"><span class="badge badge-informational">INFO</span> <span class="delta-down" style="margin-left:4px;">&#9660; -1</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DIRECTION 8: HYBRID BEST-OF ========== -->
+<div id="d8" class="direction">
+  <div class="dir-header">
+    <h2>Direction 8: Hybrid Best-of</h2>
+    <p>Weather Radar hero + Bloomberg density + Editorial insight text + left border accents. The target identity.</p>
+  </div>
+  <div class="key-chars">
+    <h3>Key Characteristics</h3>
+    <ul>
+      <li>Large hero with prominent gauge and insight sentence</li>
+      <li>Compact cards with left-border severity accents</li>
+      <li>Visible insight text on every card (editorial influence)</li>
+      <li>10px gradient gauge with marker in hero</li>
+      <li>Mobile viewport preview included</li>
+    </ul>
+  </div>
+
+  <div class="d8-ticker">
+    <div class="d8-ticker-inner">
+      <span class="d8-ticker-item"><span style="font-weight:700;">AMZN-DEF</span> <span style="color:var(--breaking);font-weight:700;">87</span> <span class="delta-up">&#9650;12</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">OCN-ACD</span> <span style="color:var(--critical);font-weight:700;">72</span> <span class="delta-up">&#9650;5</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">AIR-DEL</span> <span style="color:var(--critical);font-weight:700;">65</span> <span class="delta-down">&#9660;3</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">ARC-ICE</span> <span style="color:var(--moderate);font-weight:700;">45</span> <span class="delta-up">&#9650;8</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">CRL-REF</span> <span style="color:var(--moderate);font-weight:700;">58</span> <span class="delta-up">&#9650;2</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">WTR-QAL</span> <span style="color:var(--informational);font-weight:700;">24</span> <span class="delta-down">&#9660;1</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">AMZN-DEF</span> <span style="color:var(--breaking);font-weight:700;">87</span> <span class="delta-up">&#9650;12</span></span>
+      <span class="d8-ticker-item"><span style="font-weight:700;">OCN-ACD</span> <span style="color:var(--critical);font-weight:700;">72</span> <span class="delta-up">&#9650;5</span></span>
+    </div>
+  </div>
+
+  <!-- Desktop -->
+  <div class="d8-viewport-label" style="margin-top:20px;">Desktop Viewport</div>
+
+  <div class="d8-hero">
+    <div class="d8-hero-top">
+      <div class="d8-hero-score">87</div>
+      <div class="d8-hero-info">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="d8-hero-title">Amazon Deforestation</div>
+          <span class="badge badge-breaking">BREAKING</span>
+          <span class="delta-up">&#9650; +12</span>
+        </div>
+        <div class="d8-hero-insight">Severity increased after satellite data confirmed record clearing rates</div>
+      </div>
+    </div>
+    <div class="d8-gauge">
+      <div class="d8-gauge-fill" style="width:100%;"></div>
+      <div class="d8-gauge-marker" style="left:calc(87% - 1.5px);"></div>
+    </div>
+    <div class="meta-line">
+      <span>Updated 6h ago</span>
+      <button class="share-btn">Share</button>
+    </div>
+  </div>
+
+  <div class="d8-cards">
+    <div class="d8-card">
+      <div class="d8-card-left-border" style="background:var(--critical);"></div>
+      <div class="d8-card-body">
+        <div class="d8-card-top">
+          <span class="badge badge-critical">CRITICAL</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="d8-card-score" style="color:var(--critical);">72</span>
+            <span class="delta-up">&#9650;5</span>
+          </div>
+        </div>
+        <div class="d8-card-name">Ocean Acidification</div>
+        <div class="d8-card-gauge"><div class="d8-card-gauge-fill" style="width:72%;background:var(--critical);"></div></div>
+        <div class="d8-card-insight">pH levels dropping across Pacific monitoring stations</div>
+      </div>
+    </div>
+    <div class="d8-card">
+      <div class="d8-card-left-border" style="background:var(--critical);"></div>
+      <div class="d8-card-body">
+        <div class="d8-card-top">
+          <span class="badge badge-critical">CRITICAL</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="d8-card-score" style="color:var(--critical);">65</span>
+            <span class="delta-down">&#9660;3</span>
+          </div>
+        </div>
+        <div class="d8-card-name">Air Quality Delhi</div>
+        <div class="d8-card-gauge"><div class="d8-card-gauge-fill" style="width:65%;background:var(--critical);"></div></div>
+        <div class="d8-card-insight">Slight improvement with wind pattern shift</div>
+      </div>
+    </div>
+    <div class="d8-card">
+      <div class="d8-card-left-border" style="background:var(--moderate);"></div>
+      <div class="d8-card-body">
+        <div class="d8-card-top">
+          <span class="badge badge-moderate">MODERATE</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="d8-card-score" style="color:var(--moderate);">58</span>
+            <span class="delta-up">&#9650;2</span>
+          </div>
+        </div>
+        <div class="d8-card-name">Coral Reef Decline</div>
+        <div class="d8-card-gauge"><div class="d8-card-gauge-fill" style="width:58%;background:var(--moderate);"></div></div>
+        <div class="d8-card-insight">Bleaching events expanding to new reef systems</div>
+      </div>
+    </div>
+    <div class="d8-card">
+      <div class="d8-card-left-border" style="background:var(--moderate);"></div>
+      <div class="d8-card-body">
+        <div class="d8-card-top">
+          <span class="badge badge-moderate">MODERATE</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="d8-card-score" style="color:var(--moderate);">45</span>
+            <span class="delta-up">&#9650;8</span>
+          </div>
+        </div>
+        <div class="d8-card-name">Arctic Ice Loss</div>
+        <div class="d8-card-gauge"><div class="d8-card-gauge-fill" style="width:45%;background:var(--moderate);"></div></div>
+        <div class="d8-card-insight">Winter recovery below seasonal average</div>
+      </div>
+    </div>
+    <div class="d8-card">
+      <div class="d8-card-left-border" style="background:var(--informational);"></div>
+      <div class="d8-card-body">
+        <div class="d8-card-top">
+          <span class="badge badge-informational">INFO</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="d8-card-score" style="color:var(--informational);">24</span>
+            <span class="delta-down">&#9660;1</span>
+          </div>
+        </div>
+        <div class="d8-card-name">Water Quality Index</div>
+        <div class="d8-card-gauge"><div class="d8-card-gauge-fill" style="width:24%;background:var(--informational);"></div></div>
+        <div class="d8-card-insight">Stable within normal parameters</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Preview -->
+  <div class="d8-viewport-label">Mobile Viewport (375px)</div>
+  <div class="d8-mobile-frame">
+    <div class="d8-mobile-notch"></div>
+    <div style="background:var(--surface);padding:6px 12px;font-size:11px;font-family:var(--mono);overflow:hidden;white-space:nowrap;transition:background 0.3s;">
+      <span style="color:var(--breaking);font-weight:700;">AMZN 87 &#9650;12</span> &nbsp;
+      <span style="color:var(--critical);font-weight:700;">OCN 72 &#9650;5</span> &nbsp;
+      <span style="color:var(--critical);font-weight:700;">AIR 65 &#9660;3</span>
+    </div>
+    <div class="d8-mobile-content">
+      <div class="d8-mobile-hero">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span class="badge badge-breaking" style="font-size:10px;">BREAKING</span>
+            <div style="font-weight:600;font-size:15px;margin-top:4px;">Amazon Deforestation</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:32px;font-weight:800;color:var(--breaking);">87</div>
+        </div>
+        <div style="width:100%;height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden;transition:background 0.3s;">
+          <div style="width:87%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--informational),var(--moderate),var(--critical),var(--breaking));"></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">Satellite data confirmed record clearing rates</div>
+      </div>
+      <div class="d8-mobile-cards">
+        <div class="d8-mobile-card" style="border-left-color:var(--critical);">
+          <div>
+            <div style="font-weight:600;font-size:13px;">Ocean Acidification</div>
+            <span class="badge badge-critical" style="font-size:9px;">CRITICAL</span>
+          </div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--critical);">72 <span style="font-size:11px;">&#9650;5</span></div>
+        </div>
+        <div class="d8-mobile-card" style="border-left-color:var(--critical);">
+          <div>
+            <div style="font-weight:600;font-size:13px;">Air Quality Delhi</div>
+            <span class="badge badge-critical" style="font-size:9px;">CRITICAL</span>
+          </div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--critical);">65 <span style="font-size:11px;color:var(--informational);">&#9660;3</span></div>
+        </div>
+        <div class="d8-mobile-card" style="border-left-color:var(--moderate);">
+          <div>
+            <div style="font-weight:600;font-size:13px;">Coral Reef Decline</div>
+            <span class="badge badge-moderate" style="font-size:9px;">MODERATE</span>
+          </div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--moderate);">58 <span style="font-size:11px;">&#9650;2</span></div>
+        </div>
+        <div class="d8-mobile-card" style="border-left-color:var(--moderate);">
+          <div>
+            <div style="font-weight:600;font-size:13px;">Arctic Ice Loss</div>
+            <span class="badge badge-moderate" style="font-size:9px;">MODERATE</span>
+          </div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--moderate);">45 <span style="font-size:11px;">&#9650;8</span></div>
+        </div>
+        <div class="d8-mobile-card" style="border-left-color:var(--informational);">
+          <div>
+            <div style="font-weight:600;font-size:13px;">Water Quality Index</div>
+            <span class="badge badge-informational" style="font-size:9px;">INFO</span>
+          </div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--informational);">24 <span style="font-size:11px;">&#9660;1</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showDir(id, btn) {
+  document.querySelectorAll('.direction').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+</script>
+</body>
+</html>

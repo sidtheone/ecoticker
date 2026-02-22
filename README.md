@@ -149,7 +149,7 @@ npx jest                # Run all tests
 npx jest --coverage     # With coverage report
 ```
 
-447 tests across 17+ suites. Two Jest projects: `node` (ts-jest) and `react` (jsdom).
+604 tests across 37 suites. Two Jest projects: `node` (ts-jest) and `react` (jsdom).
 
 ## Project Structure
 

@@ -45,7 +45,7 @@ Environmental news impact tracker. Aggregates news via GNews API, scores severit
 npm run dev          # Dev server on :3000
 npx drizzle-kit push # Push schema changes to PostgreSQL
 npx drizzle-kit studio # Open Drizzle Studio (GUI for DB)
-npx jest             # Run all 132 tests (17 suites)
+npx jest             # Run all 604 tests (37 suites)
 npx jest --coverage  # With coverage (98.6% stmts)
 npx tsx scripts/seed.ts   # Seed sample data
 npx tsx scripts/batch.ts  # Run batch pipeline

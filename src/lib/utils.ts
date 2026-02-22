@@ -138,3 +138,10 @@ export function relativeTime(dateStr: string): string {
   // This is MVP-acceptable since EcoTicker data is refreshed daily and old entries are uncommon.
   return `${diffDay}d ago`;
 }
+
+export function topicAbbreviation(name: string): string {
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  if (words.length === 1) return words[0].slice(0, 8).toUpperCase();
+  return (words[0].slice(0, 4) + "-" + words[words.length - 1].slice(0, 3)).toUpperCase();
+}

@@ -72,15 +72,17 @@ describe("TopicCard", () => {
   test("renders positive change in red with up arrow", () => {
     render(<TopicCard topic={makeTopic({ change: 6 })} />);
     const change = screen.getByTestId("change");
-    expect(change.textContent).toBe("+6 ▲");
-    expect(change.className).toContain("text-red-400");
+    expect(change.textContent).toBe("▲6");
+    // Default score 85 (breaking) — severity color is #dc2626
+    expect(change).toHaveStyle({ color: "#dc2626" });
   });
 
-  test("renders negative change in green with down arrow", () => {
+  test("renders negative change with severity-colored inline style", () => {
     render(<TopicCard topic={makeTopic({ change: -7 })} />);
     const change = screen.getByTestId("change");
-    expect(change.textContent).toBe("-7 ▼");
-    expect(change.className).toContain("text-green-400");
+    expect(change.textContent).toBe("▼7");
+    // Default score 85 (breaking) — severity color is #dc2626
+    expect(change).toHaveStyle({ color: "#dc2626" });
   });
 
   test("renders urgency badge", () => {

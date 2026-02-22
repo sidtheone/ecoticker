@@ -1,11 +1,12 @@
 import TopicGrid from "@/components/TopicGrid";
-import BiggestMovers from "@/components/BiggestMovers";
 import HeroSection from "@/components/HeroSection";
 import { selectHeroTopic } from "@/lib/utils";
 import { db } from "@/db";
 import { topics } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { Topic } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let heroTopic: Topic | null = null;
@@ -51,10 +52,7 @@ export default async function Home() {
       <div className="mb-8">
         <HeroSection heroTopic={heroTopic} />
       </div>
-      <div className="mb-8">
-        <BiggestMovers />
-      </div>
-      <TopicGrid />
+<TopicGrid />
     </div>
   );
 }

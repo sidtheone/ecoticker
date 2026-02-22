@@ -46,12 +46,6 @@ jest.mock("@/components/HeroSection", () => {
   };
 });
 
-jest.mock("@/components/BiggestMovers", () => {
-  return function MockBiggestMovers() {
-    return <div data-testid="biggest-movers" />;
-  };
-});
-
 jest.mock("@/components/TopicGrid", () => {
   return function MockTopicGrid() {
     return <div data-testid="topic-grid" />;

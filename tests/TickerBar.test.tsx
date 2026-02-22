@@ -26,38 +26,44 @@ afterEach(() => {
 });
 
 describe("TickerBar", () => {
-  test("renders ticker items after fetch", async () => {
+  test("renders abbreviated ticker codes after fetch", async () => {
     render(<TickerBar />);
     await waitFor(() => {
-      expect(screen.getAllByText("Arctic Ice Decline").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("ARCT-DEC").length).toBeGreaterThan(0);
     });
-    expect(screen.getAllByText("Delhi Air Quality").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Ganges Cleanup").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("DELH-QUA").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("GANG-CLE").length).toBeGreaterThan(0);
   });
 
-  test("displays scores", async () => {
+  test("displays scores with severity-colored inline styles", async () => {
     render(<TickerBar />);
     await waitFor(() => {
-      expect(screen.getAllByText("85").length).toBeGreaterThan(0);
+      const scores = screen.getAllByText("85");
+      expect(scores.length).toBeGreaterThan(0);
+      // Breaking score (85) should have red color inline
+      expect(scores[0]).toHaveStyle({ color: "#dc2626" });
     });
-    expect(screen.getAllByText("91").length).toBeGreaterThan(0);
+    const scores91 = screen.getAllByText("91");
+    expect(scores91[0]).toHaveStyle({ color: "#dc2626" });
   });
 
-  test("shows positive change with up arrow in red", async () => {
+  test("shows change with severity-colored inline style", async () => {
     render(<TickerBar />);
     await waitFor(() => {
       const changes = screen.getAllByText("+6 ▲");
       expect(changes.length).toBeGreaterThan(0);
-      expect(changes[0].className).toContain("text-red-400");
+      // Breaking score item — change uses badge color
+      expect(changes[0]).toHaveStyle({ color: "#dc2626" });
     });
   });
 
-  test("shows negative change with down arrow in green", async () => {
+  test("shows negative change with severity-colored inline style", async () => {
     render(<TickerBar />);
     await waitFor(() => {
       const changes = screen.getAllByText("-7 ▼");
       expect(changes.length).toBeGreaterThan(0);
-      expect(changes[0].className).toContain("text-green-400");
+      // Moderate score (45) — change uses moderate badge color
+      expect(changes[0]).toHaveStyle({ color: "#a16207" });
     });
   });
 
@@ -74,8 +80,8 @@ describe("TickerBar", () => {
   test("doubles items for seamless scroll loop", async () => {
     render(<TickerBar />);
     await waitFor(() => {
-      // 3 items doubled = 6 instances of names
-      expect(screen.getAllByText("Arctic Ice Decline")).toHaveLength(2);
+      // 3 items doubled = 6 instances of abbreviated names
+      expect(screen.getAllByText("ARCT-DEC")).toHaveLength(2);
     });
   });
 

@@ -43,18 +43,9 @@ describe("SeverityGauge", () => {
 
     test("renders marker at correct position", () => {
       const { container } = render(<SeverityGauge score={87} />);
-      // Look for an element with left: 87% inline style
       const marker = container.querySelector("[data-testid='gauge-marker']");
-      if (marker) {
-        expect((marker as HTMLElement).style.left).toBe("87%");
-      } else {
-        // Alternative: find element by style
-        const allElements = container.querySelectorAll("*");
-        const markerEl = Array.from(allElements).find(
-          (el) => (el as HTMLElement).style?.left === "87%"
-        );
-        expect(markerEl).toBeTruthy();
-      }
+      expect(marker).toBeTruthy();
+      expect((marker as HTMLElement).style.left).toBe("calc(87% - 1.5px)");
     });
 
     test("renders with score 0", () => {
@@ -71,19 +62,10 @@ describe("SeverityGauge", () => {
   });
 
   describe("gradient bar", () => {
-    test("has linear-gradient background", () => {
-      const { container } = render(<SeverityGauge score={50} />);
-      const bar = container.querySelector("[data-testid='gauge-bar']");
-      if (bar) {
-        expect((bar as HTMLElement).style.background).toContain("linear-gradient");
-      } else {
-        // Look for gradient in any element's inline style
-        const allElements = container.querySelectorAll("*");
-        const gradientEl = Array.from(allElements).find(
-          (el) => (el as HTMLElement).style?.background?.includes("gradient")
-        );
-        expect(gradientEl).toBeTruthy();
-      }
+    test("has d8-gauge class for CSS gradient", () => {
+      render(<SeverityGauge score={50} />);
+      const bar = screen.getByTestId("gauge-bar");
+      expect(bar.className).toContain("d8-gauge");
     });
   });
 

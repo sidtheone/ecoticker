@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { TickerItem } from "@/lib/types";
 import { eventBus } from "@/lib/events";
+import { severityColor, topicAbbreviation, formatChange } from "@/lib/utils";
 
 export default function TickerBar() {
   const [items, setItems] = useState<TickerItem[]>([]);
@@ -45,20 +46,23 @@ export default function TickerBar() {
       aria-label="Environmental topic scores"
     >
       <div className="ticker-scroll flex whitespace-nowrap py-2">
-        {doubled.map((item, i) => (
-          <Link
-            key={`${item.slug}-${i}`}
-            href={`/topic/${item.slug}`}
-            aria-hidden={i >= items.length ? "true" : undefined}
-            className="inline-flex items-center gap-2 px-4 text-sm hover:bg-[#e8dfd3] dark:hover:bg-gray-900 transition-colors"
-          >
-            <span className="text-stone-600 dark:text-gray-300 font-medium">{item.name}</span>
-            <span className="text-stone-800 dark:text-white font-bold">{item.score}</span>
-            <span className={item.change > 0 ? "text-red-400" : item.change < 0 ? "text-green-400" : "text-gray-500"}>
-              {item.change > 0 ? `+${item.change} ▲` : item.change < 0 ? `${item.change} ▼` : "0 ─"}
-            </span>
-          </Link>
-        ))}
+        {doubled.map((item, i) => {
+          const colors = severityColor(item.score);
+          return (
+            <Link
+              key={`${item.slug}-${i}`}
+              href={`/topic/${item.slug}`}
+              aria-hidden={i >= items.length ? "true" : undefined}
+              className="inline-flex items-center gap-2 px-4 text-sm hover:bg-[#e8dfd3] dark:hover:bg-gray-900 transition-colors"
+            >
+              <span className="text-stone-600 dark:text-gray-300 font-mono font-bold">{topicAbbreviation(item.name)}</span>
+              <span className="font-mono font-bold" style={{ color: colors.badge }}>{item.score}</span>
+              <span style={{ color: colors.badge }}>
+                {formatChange(item.change)}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

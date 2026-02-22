@@ -1,4 +1,4 @@
-import { changeDirectionColor, formatChange, scoreToUrgency, severityColor, truncateToWord, relativeTime } from "../src/lib/utils";
+import { changeDirectionColor, formatChange, scoreToUrgency, severityColor, truncateToWord, relativeTime, topicAbbreviation } from "../src/lib/utils";
 
 describe("severityColor", () => {
   describe("return shape", () => {
@@ -274,5 +274,31 @@ describe("relativeTime", () => {
   test("returns 'just now' for future date (clock skew)", () => {
     const futureDate = new Date(BASE_NOW + 5 * 60 * 1000).toISOString(); // 5 min in future
     expect(relativeTime(futureDate)).toBe("just now");
+  });
+});
+
+describe("topicAbbreviation", () => {
+  test("multi-word: first 4 chars + last 3 chars", () => {
+    expect(topicAbbreviation("Amazon Deforestation Acceleration")).toBe("AMAZ-ACC");
+  });
+
+  test("two words: first 4 + last 3", () => {
+    expect(topicAbbreviation("Delhi Air")).toBe("DELH-AIR");
+  });
+
+  test("single word: up to 8 chars uppercase", () => {
+    expect(topicAbbreviation("Climate")).toBe("CLIMATE");
+  });
+
+  test("single long word: truncated to 8 chars", () => {
+    expect(topicAbbreviation("Deforestation")).toBe("DEFOREST");
+  });
+
+  test("empty string returns empty", () => {
+    expect(topicAbbreviation("")).toBe("");
+  });
+
+  test("three words uses first and last", () => {
+    expect(topicAbbreviation("Delhi Air Quality")).toBe("DELH-QUA");
   });
 });

@@ -46,7 +46,7 @@ describe("Data Policy Page", () => {
   });
 
   test("exports correct metadata", () => {
-    expect(metadata.title).toBe("Data Policy — EcoTicker");
+    expect(metadata.title).toBe("Data Policy");
     expect(metadata.description).toContain("GDPR");
   });
 });

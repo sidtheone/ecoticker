@@ -2,12 +2,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Scoring Methodology — EcoTicker",
+  title: "Scoring Methodology",
   description:
     "How EcoTicker calculates environmental impact severity scores using a 4-level rubric across ecological, health, and economic dimensions.",
   openGraph: {
     title: "Scoring Methodology — EcoTicker",
-    description: "How EcoTicker calculates environmental impact severity scores.",
+    description:
+      "How EcoTicker calculates environmental impact severity scores.",
+    url: "/scoring",
+    siteName: "EcoTicker",
+    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Scoring Methodology — EcoTicker",
+    description:
+      "How EcoTicker calculates environmental impact severity scores.",
+    images: ["/og-default.png"],
   },
 };
 

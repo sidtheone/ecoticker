@@ -20,8 +20,28 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
-  title: "EcoTicker — Environmental Impact Tracker",
-  description: "Track environmental news and their impact with real-time severity scoring",
+  title: {
+    default: "EcoTicker — Environmental Impact Tracker",
+    template: "%s — EcoTicker",
+  },
+  description:
+    "Track environmental news and their impact with real-time AI-scored severity. Monitor climate, pollution, biodiversity, and more.",
+  openGraph: {
+    type: "website",
+    siteName: "EcoTicker",
+    title: "EcoTicker — Environmental Impact Tracker",
+    description:
+      "Track environmental news and their impact with real-time AI-scored severity.",
+    url: "/",
+    images: [{ url: "/og-default.png", width: 1200, height: 630, alt: "EcoTicker" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EcoTicker — Environmental Impact Tracker",
+    description:
+      "Track environmental news and their impact with real-time AI-scored severity.",
+    images: ["/og-default.png"],
+  },
 };
 
 export default function RootLayout({
@@ -35,6 +55,19 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){var t=localStorage.getItem('ecoticker-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}})();`,
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "EcoTicker",
+              url: "https://ecoticker.sidsinsights.com",
+              description:
+                "Environmental news impact tracker with AI-scored severity",
+            }),
           }}
         />
       </head>

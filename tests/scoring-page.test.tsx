@@ -32,7 +32,7 @@ describe("Scoring Page", () => {
   });
 
   test("exports correct metadata", () => {
-    expect(metadata.title).toBe("Scoring Methodology — EcoTicker");
+    expect(metadata.title).toBe("Scoring Methodology");
     expect(metadata.description).toContain("4-level rubric");
   });
 });

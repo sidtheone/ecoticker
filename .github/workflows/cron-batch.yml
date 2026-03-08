@@ -14,10 +14,17 @@ jobs:
     environment: virtuous-transformation / production
     steps:
       - name: Call cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
         run: |
+          # Trim trailing slashes/whitespace from APP_URL
+          url="${APP_URL%/}"
+          url="${url%"${url##*[![:space:]]}"}"
+
           response=$(curl -s -w "\n%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.APP_URL }}/api/cron/batch")
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${url}/api/cron/batch")
 
           http_code=$(echo "$response" | tail -1)
           body=$(echo "$response" | head -n -1)

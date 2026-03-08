@@ -11,6 +11,7 @@ jobs:
   trigger-batch:
     name: Trigger Batch Pipeline
     runs-on: ubuntu-latest
+    environment: virtuous-transformation / production
     steps:
       - name: Call cron endpoint
         run: |

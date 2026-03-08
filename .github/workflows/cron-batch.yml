@@ -5,6 +5,8 @@ on:
     - cron: '0 */4 * * *'  # Every 4 hours
   workflow_dispatch:        # Manual trigger from Actions tab
 
+permissions: {}
+
 jobs:
   trigger-batch:
     name: Trigger Batch Pipeline

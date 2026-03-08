@@ -7,6 +7,7 @@
 - **Pause at checkpoints.** During iterative design work, stop after each change and show the result. Do NOT proceed to the next step until approved.
 - **Read VALUES.md.** Our shared principles live in `VALUES.md` at repo root. Consult it for quality standards and philosophy.
 - **Use GSD framework.** Planning and implementation artifacts live in `_gsd-output/`. Use GSD methodology for project management.
+- **TDD.** Write tests first, then implement. Every new feature or file must have corresponding tests written before the implementation code.
 
 ## Project Overview
 

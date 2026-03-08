@@ -205,11 +205,11 @@ No external library needed.
 ### References
 
 - [Source: docs/plans/2026-02-22-architecture-audit-ux-spec.md] — Gap #3 (product descriptor), Gap #5 (stale data warning)
-- [Source: _bmad-output/planning-artifacts/epic-7.md#Story 7.3] — Full AC and dev notes
+- [Source: _gsd-output/planning-artifacts/epic-7.md#Story 7.3] — Full AC and dev notes
 - [Source: src/db/schema.ts:68-96] — scoreHistory table with recordedAt field
 - [Source: src/app/layout.tsx:49] — Main layout placement point
 - [Source: src/app/page.tsx] — Dashboard page for descriptor placement
-- [Source: _bmad-output/implementation-artifacts/7-2-dashboard-hero-section.md] — Previous story patterns
+- [Source: _gsd-output/implementation-artifacts/7-2-dashboard-hero-section.md] — Previous story patterns
 
 ## Dev Agent Record
 

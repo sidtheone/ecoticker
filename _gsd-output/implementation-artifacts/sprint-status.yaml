@@ -2,7 +2,7 @@
 # project: ecoticker-main
 # project_key: NOKEY
 # tracking_system: file-system
-# story_location: _bmad-output/implementation-artifacts
+# story_location: _gsd-output/implementation-artifacts
 
 # STATUS DEFINITIONS:
 # ==================
@@ -37,7 +37,7 @@ generated: 2026-02-22
 project: ecoticker-main
 project_key: NOKEY
 tracking_system: file-system
-story_location: _bmad-output/implementation-artifacts
+story_location: _gsd-output/implementation-artifacts
 
 development_status:
   # Epic 1: Scoring Foundation (Phase 1)

@@ -265,7 +265,7 @@ New order:
 
 ### References
 
-- [Source: _bmad-output/planning-artifacts/epic-7.md#Story 7.5] — Full AC and dev notes
+- [Source: _gsd-output/planning-artifacts/epic-7.md#Story 7.5] — Full AC and dev notes
 - [Source: docs/plans/2026-02-22-architecture-audit-ux-spec.md] — Editorial rhythm specification
 - [Source: src/app/topic/[slug]/page.tsx] — Current implementation to restructure
 - [Source: src/components/SeverityGauge.tsx] — Gauge component (compact mode)

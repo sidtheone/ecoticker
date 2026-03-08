@@ -3,7 +3,7 @@
 **Status:** backlog
 **Phase:** 8 — Debt Reduction
 **Goal:** Eliminate technical debt identified in the Epic 4 retrospective: consolidate duplicated batch pipeline into a shared module, fix stale schema defaults, and rename misnamed test files. These items were deferred from Epic 7 to keep UX stories focused.
-**Source:** `_bmad-output/implementation-artifacts/epic-4-retro-2026-02-22.md` (Technical Debt section)
+**Source:** `_gsd-output/implementation-artifacts/epic-4-retro-2026-02-22.md` (Technical Debt section)
 
 ## Context
 

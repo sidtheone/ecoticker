@@ -3,7 +3,7 @@
 **Status:** done
 **Phase:** 4 — Resilience
 **Goal:** Eliminate single point of failure on NewsAPI by integrating curated RSS feeds as a parallel news source with source attribution, and align the route.ts batch pipeline with the US-1.0 scoring architecture.
-**Research:** `_bmad-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md`
+**Research:** `_gsd-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md`
 
 ## Context
 

@@ -1,16 +1,16 @@
 ---
-validationTarget: '_bmad-output/planning-artifacts/prd.md'
+validationTarget: '_gsd-output/planning-artifacts/prd.md'
 validationDate: '2026-02-20'
 inputDocuments:
-  - '_bmad-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md'
+  - '_gsd-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md'
   - 'docs/plans/2026-02-09-llm-scoring-research.md'
-  - '_bmad-output/project-context.md'
+  - '_gsd-output/project-context.md'
   - 'docs/plans/2026-02-12-user-stories-v2.md'
   - 'docs/plans/2026-02-09-business-panel-analysis.md'
   - 'docs/plans/2026-02-12-postgresql-drizzle-design.md'
   - 'docs/plans/2026-02-13-phase0-workflow.md'
   - 'docs/index.md'
-  - '_bmad-output/planning-artifacts/index.md'
+  - '_gsd-output/planning-artifacts/index.md'
 validationStepsCompleted: ['step-v-01-discovery', 'step-v-02-format-detection', 'step-v-03-density-validation', 'step-v-04-brief-coverage-validation', 'step-v-05-measurability-validation', 'step-v-06-traceability-validation', 'step-v-07-implementation-leakage-validation', 'step-v-08-domain-compliance-validation', 'step-v-09-project-type-validation', 'step-v-10-smart-validation', 'step-v-11-holistic-quality-validation', 'step-v-12-completeness-validation']
 validationStatus: COMPLETE
 holisticQualityRating: '4/5 - Good'
@@ -19,7 +19,7 @@ overallStatus: Warning
 
 # PRD Validation Report
 
-**PRD Being Validated:** _bmad-output/planning-artifacts/prd.md
+**PRD Being Validated:** _gsd-output/planning-artifacts/prd.md
 **Validation Date:** 2026-02-20
 
 ## Input Documents
@@ -33,7 +33,7 @@ overallStatus: Warning
 - Technical Design: 2026-02-12-postgresql-drizzle-design.md
 - Workflow: 2026-02-13-phase0-workflow.md
 - Documentation Index: docs/index.md
-- Epic Index: _bmad-output/planning-artifacts/index.md
+- Epic Index: _gsd-output/planning-artifacts/index.md
 
 ## Validation Findings
 
@@ -58,7 +58,7 @@ overallStatus: Warning
 8. Functional Requirements
 9. Non-Functional Requirements
 
-**BMAD Core Sections Present:**
+**GSD Core Sections Present:**
 - Executive Summary: ✅ Present (exact match)
 - Success Criteria: ✅ Present (exact match)
 - Product Scope: ✅ Present (variant: "Project Scoping & Phased Development")
@@ -66,10 +66,10 @@ overallStatus: Warning
 - Functional Requirements: ✅ Present (exact match)
 - Non-Functional Requirements: ✅ Present (exact match)
 
-**Format Classification:** BMAD Standard
+**Format Classification:** GSD Standard
 **Core Sections Present:** 6/6
 
-**Additional BMAD Sections Present:** Domain-Specific Requirements, Innovation & Novel Patterns, Web App Specific Requirements — all three are optional enrichments appropriate for this project type.
+**Additional GSD Sections Present:** Domain-Specific Requirements, Innovation & Novel Patterns, Web App Specific Requirements — all three are optional enrichments appropriate for this project type.
 
 ## Information Density Validation
 
@@ -232,7 +232,7 @@ Borderline items (FR2 vendor name, FR32 "rich", FR41 rate limit in FR) are accep
 
 **Mitigating Context:** This is a brownfield PRD where the tech stack is already decided, implemented, and documented in the Executive Summary and Web App sections. The NFR leakage reflects the reality that Security and Scalability NFRs describe the *current system's* properties, not aspirational requirements. Technology names in these sections aid downstream agents who need to understand what's already built.
 
-**Recommendation:** For strict BMAD compliance, replace technology names in NFRs with generic capability descriptions. However, given brownfield context, this leakage is pragmatically useful — downstream Architecture and Dev agents benefit from knowing the specific tools. Consider:
+**Recommendation:** For strict GSD compliance, replace technology names in NFRs with generic capability descriptions. However, given brownfield context, this leakage is pragmatically useful — downstream Architecture and Dev agents benefit from knowing the specific tools. Consider:
 1. FR36: Remove endpoint path — describe capability only
 2. NFR Security: Replace library names (Zod, Drizzle, Next.js, npm) with generic descriptions
 3. NFR Scalability: Replace "PostgreSQL" with "database"
@@ -400,7 +400,7 @@ Same line confirms no CLI commands.
 
 **Dual Audience Score:** 5/5
 
-### BMAD PRD Principles Compliance
+### GSD PRD Principles Compliance
 
 | Principle | Status | Notes |
 |-----------|--------|-------|

@@ -9,10 +9,10 @@
 ## Workflow State
 
 - **Workflow:** create-prd
-- **Output file:** `_bmad-output/planning-artifacts/prd.md`
+- **Output file:** `_gsd-output/planning-artifacts/prd.md`
 - **Steps completed:** step-01-init, step-02-discovery, step-03-success, step-01b-continue, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional, step-10-nonfunctional
 - **Current step:** `step-11-polish.md` — ready to begin
-- **Step file path:** `_bmad/bmm/workflows/2-plan-workflows/create-prd/steps-c/step-11-polish.md`
+- **Step file path:** `_gsd/gsd/workflows/2-plan-workflows/create-prd/steps-c/step-11-polish.md`
 - **After polish:** PRD COMPLETE
 
 ---
@@ -26,7 +26,7 @@ Domain complexity = general/LOW, but user chose to explore anyway. Party Mode se
 3. **GDPR & Privacy** — already fully implemented, no additional work
 4. **Environmental Claims & Greenwashing** — news analysis tool framing, topic-not-entity naming, classifier prompt guardrail
 
-**Side output:** Emergency story created — `_bmad-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md` (replace NewsAPI with GNews API, launch blocker, prioritized above Epic 4)
+**Side output:** Emergency story created — `_gsd-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md` (replace NewsAPI with GNews API, launch blocker, prioritized above Epic 4)
 
 ## Step 6 Completed (Innovation Discovery)
 
@@ -90,15 +90,15 @@ Web app specific requirements documented:
 
 ## Input Documents (loaded in PRD frontmatter — 9 files)
 
-- `_bmad-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md`
+- `_gsd-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md`
 - `docs/plans/2026-02-09-llm-scoring-research.md`
-- `_bmad-output/project-context.md`
+- `_gsd-output/project-context.md`
 - `docs/plans/2026-02-12-user-stories-v2.md`
 - `docs/plans/2026-02-09-business-panel-analysis.md`
 - `docs/plans/2026-02-12-postgresql-drizzle-design.md`
 - `docs/plans/2026-02-13-phase0-workflow.md`
 - `docs/index.md`
-- `_bmad-output/planning-artifacts/index.md`
+- `_gsd-output/planning-artifacts/index.md`
 
 Key facts:
 - **RSS research:** 10 feeds across EU/USA/India, ~40-90 articles/day, legally clear
@@ -161,4 +161,4 @@ MVP boundary confirmed. Party Mode surfaced two additions:
 ## PRD COMPLETE — Next Steps
 
 PRD workflow finished 2026-02-20. All 12 steps completed.
-Output: `_bmad-output/planning-artifacts/prd.md`
+Output: `_gsd-output/planning-artifacts/prd.md`

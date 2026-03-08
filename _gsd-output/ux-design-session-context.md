@@ -3,7 +3,7 @@
 **Last updated:** 2026-02-21
 **Status:** IN PROGRESS — Step 6 next
 **Workflow:** create-ux-design
-**Output file:** `_bmad-output/planning-artifacts/ux-design-specification.md`
+**Output file:** `_gsd-output/planning-artifacts/ux-design-specification.md`
 
 ---
 
@@ -11,7 +11,7 @@
 
 - **Steps completed:** 1 (init), 2 (discovery), 3 (core experience), 4 (emotional response), 5 (inspiration)
 - **Next step:** Step 6 — Design System Choice
-- **Step file path:** `_bmad/bmm/workflows/2-plan-workflows/create-ux-design/steps/step-06-design-system.md`
+- **Step file path:** `_gsd/gsd/workflows/2-plan-workflows/create-ux-design/steps/step-06-design-system.md`
 
 ---
 
@@ -81,7 +81,7 @@ Step 6 should recognize this existing system and build on it rather than proposi
 ## Resume Instructions
 
 To resume this workflow:
-1. Run `/bmad-bmm-create-ux-design`
+1. Run `/gsd-gsd-create-ux-design`
 2. The workflow will detect the existing `ux-design-specification.md` and load `step-01b-continue.md`
 3. Step-01b will read frontmatter, see steps 1–5 complete, and load step-06
 4. Share this session context for faster ramp-up

@@ -114,7 +114,7 @@ Option A (this story) intentionally duplicates prompt text and pipeline logic. A
 
 - [Source: docs/plans/2026-02-21-reconcile-batch-scoring-pipelines.md] — Full problem analysis and approach options
 - [Source: docs/plans/2026-02-09-llm-scoring-research.md] — Scoring architecture decisions (temperature, rubric, weights)
-- [Source: _bmad-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md] — Code review finding H1
+- [Source: _gsd-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md] — Code review finding H1
 - [Source: scripts/batch.ts:167-595] — Gold standard scoring pipeline
 - [Source: src/lib/scoring.ts] — Shared scoring utilities
 - [Source: src/db/schema.ts:68-96] — scoreHistory table schema

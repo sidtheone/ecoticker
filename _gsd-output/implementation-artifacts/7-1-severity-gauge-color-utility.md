@@ -144,7 +144,7 @@ The "two reds rule": badge uses bright variants (`-500`/`-600`), gauge uses mute
 ### References
 
 - [Source: docs/plans/2026-02-22-architecture-audit-ux-spec.md] — Gap #1 (SeverityGauge) and #4 (severityColor utility), WCAG color corrections table
-- [Source: _bmad-output/planning-artifacts/epic-7.md#Story 7.1] — Full AC and dev notes
+- [Source: _gsd-output/planning-artifacts/epic-7.md#Story 7.1] — Full AC and dev notes
 - [Source: src/lib/utils.ts] — Current `scoreToHex`, `urgencyColor`, `changeColor` implementations
 - [Source: src/components/TopicCard.tsx] — Primary consumer with inline scoreColor ternary
 - [Source: src/components/UrgencyBadge.tsx] — Consumer of `urgencyColor()`

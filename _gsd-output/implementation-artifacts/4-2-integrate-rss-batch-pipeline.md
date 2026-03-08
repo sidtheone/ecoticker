@@ -281,12 +281,12 @@ After this story, BOTH `scripts/batch.ts` AND `route.ts` have RSS integration. T
 
 ### References
 
-- [Source: _bmad-output/planning-artifacts/epic-4.md — Story 4.2 AC and Dev Notes]
+- [Source: _gsd-output/planning-artifacts/epic-4.md — Story 4.2 AC and Dev Notes]
 - [Source: scripts/batch.ts — fetchNews() line 94, article insert lines 768-781, dedup lines 150-161]
 - [Source: scripts/rss.ts — fetchRssFeeds() export, NewsArticle interface]
 - [Source: src/app/api/batch/route.ts — fetchNews() line 166, article insert lines 703-718, sourceType line 714]
 - [Source: src/db/schema.ts — articles table, sourceType column with default "newsapi"]
-- [Source: _bmad-output/implementation-artifacts/4-1-rss-feed-fetching-parsing.md — Previous story context]
+- [Source: _gsd-output/implementation-artifacts/4-1-rss-feed-fetching-parsing.md — Previous story context]
 - [Source: docs/plans/2026-02-21-reconcile-batch-scoring-pipelines.md — Pipeline duplication context]
 - Note: Line numbers are approximate — verify against current source before implementing
 
@@ -320,5 +320,5 @@ None. Implementation proceeded without blockers.
 - `src/app/api/batch/route.ts` — rss-parser import, inlined fetchRssFeeds, parallel fetch, dynamic sourceType, response stats
 - `tests/batch-rss-integration.test.ts` — new: 5 integration tests for scripts/batch.ts RSS integration
 - `tests/api-batch-gnews.test.ts` — extended: rss-parser mock + 5 new RSS integration tests
-- `_bmad-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md` — this story file
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` — status updated to review
+- `_gsd-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md` — this story file
+- `_gsd-output/implementation-artifacts/sprint-status.yaml` — status updated to review

@@ -120,12 +120,12 @@ const articlesWithRss = mockArticles.map((a, i) =>
 
 ### References
 
-- [Source: _bmad-output/planning-artifacts/epic-4.md — Story 4.3 AC and Dev Notes]
+- [Source: _gsd-output/planning-artifacts/epic-4.md — Story 4.3 AC and Dev Notes]
 - [Source: src/components/ArticleList.tsx — current source rendering at line 25]
 - [Source: src/lib/types.ts — Article interface, sourceType field at line 50]
 - [Source: tests/ArticleList.test.tsx — 7 existing tests]
-- [Source: _bmad-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md — Previous story context, sourceType wiring]
-- [Source: _bmad-output/project-context.md — Dark mode contract, Tailwind CSS 4 patterns, testing rules]
+- [Source: _gsd-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md — Previous story context, sourceType wiring]
+- [Source: _gsd-output/project-context.md — Dark mode contract, Tailwind CSS 4 patterns, testing rules]
 
 ## Dev Agent Record
 
@@ -170,4 +170,4 @@ None — clean implementation, no issues.
 - `src/components/ArticleList.tsx` (modified)
 - `tests/ArticleList.test.tsx` (modified)
 - `src/lib/types.ts` (modified — review fix: sourceType nullability)
-- `_bmad-output/planning-artifacts/epic-4.md` (modified — review fix: stale AC text)
+- `_gsd-output/planning-artifacts/epic-4.md` (modified — review fix: stale AC text)

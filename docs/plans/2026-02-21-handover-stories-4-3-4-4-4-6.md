@@ -11,7 +11,7 @@
 
 EcoTicker is an environmental news impact tracker. Stack: Next.js 16 App Router + TypeScript + Tailwind CSS 4 + PostgreSQL 17 + Drizzle ORM. Tests run with `npx jest` (306 tests passing baseline). Pre-commit hooks enforce TypeScript + build + lint.
 
-Story files live in `_bmad-output/implementation-artifacts/`. Sprint status in `_bmad-output/implementation-artifacts/sprint-status.yaml`. Project context rules in `_bmad-output/project-context.md`.
+Story files live in `_gsd-output/implementation-artifacts/`. Sprint status in `_gsd-output/implementation-artifacts/sprint-status.yaml`. Project context rules in `_gsd-output/project-context.md`.
 
 **Commandments to keep in mind:**
 - Assert BEFORE `spy.mockRestore()` — `mockRestore()` internally calls `mockReset()` which clears `mock.calls`
@@ -32,7 +32,7 @@ Run `npx jest` after each story before moving to the next.
 
 ## Story 4-3: Source Attribution Badge
 
-**Story file:** `_bmad-output/implementation-artifacts/4-3-source-attribution-badge.md`
+**Story file:** `_gsd-output/implementation-artifacts/4-3-source-attribution-badge.md`
 **Status target:** `review`
 
 ### What to change
@@ -95,7 +95,7 @@ Use `queryByText` for absence checks; `getByText` or `screen.getByText` for pres
 - [ ] AC8: All 7 existing ArticleList tests still pass
 
 ### Sprint status update
-In `_bmad-output/implementation-artifacts/sprint-status.yaml`, change:
+In `_gsd-output/implementation-artifacts/sprint-status.yaml`, change:
 ```yaml
 4-3-source-attribution-badge: ready-for-dev
 ```
@@ -111,7 +111,7 @@ Also update `Status: ready-for-dev` → `Status: review` in the story file itsel
 
 ## Story 4-6: Align Classification Pipeline
 
-**Story file:** `_bmad-output/implementation-artifacts/4-6-align-classification-pipeline.md`
+**Story file:** `_gsd-output/implementation-artifacts/4-6-align-classification-pipeline.md`
 **Status target:** `review`
 
 ### What to change
@@ -240,7 +240,7 @@ Change `4-6-align-classification-pipeline: ready-for-dev` → `in-progress` → 
 
 ## Story 4-4: RSS Feed Health Logging
 
-**Story file:** `_bmad-output/implementation-artifacts/4-4-rss-feed-health-logging.md`
+**Story file:** `_gsd-output/implementation-artifacts/4-4-rss-feed-health-logging.md`
 **Status target:** `review`
 
 ⚠️ **Breaking change warning:** `fetchRssFeeds()` return type changes from `Promise<NewsArticle[]>` to `Promise<{ articles: NewsArticle[]; feedHealth: FeedHealth[] }>`. All 5 locations below must be updated atomically or TypeScript will fail. Do NOT run `npx jest` between Task 1 and Task 4.
@@ -403,7 +403,7 @@ npm run build          # Build must succeed
 npx jest               # All tests must pass (306+ baseline → expect ~330+)
 ```
 
-Verify in `_bmad-output/implementation-artifacts/sprint-status.yaml`:
+Verify in `_gsd-output/implementation-artifacts/sprint-status.yaml`:
 ```yaml
 4-3-source-attribution-badge: review
 4-4-rss-feed-health-logging: review

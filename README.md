@@ -135,7 +135,7 @@ curl -X POST http://localhost:3000/api/seed \
 
 ## Batch Pipeline
 
-Runs daily at 6AM UTC via the cron container:
+Powered by `runBatchPipeline()` from `src/lib/batch-pipeline.ts` — one shared function called by 3 callers (API route, cron route, CLI script). Runs daily at 6AM UTC via the cron container:
 
 1. **Fetch** — queries GNews API with environmental keywords (RSS fallback if unavailable)
 2. **Classify** (LLM Pass 1) — groups articles into topics (existing or new)
@@ -149,7 +149,7 @@ npx jest                # Run all tests
 npx jest --coverage     # With coverage report
 ```
 
-604 tests across 37 suites. Two Jest projects: `node` (ts-jest) and `react` (jsdom).
+622 tests across 39 suites. Two Jest projects: `node` (ts-jest) and `react` (jsdom).
 
 ## Project Structure
 

@@ -180,7 +180,7 @@ npx jest tests/api-topics.test.ts
    - ✅ Dependency audit
    - ✅ Security linting
    - ✅ Dockerfile check
-   - ✅ Test suite (604 tests)
+   - ✅ Test suite (622 tests)
 
 6. **Request review**
 

@@ -53,7 +53,7 @@ Environmental news impact tracker. Aggregates news via GNews API, scores severit
 npm run dev          # Dev server on :3000
 npx drizzle-kit push # Push schema changes to PostgreSQL
 npx drizzle-kit studio # Open Drizzle Studio (GUI for DB)
-npx jest             # Run all 604 tests (37 suites)
+npx jest             # Run all 622 tests (39 suites)
 npx jest --coverage  # With coverage (98.6% stmts)
 npx tsx scripts/seed.ts   # Seed sample data
 npx tsx scripts/batch.ts  # Run batch pipeline
@@ -65,7 +65,7 @@ docker compose up -d      # Start production stack (app + postgres + nginx + cro
 
 - `src/app/` — Pages (dashboard, topic detail) + API routes (topics, articles, ticker, movers, batch, seed, cleanup, audit-logs)
 - `src/components/` — ThemeProvider, ThemeToggle, TickerBar, TopicGrid, TopicCard, BiggestMovers, Sparkline, ScoreChart, ArticleList, UrgencyBadge
-- `src/lib/` — types.ts, utils.ts, auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
+- `src/lib/` — types.ts, utils.ts, batch-pipeline.ts (shared batch orchestrator), auth.ts (API key auth), rate-limit.ts, validation.ts (Zod schemas), errors.ts, audit-log.ts
 - `src/db/` — index.ts (Drizzle connection pool), schema.ts (Drizzle schema definitions)
 - `scripts/` — batch.ts (daily pipeline), seed.ts (demo data)
 - `drizzle.config.ts` — Drizzle Kit configuration for migrations
@@ -88,7 +88,7 @@ docker compose up -d      # Start production stack (app + postgres + nginx + cro
 - Colors: red=breaking/worsening, orange=critical, yellow=moderate, green=informational/improving
 - Theme: class-based dark mode (`@custom-variant dark`), warm cream/beige light theme, localStorage persistence, OS preference fallback
 - API input validation: urgency/category params validated against allowed enums (400 on invalid), write endpoints use Zod schemas
-- Batch pipeline: 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
+- Batch pipeline: `runBatchPipeline()` in `src/lib/batch-pipeline.ts` — one function, three modes (api/cron/cli), three callers. 2-pass LLM (classify articles → score topics), 15s/30s request timeouts
 - Database operations: All async/await with Drizzle query builder (e.g., `db.select().from(topics)`)
 - Article dedup: UNIQUE constraint on articles.url with ON CONFLICT DO NOTHING
 - Topic upsert: Use Drizzle's `.onConflictDoUpdate()` to rotate previous_score before updating current_score

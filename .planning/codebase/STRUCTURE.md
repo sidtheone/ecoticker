@@ -27,7 +27,7 @@ ecoticker/
 │   │       ├── audit-logs/
 │   │       │   └── route.ts    # GET audit logs + stats
 │   │       ├── batch/
-│   │       │   └── route.ts    # POST batch pipeline (admin)
+│   │       │   └── route.ts    # POST batch pipeline (thin wrapper -> runBatchPipeline)
 │   │       ├── cleanup/
 │   │       │   └── route.ts    # POST data cleanup (admin)
 │   │       ├── cron/
@@ -78,13 +78,13 @@ ecoticker/
 │   │   └── validation.ts       # Zod schemas for API input
 │   └── middleware.ts           # Rate limiting + security headers
 ├── scripts/                    # Standalone CLI scripts
-│   ├── batch.ts                # Daily batch pipeline (cron)
+│   ├── batch.ts                # Thin CLI wrapper -> runBatchPipeline (cron)
 │   ├── seed.ts                 # Seed demo data
 │   ├── rss.ts                  # RSS feed testing
 │   └── setup-git-hooks.sh      # Git hooks installer
 ├── tests/                      # All test files (flat structure)
 │   ├── helpers/                # Test utilities
-│   └── *.test.ts / *.test.tsx  # 37 test suites, 604 tests
+│   └── *.test.ts / *.test.tsx  # 39 test suites, 622 tests
 ├── db/                         # Database migrations (Drizzle Kit)
 ├── docs/                       # Project documentation
 │   ├── deployment/             # Deployment guides
@@ -114,7 +114,7 @@ ecoticker/
 **`src/app/`:**
 - Purpose: Next.js App Router pages and API routes
 - Contains: Page components (`page.tsx`), layouts (`layout.tsx`), route handlers (`route.ts`)
-- Key files: `layout.tsx` (root shell), `page.tsx` (dashboard), `api/batch/route.ts` (pipeline)
+- Key files: `layout.tsx` (root shell), `page.tsx` (dashboard), `api/batch/route.ts` (thin wrapper to pipeline)
 
 **`src/components/`:**
 - Purpose: Reusable React UI components
@@ -134,11 +134,11 @@ ecoticker/
 **`scripts/`:**
 - Purpose: Standalone CLI tools that run outside Next.js
 - Contains: Batch pipeline script, seed script, RSS testing script
-- Key files: `batch.ts` (creates own DB connection, used by Docker cron)
+- Key files: `batch.ts` (thin CLI wrapper ~76 lines, creates own DB connection, delegates to `runBatchPipeline()`)
 
 **`tests/`:**
 - Purpose: All test files in a flat structure
-- Contains: 37 test suites covering API routes, components, lib functions, scripts
+- Contains: 39 test suites covering API routes, components, lib functions, scripts
 - Key files: Named by convention `{feature}.test.ts` or `{Component}.test.tsx`
 
 **`_gsd-output/`:**

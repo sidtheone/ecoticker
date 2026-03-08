@@ -77,14 +77,14 @@
 
 **Batch Pipeline (News Ingestion):**
 
-1. Triggered via `POST /api/batch` (API) or `npx tsx scripts/batch.ts` (CLI)
+1. Triggered via `POST /api/batch` (API), `GET /api/cron/batch` (cron), or `npx tsx scripts/batch.ts` (CLI) -- all three delegate to `runBatchPipeline()` in `src/lib/batch-pipeline.ts`
 2. **Fetch phase**: Parallel fetch from GNews API + 10 RSS feeds via `fetchNews()` + `fetchRssFeeds()`
 3. **Merge phase**: `mergeAndDedup()` combines sources, RSS wins on URL duplicates, blocked domains filtered
 4. **Pass 1 - Classification**: `classifyArticles()` sends article titles to OpenRouter LLM, returns topic groupings
 5. **Pass 2 - Scoring**: `scoreTopic()` sends each topic's articles to LLM with rubric prompt, returns 3-dimension scores
 6. **Validation**: `processScoreResult()` validates scores against level ranges, clamps, detects anomalies
 7. **Persistence**: Upsert topics (rotate `previousScore`), insert articles (dedup on URL), insert score history, insert keywords
-8. Route version batches classification in groups of 10; script version sends all at once
+8. All three callers (API route, cron route, CLI script) delegate to `runBatchPipeline()` which handles orchestration; callers provide DB callbacks and mode-specific options
 
 **UI Refresh Flow:**
 
@@ -145,8 +145,8 @@
 
 **Standalone Scripts:**
 - Location: `scripts/batch.ts`
-- Triggers: `npx tsx scripts/batch.ts` or Docker cron at 6AM UTC
-- Responsibilities: Same pipeline as `/api/batch` but creates own DB connection, runs outside Next.js, includes GDPR audit log purge
+- Triggers: `npx tsx scripts/batch.ts` (CLI) or Docker cron at 6AM UTC
+- Responsibilities: Thin CLI wrapper (~76 lines) that parses CLI args, creates own DB connection, and delegates to `runBatchPipeline()` from `src/lib/batch-pipeline.ts`; includes GDPR audit log purge
 
 **Middleware:**
 - Location: `src/middleware.ts`

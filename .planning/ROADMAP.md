@@ -20,6 +20,7 @@ The production batch pipeline is broken. Phase 1 fixes it and knocks out quick s
 **Goal**: Production batch pipeline runs on Railway and all quick security fixes are shipped
 **Depends on**: Nothing (first phase)
 **Requirements**: PIPE-01, PIPE-02, PIPE-03, SEC-01, SEC-02
+**Plans:** 3 plans
 **Success Criteria** (what must be TRUE):
   1. Cron endpoint on Railway triggers the batch pipeline and receives a 200 response (not 401)
   2. Batch run fetches articles from at least one RSS source and inserts them into the database
@@ -29,8 +30,9 @@ The production batch pipeline is broken. Phase 1 fixes it and knocks out quick s
   6. API key comparison uses `crypto.timingSafeEqual` (verified by code inspection)
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Fix cron auth bypass + timing-safe key comparison
+- [ ] 01-02-PLAN.md — Resolve npm audit vulnerabilities
+- [ ] 01-03-PLAN.md — Deploy and verify pipeline on Railway
 
 ### Phase 2: Harden
 **Goal**: Pipeline orchestration is consolidated, transient LLM failures are retried, and database writes are batched
@@ -67,6 +69,6 @@ Note: Phase 3 depends only on Phase 1, so it can execute in parallel with Phase 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fix & Secure | 0/? | Not started | - |
+| 1. Fix & Secure | 0/3 | Planned | - |
 | 2. Harden | 0/? | Not started | - |
 | 3. Growth | 0/? | Not started | - |

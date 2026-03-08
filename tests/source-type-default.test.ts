@@ -82,11 +82,11 @@ describe("AC2 — Insert call sites set explicit sourceType values", () => {
     });
   });
 
-  describe("src/app/api/batch/route.ts — already explicit (no change needed)", () => {
-    const batchSource = readSrc("src/app/api/batch/route.ts");
+  describe("src/lib/batch-pipeline.ts — sets sourceType explicitly via sourceMap", () => {
+    const pipelineSource = readSrc("src/lib/batch-pipeline.ts");
 
-    test('batch route already sets sourceType explicitly to "gnews" or "rss"', () => {
-      const noComments = batchSource
+    test('batch pipeline sets sourceType explicitly to "gnews" or "rss"', () => {
+      const noComments = pipelineSource
         .replace(/\/\/[^\n]*/g, "")
         .replace(/\/\*[\s\S]*?\*\//g, "");
       // Must not rely on the stale default

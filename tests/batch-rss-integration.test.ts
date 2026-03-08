@@ -132,15 +132,23 @@ function setupRssEmpty() {
 }
 
 /**
- * Set up DB mock for scripts/batch.ts.
+ * Set up DB mock for scripts/batch.ts → runBatchPipeline().
  * MUST be called first — mockDb.reset() calls jest.clearAllMocks() which
  * would wipe any global.fetch or RSS mocks set before it.
+ *
+ * runBatchPipeline uses .returning({ id }) for topic upserts,
+ * GDPR delete for audit logs, and COUNT(*) queries for summary.
  */
 function setupDb(existingTopics: unknown[] = []) {
   mockDb.reset();
   mockDb.mockSelect(existingTopics);
-  // Topic ID SELECT uses .limit(1) — override to return a topic ID
-  mockDb.chain.limit.mockResolvedValue([{ id: 1 }]);
+  // Topic upsert uses .returning({ id: topics.id })
+  mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
+  // GDPR audit log delete returns rowCount
+  mockDb.chain.delete.mockReturnValue(mockDb.chain);
+  mockDb.chain.where.mockResolvedValue({ rowCount: 0 });
+  // COUNT queries for summary (thenable chain resolves to count)
+  mockDb.chain.limit.mockResolvedValue([{ count: 1 }]);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

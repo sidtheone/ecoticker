@@ -7,19 +7,20 @@ jest.mock('@/db', () => ({
   pool: { end: jest.fn() }
 }));
 
-// Mock the seed and batch endpoints
+// Mock the seed endpoint (still used for demo-data fallback)
 jest.mock('@/app/api/seed/route', () => ({
   POST: jest.fn(),
 }));
 
-jest.mock('@/app/api/batch/route', () => ({
-  POST: jest.fn(),
+// Mock runBatchPipeline (cron now calls it directly, not batchPOST)
+jest.mock('@/lib/batch-pipeline', () => ({
+  runBatchPipeline: jest.fn(),
 }));
 
 import { POST as seedPOST } from '@/app/api/seed/route';
-import { POST as batchPOST } from '@/app/api/batch/route';
+import { runBatchPipeline } from '@/lib/batch-pipeline';
 const mockSeedPOST = seedPOST as jest.MockedFunction<typeof seedPOST>;
-const mockBatchPOST = batchPOST as jest.MockedFunction<typeof batchPOST>;
+const mockRunBatchPipeline = runBatchPipeline as jest.MockedFunction<typeof runBatchPipeline>;
 
 describe('/api/cron/batch', () => {
   const ORIGINAL_ENV = process.env;
@@ -127,7 +128,7 @@ describe('/api/cron/batch', () => {
       });
 
       expect(mockSeedPOST).toHaveBeenCalled();
-      expect(mockBatchPOST).not.toHaveBeenCalled();
+      expect(mockRunBatchPipeline).not.toHaveBeenCalled();
 
       // Verify X-API-Key header injection
       const calledRequest = mockSeedPOST.mock.calls[0][0] as NextRequest;
@@ -139,14 +140,16 @@ describe('/api/cron/batch', () => {
       process.env.GNEWS_API_KEY = 'fake-gnews-key';
       process.env.OPENROUTER_API_KEY = 'fake-openrouter-key';
 
-      mockBatchPOST.mockResolvedValue(
-        NextResponse.json({
-          success: true,
-          message: 'Batch processing completed successfully',
-          stats: { topicsProcessed: 5, articlesAdded: 15, scoresRecorded: 5, totalTopics: 5, totalArticles: 15 },
-          timestamp: '2026-02-07T22:00:00.000Z',
-        })
-      );
+      mockRunBatchPipeline.mockResolvedValue({
+        topicsProcessed: 5,
+        articlesAdded: 15,
+        scoresRecorded: 5,
+        totalTopics: 5,
+        totalArticles: 15,
+        gnewsArticles: 10,
+        rssArticles: 8,
+        auditLogsPurged: 0,
+      });
 
       const req = new NextRequest('http://localhost:3000/api/cron/batch', {
         method: 'GET',
@@ -165,12 +168,8 @@ describe('/api/cron/batch', () => {
         message: 'Batch processing completed successfully',
       });
 
-      expect(mockBatchPOST).toHaveBeenCalled();
+      expect(mockRunBatchPipeline).toHaveBeenCalledWith({ mode: 'daily', db: expect.anything() });
       expect(mockSeedPOST).not.toHaveBeenCalled();
-
-      // Verify X-API-Key header injection
-      const calledRequest = mockBatchPOST.mock.calls[0][0] as NextRequest;
-      expect(calledRequest.headers.get('x-api-key')).toBe(process.env.ADMIN_API_KEY);
     });
 
     it('should include stats from seed endpoint', async () => {

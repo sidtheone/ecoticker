@@ -12,12 +12,18 @@
  */
 
 import Parser from "rss-parser";
+import slugify from "slugify";
+import { sql, lt } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "@/db/schema";
 import {
   validateScore,
   computeOverallScore,
   deriveUrgency,
   detectAnomaly,
 } from "./scoring";
+
+const { topics, articles, scoreHistory, topicKeywords, auditLogs } = schema;
 
 // ─────────────────────────────────────────────────────────────────
 // TYPES / INTERFACES
@@ -94,6 +100,32 @@ export interface FeedHealth {
   articleCount: number; // 0 for failures
   durationMs: number; // milliseconds elapsed for this feed
   error?: string; // only present when status === "error"
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PIPELINE TYPES
+// ─────────────────────────────────────────────────────────────────
+
+export type BatchDb = NodePgDatabase<typeof schema>;
+export type BatchMode = "daily" | "backfill-full" | "backfill-rescore";
+
+export interface BatchPipelineOptions {
+  mode: BatchMode;
+  db: BatchDb;
+  from?: Date;
+  to?: Date;
+  days?: number;
+}
+
+export interface BatchPipelineResult {
+  topicsProcessed: number;
+  articlesAdded: number;
+  scoresRecorded: number;
+  totalTopics: number;
+  totalArticles: number;
+  gnewsArticles: number;
+  rssArticles: number;
+  auditLogsPurged: number;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -535,11 +567,22 @@ export async function callLLM(prompt: string, options?: { jsonMode?: boolean }):
 }
 
 /**
+ * Options for fetchNews — all optional for backward compatibility.
+ * `from` and `to` enable GNews date-range queries for backfill mode.
+ */
+export interface FetchNewsOptions {
+  from?: Date;
+  to?: Date;
+}
+
+/**
  * Fetches environmental news from GNews API v4.
  * Batches keywords into groups to stay under the daily request limit.
  * Filters blocked domains and deduplicates by URL.
+ *
+ * Pass `from`/`to` for backfill date-range queries.
  */
-export async function fetchNews(): Promise<NewsArticle[]> {
+export async function fetchNews(options?: FetchNewsOptions): Promise<NewsArticle[]> {
   const keywords = getKeywords();
   const apiKey = getGnewsApiKey();
   const allArticles: NewsArticle[] = [];
@@ -550,7 +593,13 @@ export async function fetchNews(): Promise<NewsArticle[]> {
   }
 
   for (const query of keywordGroups) {
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&sortby=publishedAt&token=${apiKey}`;
+    let url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&sortby=publishedAt&token=${apiKey}`;
+    if (options?.from) {
+      url += `&from=${options.from.toISOString().split("T")[0]}`;
+    }
+    if (options?.to) {
+      url += `&to=${options.to.toISOString().split("T")[0]}`;
+    }
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
       const data = (await res.json()) as { articles?: GNewsArticle[]; errors?: string[] };
@@ -858,4 +907,364 @@ export function logFeedHealth(feedHealth: FeedHealth[]): void {
   } else {
     console.log(`Feed health: ${healthyCount}/${feedHealth.length} healthy`);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PIPELINE ORCHESTRATOR
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Unified batch pipeline. Three modes, one function.
+ *
+ * - `daily`: Fetch RSS + GNews, classify, score, persist.
+ * - `backfill-full`: GNews with from/to date range, classify, score, persist.
+ * - `backfill-rescore`: Pull existing articles from DB, re-score only.
+ *
+ * Rule: db is passed as a parameter — no import from @/db.
+ */
+export async function runBatchPipeline(
+  options: BatchPipelineOptions
+): Promise<BatchPipelineResult> {
+  const { mode, db } = options;
+
+  console.log(`=== EcoTicker Batch Pipeline (mode: ${mode}) ===`);
+  console.log(`Time: ${new Date().toISOString()}`);
+
+  // ── Step 1: Fetch articles ──────────────────────────────────
+
+  let gnewsArticleCount = 0;
+  let rssArticleCount = 0;
+  let newsArticles: NewsArticle[] = [];
+  let sourceMap = new Map<string, "gnews" | "rss">();
+
+  if (mode === "backfill-rescore") {
+    // Pull existing articles from DB — no fetching
+    console.log("\n[1/4] Loading articles from database for re-scoring...");
+    const dbArticles = await db
+      .select({
+        title: articles.title,
+        url: articles.url,
+        source: articles.source,
+        summary: articles.summary,
+        imageUrl: articles.imageUrl,
+        publishedAt: articles.publishedAt,
+        topicId: articles.topicId,
+      })
+      .from(articles);
+
+    // Map DB rows to NewsArticle format
+    newsArticles = dbArticles.map((a) => ({
+      title: a.title,
+      url: a.url,
+      source: { name: a.source || "Unknown" },
+      description: a.summary,
+      urlToImage: a.imageUrl,
+      publishedAt: a.publishedAt ? a.publishedAt.toISOString() : new Date().toISOString(),
+    }));
+    console.log(`Loaded ${newsArticles.length} articles from database`);
+  } else {
+    // daily or backfill-full: fetch from external sources
+    console.log("\n[1/4] Fetching news...");
+
+    const fetchOpts: FetchNewsOptions | undefined =
+      mode === "backfill-full" && (options.from || options.to)
+        ? { from: options.from, to: options.to }
+        : undefined;
+
+    const [gnewsResult, rssResult] = await Promise.allSettled([
+      fetchNews(fetchOpts),
+      mode === "daily" ? fetchRssFeeds() : Promise.resolve({ articles: [] as NewsArticle[], feedHealth: [] as FeedHealth[] }),
+    ]);
+
+    const gnewsArticles = gnewsResult.status === "fulfilled" ? gnewsResult.value : [];
+    let rssArticles: NewsArticle[] = [];
+    let rssFeedHealth: FeedHealth[] = [];
+
+    if (rssResult.status === "fulfilled") {
+      rssArticles = rssResult.value.articles;
+      rssFeedHealth = rssResult.value.feedHealth;
+    }
+
+    if (gnewsResult.status === "rejected") {
+      console.error("GNews fetch CRASHED:", gnewsResult.reason);
+    }
+    if (rssResult.status === "rejected") {
+      console.error("RSS fetch CRASHED:", rssResult.reason);
+    }
+
+    logFeedHealth(rssFeedHealth);
+
+    if (gnewsArticles.length === 0 && rssArticles.length > 0) {
+      console.warn("⚠️ GNews returned 0 articles while RSS is healthy — check API key / rate limits");
+    }
+    if (rssArticles.length === 0 && gnewsArticles.length > 0) {
+      console.warn("⚠️ RSS returned 0 articles while GNews is healthy — check feed URLs / network");
+    }
+
+    const merged = mergeAndDedup(rssArticles, gnewsArticles);
+    newsArticles = merged.articles;
+    sourceMap = merged.sourceMap;
+    gnewsArticleCount = gnewsArticles.length;
+    rssArticleCount = rssArticles.length;
+
+    console.log(
+      `Sources: GNews=${gnewsArticles.length}, RSS=${rssArticles.length} (before dedup) → ${newsArticles.length} unique (after dedup)`
+    );
+  }
+
+  if (newsArticles.length === 0) {
+    console.log("No articles found, nothing to process.");
+    return {
+      topicsProcessed: 0,
+      articlesAdded: 0,
+      scoresRecorded: 0,
+      totalTopics: 0,
+      totalArticles: 0,
+      gnewsArticles: gnewsArticleCount,
+      rssArticles: rssArticleCount,
+      auditLogsPurged: 0,
+    };
+  }
+
+  // ── Step 2: Load existing topics + classify ─────────────────
+
+  const existingTopicsRaw = await db
+    .select({
+      id: topics.id,
+      name: topics.name,
+      currentScore: topics.currentScore,
+      healthScore: topics.healthScore,
+      ecoScore: topics.ecoScore,
+      econScore: topics.econScore,
+      keywords: sql<string | null>`STRING_AGG(${topicKeywords.keyword}, ',')`,
+    })
+    .from(topics)
+    .leftJoin(topicKeywords, sql`${topicKeywords.topicId} = ${topics.id}`)
+    .groupBy(topics.id);
+
+  const topicsWithKeywords = existingTopicsRaw.map((t) => ({
+    ...t,
+    keywords: t.keywords ? t.keywords.split(",") : [],
+  }));
+
+  console.log("\n[2/4] Classifying articles into topics...");
+  let allClassifications: Classification[] = [];
+
+  const batchSize = 10;
+  for (let i = 0; i < newsArticles.length; i += batchSize) {
+    const batch = newsArticles.slice(i, i + batchSize);
+    console.log(
+      `  Classifying batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(
+        newsArticles.length / batchSize
+      )} (${batch.length} articles)...`
+    );
+    try {
+      const batchClassifications = await classifyArticles(batch, topicsWithKeywords);
+      const adjusted = batchClassifications.map((c) => ({
+        ...c,
+        articleIndex: c.articleIndex + i,
+      }));
+      allClassifications.push(...adjusted);
+    } catch (err) {
+      console.error(`  Failed to classify batch ${Math.floor(i / batchSize) + 1}:`, err);
+    }
+  }
+
+  // Fallback: group everything under "Environmental News" if LLM failed
+  if (allClassifications.length === 0 && newsArticles.length > 0) {
+    console.warn("Classification returned empty result — falling back to 'Environmental News' grouping");
+    allClassifications = newsArticles.map((_, i) => ({
+      articleIndex: i,
+      topicName: "Environmental News",
+      isNew: true,
+    }));
+  }
+
+  console.log(
+    `Classified into ${new Set(allClassifications.map((c) => c.topicName)).size} topics`
+  );
+
+  // Group articles by topic name
+  const topicGroups = new Map<string, NewsArticle[]>();
+  for (const c of allClassifications) {
+    const article = newsArticles[c.articleIndex];
+    if (!article) continue;
+    const existing = topicGroups.get(c.topicName) || [];
+    existing.push(article);
+    topicGroups.set(c.topicName, existing);
+  }
+
+  // ── Step 3: Score + persist each topic ──────────────────────
+
+  console.log("\n[3/4] Scoring topics...");
+  let topicCount = 0;
+  let articleCount = 0;
+  let scoreCount = 0;
+  let clampedCount = 0;
+  let totalDimensionCount = 0;
+
+  for (const [topicName, topicArticles] of topicGroups) {
+    try {
+      const matchingTopic = topicsWithKeywords.find((t) => t.name === topicName);
+      const previousScores =
+        matchingTopic &&
+        matchingTopic.healthScore !== null &&
+        matchingTopic.ecoScore !== null &&
+        matchingTopic.econScore !== null
+          ? {
+              health: matchingTopic.healthScore!,
+              eco: matchingTopic.ecoScore!,
+              econ: matchingTopic.econScore!,
+            }
+          : null;
+
+      const scoreResult = await scoreTopic(topicName, topicArticles, previousScores);
+      const slug = slugify(topicName, { lower: true, strict: true });
+      const imageUrl = topicArticles.find((a) => a.urlToImage)?.urlToImage || null;
+
+      console.log(
+        `  ${topicName}: overall=${scoreResult.overallScore}, urgency=${scoreResult.urgency}` +
+          (scoreResult.anomalyDetected ? " ⚠️ ANOMALY" : "")
+      );
+
+      totalDimensionCount += 3;
+      clampedCount += scoreResult.clampedDimensions.length;
+
+      // Upsert topic (uses .returning() — 1 round-trip)
+      const inserted = await db
+        .insert(topics)
+        .values({
+          name: topicName,
+          slug,
+          category: scoreResult.category,
+          region: scoreResult.region,
+          currentScore: scoreResult.overallScore,
+          previousScore: 0,
+          urgency: scoreResult.urgency,
+          impactSummary: scoreResult.overallSummary,
+          imageUrl,
+          articleCount: topicArticles.length,
+          healthScore: scoreResult.healthScore,
+          ecoScore: scoreResult.ecoScore,
+          econScore: scoreResult.econScore,
+          scoreReasoning: scoreResult.overallSummary,
+        })
+        .onConflictDoUpdate({
+          target: topics.slug,
+          set: {
+            previousScore: sql`${topics.currentScore}`,
+            currentScore: scoreResult.overallScore,
+            healthScore: scoreResult.healthScore,
+            ecoScore: scoreResult.ecoScore,
+            econScore: scoreResult.econScore,
+            scoreReasoning: scoreResult.overallSummary,
+            urgency: scoreResult.urgency,
+            impactSummary: scoreResult.overallSummary,
+            imageUrl: sql`COALESCE(${imageUrl}, ${topics.imageUrl})`,
+            category: scoreResult.category,
+            region: scoreResult.region,
+            articleCount: sql`${topics.articleCount} + ${topicArticles.length}`,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
+        })
+        .returning({ id: topics.id });
+
+      topicCount++;
+      const topicId = inserted[0].id;
+
+      // Insert articles (dedup by URL)
+      for (const a of topicArticles) {
+        await db
+          .insert(articles)
+          .values({
+            topicId,
+            title: a.title,
+            url: a.url,
+            source: a.source?.name || null,
+            summary: a.description,
+            imageUrl: a.urlToImage,
+            sourceType: sourceMap.get(a.url) ?? "gnews",
+            publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
+          })
+          .onConflictDoNothing({ target: articles.url });
+        articleCount++;
+      }
+
+      // Insert score history (full rubric audit trail)
+      await db.insert(scoreHistory).values({
+        topicId,
+        score: scoreResult.overallScore,
+        healthScore: scoreResult.healthScore,
+        ecoScore: scoreResult.ecoScore,
+        econScore: scoreResult.econScore,
+        healthLevel: scoreResult.healthLevel,
+        ecoLevel: scoreResult.ecoLevel,
+        econLevel: scoreResult.econLevel,
+        healthReasoning: scoreResult.healthReasoning,
+        ecoReasoning: scoreResult.ecoReasoning,
+        econReasoning: scoreResult.econReasoning,
+        overallSummary: scoreResult.overallSummary,
+        impactSummary: scoreResult.overallSummary,
+        rawLlmResponse: scoreResult.rawLlmResponse,
+        anomalyDetected: scoreResult.anomalyDetected,
+      });
+      scoreCount++;
+
+      // Insert keywords (dedup)
+      for (const kw of scoreResult.keywords) {
+        await db
+          .insert(topicKeywords)
+          .values({
+            topicId,
+            keyword: kw.toLowerCase(),
+          })
+          .onConflictDoNothing();
+      }
+    } catch (err) {
+      console.error(`  Failed to process topic "${topicName}":`, err);
+    }
+  }
+
+  // Batch-level clamping warning
+  if (totalDimensionCount > 0 && clampedCount / totalDimensionCount > 0.3) {
+    console.warn(
+      `\n⚠️  WARNING: ${((clampedCount / totalDimensionCount) * 100).toFixed(1)}% of dimension scores were clamped. ` +
+        `Possible model drift. Review LLM responses.`
+    );
+  }
+
+  // GDPR: Purge audit logs older than 90 days
+  console.log("\n[GDPR] Purging old audit logs...");
+  const purgeResult = await db
+    .delete(auditLogs)
+    .where(lt(auditLogs.timestamp, sql`NOW() - INTERVAL '90 days'`));
+  const auditLogsPurged = purgeResult.rowCount || 0;
+  console.log(`Purged ${auditLogsPurged} audit logs older than 90 days`);
+
+  // ── Step 4: Summary ─────────────────────────────────────────
+
+  const totalTopicsResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(topics);
+  const totalArticlesResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(articles);
+
+  const totalTopics = totalTopicsResult[0]?.count || 0;
+  const totalArticles = totalArticlesResult[0]?.count || 0;
+
+  console.log(
+    `\n[4/4] Done! ${totalTopics} total topics, ${totalArticles} total articles in database.`
+  );
+
+  return {
+    topicsProcessed: topicCount,
+    articlesAdded: articleCount,
+    scoresRecorded: scoreCount,
+    totalTopics,
+    totalArticles,
+    gnewsArticles: gnewsArticleCount,
+    rssArticles: rssArticleCount,
+    auditLogsPurged,
+  };
 }

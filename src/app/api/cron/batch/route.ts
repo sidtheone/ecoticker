@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
 import { POST as seedPOST } from "@/app/api/seed/route";
-import { POST as batchPOST } from "@/app/api/batch/route";
+import { runBatchPipeline } from "@/lib/batch-pipeline";
 
 /**
- * Cron endpoint for triggering the batch job
- *
- * This endpoint allows external cron services (like cron-job.org or Railway Cron)
- * to trigger batch processing.
+ * Cron endpoint for triggering the batch job.
  *
  * Usage:
- * 1. Set CRON_SECRET environment variable in Railway
- * 2. Configure cron service to call:
- *    GET https://your-app.railway.app/api/cron/batch
- *    Authorization: Bearer <CRON_SECRET>
- *
- * Schedule: 0 6 * * * (daily at 6am UTC)
+ *   GET https://your-app.railway.app/api/cron/batch
+ *   Authorization: Bearer <CRON_SECRET>
  *
  * Behavior:
- * - If GNEWS_API_KEY and OPENROUTER_API_KEY are set: Fetches real news and processes with LLM
- * - Otherwise: Seeds database with demo data
+ * - If GNEWS_API_KEY and OPENROUTER_API_KEY are set: runs real batch pipeline
+ * - Otherwise: seeds database with demo data (fallback)
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized runs
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -39,47 +32,56 @@ export async function GET(request: NextRequest) {
     console.log("Starting batch job via cron endpoint...");
     const startTime = Date.now();
 
-    // Check if API keys are configured for real data processing
     const hasApiKeys = process.env.GNEWS_API_KEY && process.env.OPENROUTER_API_KEY;
 
-    let response;
     if (hasApiKeys) {
       console.log("API keys detected - using real batch processing");
-      // Call /api/batch to fetch and process real news
-      const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
-        method: "POST",
-        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
+      const result = await runBatchPipeline({ mode: "daily", db });
+      const duration = Date.now() - startTime;
+      console.log(`Batch job completed in ${duration}ms`);
+
+      return NextResponse.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        durationMs: duration,
+        mode: "real-data",
+        stats: {
+          topicsProcessed: result.topicsProcessed,
+          articlesAdded: result.articlesAdded,
+          scoresRecorded: result.scoresRecorded,
+          totalTopics: result.totalTopics,
+          totalArticles: result.totalArticles,
+          gnewsArticles: result.gnewsArticles,
+          rssArticles: result.rssArticles,
+        },
+        message: "Batch processing completed successfully",
       });
-      response = await batchPOST(batchRequest);
-    } else {
-      console.log("No API keys - using demo seed data");
-      // Call /api/seed to populate with demo data
-      const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
-        method: "POST",
-        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
-      });
-      response = await seedPOST(seedRequest);
     }
 
+    // No API keys — seed fallback
+    console.log("No API keys - using demo seed data");
+    const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
+      method: "POST",
+      headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
+    });
+    const response = await seedPOST(seedRequest);
     const data = await response.json();
     const duration = Date.now() - startTime;
-    console.log(`Batch job completed in ${duration}ms`);
 
     if (!response.ok) {
-      throw new Error(data.error || "Batch endpoint failed");
+      throw new Error(data.error || "Seed endpoint failed");
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       durationMs: duration,
-      mode: hasApiKeys ? "real-data" : "demo-data",
+      mode: "demo-data",
       stats: data.stats,
       message: data.message,
     });
   } catch (error) {
     console.error("Batch job failed:", error);
-
     return NextResponse.json(
       {
         error: "Batch job failed",
@@ -92,11 +94,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST endpoint for manual trigger with optional parameters
- * Useful for testing or forcing a batch run outside schedule
+ * POST endpoint for manual trigger with optional parameters.
  */
 export async function POST(request: NextRequest) {
-  // Same authentication as GET
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -107,46 +107,49 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const force = body.force === true;
-
     console.log(`Manual batch job trigger (force: ${force})`);
 
-    // Check if API keys are configured for real data processing
     const hasApiKeys = process.env.GNEWS_API_KEY && process.env.OPENROUTER_API_KEY;
 
-    let response;
     if (hasApiKeys) {
-      console.log("API keys detected - using real batch processing");
-      const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
-        method: "POST",
-        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
+      const result = await runBatchPipeline({ mode: "daily", db });
+      return NextResponse.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        manual: true,
+        mode: "real-data",
+        stats: {
+          topicsProcessed: result.topicsProcessed,
+          articlesAdded: result.articlesAdded,
+          scoresRecorded: result.scoresRecorded,
+          totalTopics: result.totalTopics,
+          totalArticles: result.totalArticles,
+        },
+        message: "Batch processing completed successfully",
       });
-      response = await batchPOST(batchRequest);
-    } else {
-      console.log("No API keys - using demo seed data");
-      const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
-        method: "POST",
-        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
-      });
-      response = await seedPOST(seedRequest);
     }
 
+    const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
+      method: "POST",
+      headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
+    });
+    const response = await seedPOST(seedRequest);
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Batch endpoint failed");
+      throw new Error(data.error || "Seed endpoint failed");
     }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       manual: true,
-      mode: hasApiKeys ? "real-data" : "demo-data",
+      mode: "demo-data",
       stats: data.stats,
       message: data.message,
     });
   } catch (error) {
     console.error("Manual batch job failed:", error);
-
     return NextResponse.json(
       {
         error: "Batch job failed",

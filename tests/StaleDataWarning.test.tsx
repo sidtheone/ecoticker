@@ -95,7 +95,7 @@ describe("StaleDataWarning — stale state (AC2)", () => {
 
     const banner = screen.getByTestId("stale-data-warning");
     expect(banner.textContent).toMatch(/data may be outdated/i);
-    expect(banner.textContent).toMatch(/next batch at 6 am utc/i);
+    expect(banner.textContent).toMatch(/batches run every 4 hours/i);
   });
 
   test("warning banner includes exact relative time string", async () => {
@@ -196,7 +196,7 @@ describe("StaleDataWarning — empty DB state (AC4)", () => {
 
     const msg = screen.getByTestId("empty-db-state");
     expect(msg.textContent).toMatch(/we're monitoring the environment/i);
-    expect(msg.textContent).toMatch(/6 am utc/i);
+    expect(msg.textContent).toMatch(/every 4 hours/i);
     // Should NOT say "error" or "failed"
     expect(msg.textContent).not.toMatch(/error/i);
     expect(msg.textContent).not.toMatch(/fail/i);

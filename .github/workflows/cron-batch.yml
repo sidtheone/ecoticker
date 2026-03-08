@@ -3,7 +3,6 @@ name: Batch Pipeline Cron
 on:
   schedule:
     - cron: '0 */4 * * *'  # Every 4 hours
-  workflow_dispatch:        # Manual trigger from Actions tab
 
 permissions: {}
 

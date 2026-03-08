@@ -1,5 +1,13 @@
 # CLAUDE.md — EcoTicker
 
+## Working Style
+
+- **Confirm before building.** Always confirm the target format, structure, and approach before starting work. Never assume — ask first.
+- **Ask before structural changes.** File renames, repo restructuring, format changes, and architectural decisions require explicit approval.
+- **Pause at checkpoints.** During iterative design work, stop after each change and show the result. Do NOT proceed to the next step until approved.
+- **Read VALUES.md.** Our shared principles live in `VALUES.md` at repo root. Consult it for quality standards and philosophy.
+- **Use GSD framework.** Planning and implementation artifacts live in `_gsd-output/`. Use GSD methodology for project management.
+
 ## Project Overview
 
 Environmental news impact tracker. Aggregates news via GNews API, scores severity with OpenRouter LLMs, displays stock-ticker style UI with sparklines and trend indicators.

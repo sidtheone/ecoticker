@@ -65,23 +65,23 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PIPE-01 | Phase ? | Pending |
-| PIPE-02 | Phase ? | Pending |
-| PIPE-03 | Phase ? | Pending |
-| PIPE-04 | Phase ? | Pending |
-| PIPE-05 | Phase ? | Pending |
-| SEC-01 | Phase ? | Pending |
-| SEC-02 | Phase ? | Pending |
-| SEC-03 | Phase ? | Pending |
-| GROW-01 | Phase ? | Pending |
-| GROW-02 | Phase ? | Pending |
-| DATA-01 | Phase ? | Pending |
+| PIPE-01 | Phase 1 | Pending |
+| PIPE-02 | Phase 1 | Pending |
+| PIPE-03 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| PIPE-04 | Phase 2 | Pending |
+| PIPE-05 | Phase 2 | Pending |
+| SEC-03 | Phase 2 | Pending |
+| GROW-01 | Phase 3 | Pending |
+| GROW-02 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-08*
-*Last updated: 2026-03-08 after initial definition*
+*Last updated: 2026-03-08 after roadmap creation*

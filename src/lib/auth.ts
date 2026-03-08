@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 /**
  * Checks if the request includes a valid admin API key.
@@ -16,7 +17,14 @@ export function requireAdminKey(request: NextRequest): boolean {
     return false;
   }
 
-  return apiKey === adminKey;
+  if (!apiKey) {
+    return false;
+  }
+
+  const apiKeyBuf = Buffer.from(apiKey);
+  const adminKeyBuf = Buffer.from(adminKey);
+  if (apiKeyBuf.length !== adminKeyBuf.length) return false;
+  return crypto.timingSafeEqual(apiKeyBuf, adminKeyBuf);
 }
 
 /**

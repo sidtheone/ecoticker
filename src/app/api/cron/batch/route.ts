@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       // Call /api/batch to fetch and process real news
       const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
         method: "POST",
+        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
       });
       response = await batchPOST(batchRequest);
     } else {
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
       // Call /api/seed to populate with demo data
       const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
         method: "POST",
+        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
       });
       response = await seedPOST(seedRequest);
     }
@@ -116,12 +118,14 @@ export async function POST(request: NextRequest) {
       console.log("API keys detected - using real batch processing");
       const batchRequest = new NextRequest(new URL("/api/batch", request.url), {
         method: "POST",
+        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
       });
       response = await batchPOST(batchRequest);
     } else {
       console.log("No API keys - using demo seed data");
       const seedRequest = new NextRequest(new URL("/api/seed", request.url), {
         method: "POST",
+        headers: { "x-api-key": process.env.ADMIN_API_KEY || "" },
       });
       response = await seedPOST(seedRequest);
     }

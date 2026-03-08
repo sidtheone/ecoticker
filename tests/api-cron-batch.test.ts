@@ -27,6 +27,7 @@ describe('/api/cron/batch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV };
+    process.env.ADMIN_API_KEY = 'test-admin-api-key';
   });
 
   afterEach(() => {
@@ -127,6 +128,10 @@ describe('/api/cron/batch', () => {
 
       expect(mockSeedPOST).toHaveBeenCalled();
       expect(mockBatchPOST).not.toHaveBeenCalled();
+
+      // Verify X-API-Key header injection
+      const calledRequest = mockSeedPOST.mock.calls[0][0] as NextRequest;
+      expect(calledRequest.headers.get('x-api-key')).toBe(process.env.ADMIN_API_KEY);
     });
 
     it('should execute batch job with real data when API keys present', async () => {
@@ -162,6 +167,10 @@ describe('/api/cron/batch', () => {
 
       expect(mockBatchPOST).toHaveBeenCalled();
       expect(mockSeedPOST).not.toHaveBeenCalled();
+
+      // Verify X-API-Key header injection
+      const calledRequest = mockBatchPOST.mock.calls[0][0] as NextRequest;
+      expect(calledRequest.headers.get('x-api-key')).toBe(process.env.ADMIN_API_KEY);
     });
 
     it('should include stats from seed endpoint', async () => {
@@ -292,6 +301,10 @@ describe('/api/cron/batch', () => {
         stats: { topics: 10, articles: 40, scoreHistory: 70 },
         message: 'Database seeded successfully',
       });
+
+      // Verify X-API-Key header injection in POST handler
+      const calledRequest = mockSeedPOST.mock.calls[0][0] as NextRequest;
+      expect(calledRequest.headers.get('x-api-key')).toBe(process.env.ADMIN_API_KEY);
     });
 
     it('should handle empty request body', async () => {

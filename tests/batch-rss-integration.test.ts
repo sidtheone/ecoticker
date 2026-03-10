@@ -179,7 +179,7 @@ describe('scripts/batch.ts — RSS integration', () => {
 
     // Both articles inserted with correct sourceTypes
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
 
     expect(articleInserts).toHaveLength(2);
@@ -212,7 +212,7 @@ describe('scripts/batch.ts — RSS integration', () => {
 
     // RSS article inserted with sourceType "rss"
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
     expect(articleInserts).toHaveLength(1);
     expect(articleInserts[0].sourceType).toBe('rss');
@@ -243,7 +243,7 @@ describe('scripts/batch.ts — RSS integration', () => {
 
     // GNews article inserted with sourceType "gnews"
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
     expect(articleInserts).toHaveLength(1);
     expect(articleInserts[0].sourceType).toBe('gnews');
@@ -291,7 +291,7 @@ describe('scripts/batch.ts — RSS integration', () => {
 
     // GNews article still inserted despite RSS crash
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
     expect(articleInserts).toHaveLength(1);
     expect(articleInserts[0].sourceType).toBe('gnews');
@@ -366,7 +366,7 @@ describe('scripts/batch.ts — RSS integration', () => {
 
     // Dedup: only ONE article inserted for SHARED_URL
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
     expect(articleInserts).toHaveLength(1);
     // RSS wins dedup (RSS-first merge order → first-write-wins sourceMap)

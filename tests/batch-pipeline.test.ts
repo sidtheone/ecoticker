@@ -758,7 +758,7 @@ describe("AC-1: callLLM()", () => {
     expect(result).toBe("");
   });
 
-  it("throws an error when OpenRouter returns a non-ok HTTP status", async () => {
+  it("throws an error when OpenRouter returns a non-ok HTTP status after all retries", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -767,6 +767,71 @@ describe("AC-1: callLLM()", () => {
     });
 
     await expect(callLLM("test prompt")).rejects.toThrow("OpenRouter API error: 500");
+    // Should have attempted 3 times
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on 5xx and succeeds on second attempt", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: "Bad Gateway",
+        text: async () => "bad gateway",
+      })
+      .mockResolvedValueOnce(makeOpenRouterResponse('{"result": "ok"}'));
+
+    const result = await callLLM("test prompt");
+    expect(result).toBe('{"result": "ok"}');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on 429 rate limit", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        text: async () => "rate limited",
+      })
+      .mockResolvedValueOnce(makeOpenRouterResponse('{"result": "ok"}'));
+
+    const result = await callLLM("test prompt");
+    expect(result).toBe('{"result": "ok"}');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry on 4xx client errors (except 429)", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      text: async () => "invalid request",
+    });
+
+    await expect(callLLM("test prompt")).rejects.toThrow("OpenRouter API error: 400");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on network errors (TypeError)", async () => {
+    global.fetch = jest.fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(makeOpenRouterResponse('{"result": "ok"}'));
+
+    const result = await callLLM("test prompt");
+    expect(result).toBe('{"result": "ok"}');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on timeout errors", async () => {
+    const timeoutError = new DOMException("The operation was aborted", "TimeoutError");
+    global.fetch = jest.fn()
+      .mockRejectedValueOnce(timeoutError)
+      .mockResolvedValueOnce(makeOpenRouterResponse('{"result": "ok"}'));
+
+    const result = await callLLM("test prompt");
+    expect(result).toBe('{"result": "ok"}');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
 

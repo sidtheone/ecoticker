@@ -33,11 +33,11 @@ describe("generateMetadata", () => {
     expect(metadata.title).toBe("Amazon Deforestation — Score: 72 (critical) | EcoTicker");
     expect(metadata.description).toBe("Deforestation rates at 15-year high across the Amazon basin.");
     expect(metadata.openGraph?.title).toBe("Amazon Deforestation — Score: 72 (critical) | EcoTicker");
-    expect(metadata.openGraph?.images).toEqual([{ url: "/og-default.png", width: 1200, height: 630 }]);
+    expect(metadata.openGraph?.images).toEqual([{ url: "/api/og/amazon-deforestation", width: 1200, height: 630 }]);
     const twitter = metadata.twitter as Record<string, unknown>;
     expect(twitter?.card).toBe("summary_large_image");
     expect(twitter?.title).toBe("Amazon Deforestation — Score: 72 (critical) | EcoTicker");
-    expect(twitter?.images).toEqual(["/og-default.png"]);
+    expect(twitter?.images).toEqual(["/api/og/amazon-deforestation"]);
   });
 
   test("uses scoreReasoning as fallback when impactSummary is null", async () => {

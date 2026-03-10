@@ -63,9 +63,13 @@ function createMockDb() {
   // Make chain thenable (resolves to empty array by default)
   chain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-  // Track insert values
+  // Track insert values (flatten arrays from batch inserts)
   chain.values.mockImplementation((vals: any) => {
-    insertedValues.push(vals);
+    if (Array.isArray(vals)) {
+      insertedValues.push(...vals);
+    } else {
+      insertedValues.push(vals);
+    }
     return chain;
   });
 
@@ -502,6 +506,77 @@ describe("runBatchPipeline", () => {
           auditLogsPurged: expect.any(Number),
         })
       );
+    });
+  });
+
+  describe("batch inserts", () => {
+    it("inserts articles as a single batch call, not one per article", async () => {
+      const mock = createMockDb();
+      mock.mockForDaily();
+
+      const threeArticleClassification = {
+        classifications: [
+          { articleIndex: 0, topicName: "Climate Crisis", isNew: true },
+          { articleIndex: 1, topicName: "Climate Crisis", isNew: false },
+          { articleIndex: 2, topicName: "Climate Crisis", isNew: false },
+        ],
+        rejected: [],
+        rejectionReasons: [],
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([
+          { ...GNEWS_ARTICLE, url: "https://example.com/1", title: "Article 1" },
+          { ...GNEWS_ARTICLE, url: "https://example.com/2", title: "Article 2" },
+          { ...GNEWS_ARTICLE, url: "https://example.com/3", title: "Article 3" },
+        ]))
+        .mockResolvedValueOnce(makeLLMResponse(threeArticleClassification))
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE));
+
+      const valuesSpy = jest.spyOn(mock.chain, "values");
+      await runBatchPipeline({ mode: "daily", db: mock.chain as any });
+
+      // Find calls where values() received an array (batch insert)
+      const batchCalls = valuesSpy.mock.calls.filter(
+        (c) => Array.isArray(c[0]) && c[0].length > 1 && c[0][0]?.url
+      );
+      expect(batchCalls.length).toBe(1);
+      expect(batchCalls[0][0]).toHaveLength(3);
+    });
+
+    it("inserts keywords as a single batch call", async () => {
+      const mock = createMockDb();
+      mock.mockForDaily();
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE]))
+        .mockResolvedValueOnce(makeLLMResponse(CLASSIFICATION_RESPONSE))
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE));
+
+      const valuesSpy = jest.spyOn(mock.chain, "values");
+      await runBatchPipeline({ mode: "daily", db: mock.chain as any });
+
+      // Find calls where values() received an array of keyword objects
+      const keywordBatchCalls = valuesSpy.mock.calls.filter(
+        (c) => Array.isArray(c[0]) && c[0].length > 0 && c[0][0]?.keyword
+      );
+      expect(keywordBatchCalls.length).toBe(1);
+    });
+
+    it("skips article insert when topic has zero articles", async () => {
+      const mock = createMockDb();
+      mock.mockForDaily();
+
+      global.fetch = jest.fn().mockResolvedValueOnce(makeGNewsResponse([]));
+
+      const valuesSpy = jest.spyOn(mock.chain, "values");
+      await runBatchPipeline({ mode: "daily", db: mock.chain as any });
+
+      // No article batch inserts
+      const articleBatchCalls = valuesSpy.mock.calls.filter(
+        (c) => Array.isArray(c[0]) && c[0][0]?.url
+      );
+      expect(articleBatchCalls).toHaveLength(0);
     });
   });
 });

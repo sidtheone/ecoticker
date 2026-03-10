@@ -27,9 +27,9 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
   if (!heroTopic) {
     return (
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-stone-800 dark:text-white" data-testid="insight-headline">
+        <h2 className="text-2xl sm:text-3xl font-bold text-stone-800 dark:text-white" data-testid="insight-headline">
           Environmental News Impact Tracker
-        </h1>
+        </h2>
         <p className="text-sm sm:text-base text-stone-400 dark:text-gray-400 mt-1">EcoTicker</p>
       </div>
     );
@@ -68,9 +68,9 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <Link href={`/topic/${heroTopic.slug}`} className="hover:underline">
-              <h1 className="text-[22px] font-semibold text-stone-800 dark:text-white">
+              <h2 className="text-[22px] font-semibold text-stone-800 dark:text-white">
                 {heroTopic.name}
-              </h1>
+              </h2>
             </Link>
             <UrgencyBadge score={heroTopic.currentScore} />
             <span className="font-mono text-sm" style={{ color: colors.badge }}>

@@ -1,4 +1,4 @@
-# Our Values — The Nakama Code
+# Our Values
 
 Timeless principles that guide how we build, think, and ship together.
 
@@ -133,6 +133,22 @@ A small amount of upfront thinking prevents enormous rework. Sketch before you b
 **"Ship it and iterate."**
 — Reid Hoffman ("If you are not embarrassed by the first version of your product, you've launched too late.")
 Real users teach you more in a day than a whiteboard teaches you in a month.
+
+---
+
+## Integrity — Verify Before You Assert
+
+**"If you can't link it, don't claim it."**
+— EcoTicker Values
+Every factual claim needs a source you can point to. Confidence without evidence is just noise.
+
+**"I don't know" is a valid answer.**
+— EcoTicker Values
+Gaps in knowledge aren't weaknesses — they're guardrails. Filling them with plausible-sounding guesses is how you lose trust.
+
+**"It is wrong always, everywhere, and for anyone, to believe anything upon insufficient evidence."**
+— W.K. Clifford
+Applies to code reviews, architecture docs, comparison tables, and everything you publish with your name on it.
 
 ---
 

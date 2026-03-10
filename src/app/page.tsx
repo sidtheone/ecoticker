@@ -67,6 +67,7 @@ export default async function Home() {
 
   return (
     <div>
+      <h1 className="text-xl font-bold text-stone-800 dark:text-white">EcoTicker</h1>
       <p className="text-sm text-stone-500 dark:text-gray-400 mb-4">
         Environmental News Impact Tracker — AI-Scored Severity
       </p>

@@ -54,7 +54,7 @@ export default function TopicGrid() {
     : topics;
 
   const chipClass = (active: boolean) =>
-    `px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
+    `px-3 py-2 rounded text-sm font-medium transition-colors whitespace-nowrap ${
       active
         ? "bg-stone-800 dark:bg-white text-white dark:text-gray-900"
         : "bg-[#e8dfd3] dark:bg-gray-800 text-stone-500 dark:text-gray-400 hover:bg-[#ddd3c4] dark:hover:bg-gray-700 hover:text-stone-700 dark:hover:text-gray-200"
@@ -98,7 +98,16 @@ export default function TopicGrid() {
       )}
 
       {loading ? (
-        <div className="text-gray-500 text-center py-12" data-testid="loading">Loading...</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="loading">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-[#f5f0e8] dark:bg-gray-800 rounded-lg p-5 space-y-3">
+              <div className="h-4 bg-stone-300 dark:bg-gray-700 rounded w-3/4" />
+              <div className="h-3 bg-stone-200 dark:bg-gray-700 rounded w-1/2" />
+              <div className="h-3 bg-stone-200 dark:bg-gray-700 rounded w-full" />
+              <div className="h-2 bg-stone-200 dark:bg-gray-700 rounded w-1/3 mt-2" />
+            </div>
+          ))}
+        </div>
       ) : error ? (
         <div className="text-red-400 text-center py-12" data-testid="error">
           Failed to load topics. Please refresh and try again.

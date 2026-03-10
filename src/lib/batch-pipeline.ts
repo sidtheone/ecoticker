@@ -547,23 +547,46 @@ export async function callLLM(prompt: string, options?: { jsonMode?: boolean }):
     body.response_format = { type: "json_object" };
   }
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    signal: AbortSignal.timeout(30000),
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        signal: AbortSignal.timeout(30000),
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
 
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "(failed to read response body)");
-    throw new Error(`OpenRouter API error: ${res.status} ${res.statusText} — ${errorText}`);
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "(failed to read response body)");
+        const isRetryable = res.status >= 500 || res.status === 429;
+        if (isRetryable && attempt < maxAttempts) {
+          const delay = 1000 * Math.pow(2, attempt - 1);
+          console.warn(`LLM call failed (${res.status}), retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw new Error(`OpenRouter API error: ${res.status} ${res.statusText} — ${errorText}`);
+      }
+
+      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      return data.choices?.[0]?.message?.content || "";
+    } catch (err) {
+      const isTimeout = err instanceof DOMException && err.name === "TimeoutError";
+      if ((isTimeout || err instanceof TypeError) && attempt < maxAttempts) {
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.warn(`LLM call failed (${isTimeout ? "timeout" : "network"}), retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
   }
 
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return data.choices?.[0]?.message?.content || "";
+  throw new Error("LLM call failed after all retry attempts");
 }
 
 /**
@@ -1172,22 +1195,24 @@ export async function runBatchPipeline(
       topicCount++;
       const topicId = inserted[0].id;
 
-      // Insert articles (dedup by URL)
-      for (const a of topicArticles) {
+      // Insert articles (batch, dedup by URL)
+      if (topicArticles.length > 0) {
         await db
           .insert(articles)
-          .values({
-            topicId,
-            title: a.title,
-            url: a.url,
-            source: a.source?.name || null,
-            summary: a.description,
-            imageUrl: a.urlToImage,
-            sourceType: sourceMap.get(a.url) ?? "gnews",
-            publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
-          })
+          .values(
+            topicArticles.map((a) => ({
+              topicId,
+              title: a.title,
+              url: a.url,
+              source: a.source?.name || null,
+              summary: a.description,
+              imageUrl: a.urlToImage,
+              sourceType: sourceMap.get(a.url) ?? "gnews",
+              publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
+            }))
+          )
           .onConflictDoNothing({ target: articles.url });
-        articleCount++;
+        articleCount += topicArticles.length;
       }
 
       // Insert score history (full rubric audit trail)
@@ -1210,14 +1235,16 @@ export async function runBatchPipeline(
       });
       scoreCount++;
 
-      // Insert keywords (dedup)
-      for (const kw of scoreResult.keywords) {
+      // Insert keywords (batch, dedup)
+      if (scoreResult.keywords.length > 0) {
         await db
           .insert(topicKeywords)
-          .values({
-            topicId,
-            keyword: kw.toLowerCase(),
-          })
+          .values(
+            scoreResult.keywords.map((kw) => ({
+              topicId,
+              keyword: kw.toLowerCase(),
+            }))
+          )
           .onConflictDoNothing();
       }
     } catch (err) {

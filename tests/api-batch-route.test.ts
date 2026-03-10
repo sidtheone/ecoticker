@@ -209,7 +209,7 @@ describe('/api/batch — GNews error handling', () => {
     // Find the article insert call — identified by `sourceType: "gnews"` field
     // The DB schema uses `imageUrl` (not `urlToImage`) — the mapping is:
     //   GNews `image` → NewsArticle `urlToImage` → articles.imageUrl
-    const allCallArgs = valuesSpy.mock.calls.map((c) => c[0]);
+    const allCallArgs = valuesSpy.mock.calls.flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]]);
     const articleInsert = allCallArgs.find(
       (v) => v && typeof v === 'object' && 'sourceType' in v
     );
@@ -255,7 +255,7 @@ describe('/api/batch — US-1.0 scoring pipeline', () => {
   /** Find the scoreHistory insert call by checking for the `healthLevel` field */
   function findScoreHistoryInsert(valuesSpy: jest.SpyInstance) {
     return valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .find((v) => v && typeof v === 'object' && 'healthLevel' in v);
   }
 
@@ -345,7 +345,7 @@ describe('/api/batch — US-1.0 scoring pipeline', () => {
 
     // Find topic upsert — identified by `urgency` field (not `healthLevel`)
     const topicUpsert = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .find((v) => v && typeof v === 'object' && 'urgency' in v && !('healthLevel' in v));
     expect(topicUpsert).toBeDefined();
     expect(topicUpsert.urgency).toBe('breaking');
@@ -593,7 +593,7 @@ describe('/api/batch — RSS integration (Story 4.2)', () => {
     expect((await res.json()).success).toBe(true);
 
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
 
     expect(articleInserts).toHaveLength(2);
@@ -635,7 +635,7 @@ describe('/api/batch — RSS integration (Story 4.2)', () => {
     expect((await res.json()).success).toBe(true);
 
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
 
     // Only ONE article insert — deduped
@@ -671,7 +671,7 @@ describe('/api/batch — RSS integration (Story 4.2)', () => {
 
     // GNews article inserted with correct sourceType
     const articleInserts = valuesSpy.mock.calls
-      .map((c) => c[0])
+      .flatMap((c) => Array.isArray(c[0]) ? c[0] : [c[0]])
       .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && 'sourceType' in v);
     expect(articleInserts).toHaveLength(1);
     expect(articleInserts[0].sourceType).toBe('gnews');

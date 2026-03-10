@@ -46,9 +46,9 @@ jest.mock("@/components/HeroSection", () => {
   };
 });
 
-jest.mock("@/components/TopicGrid", () => {
-  return function MockTopicGrid() {
-    return <div data-testid="topic-grid" />;
+jest.mock("@/components/TopicList", () => {
+  return function MockTopicList() {
+    return <div data-testid="topic-list" />;
   };
 });
 

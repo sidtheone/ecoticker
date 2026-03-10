@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { eventBus } from "@/lib/events";
 
 export default function RefreshButton() {
+  const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -21,6 +23,7 @@ export default function RefreshButton() {
 
     // Emit refresh event to all components
     eventBus.emit("ui-refresh");
+    router.refresh();
 
     // Wait for components to finish refreshing (simulate)
     await new Promise((resolve) => setTimeout(resolve, 1500));

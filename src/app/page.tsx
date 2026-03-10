@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import TopicGrid from "@/components/TopicGrid";
+import TopicList from "@/components/TopicList";
 import HeroSection from "@/components/HeroSection";
-import { selectHeroTopic } from "@/lib/utils";
+import { selectHeroTopic, computeHeadline } from "@/lib/utils";
 import { db } from "@/db";
 import { topics } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -31,6 +31,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let heroTopic: Topic | null = null;
+  let restTopics: Topic[] = [];
+  let headline: string | undefined;
 
   try {
     const rows = await db
@@ -61,6 +63,10 @@ export default async function Home() {
     }));
 
     heroTopic = selectHeroTopic(mapped);
+    headline = mapped.length > 0 ? computeHeadline(mapped) : undefined;
+    restTopics = mapped
+      .filter((t) => t.id !== heroTopic?.id)
+      .sort((a, b) => b.currentScore - a.currentScore);
   } catch {
     // DB failure — render with null heroTopic (fallback UI)
   }
@@ -71,11 +77,11 @@ export default async function Home() {
         Environmental News Impact Tracker — AI-Scored Severity
       </p>
       <div className="mb-8">
-        <HeroSection heroTopic={heroTopic} />
+        <HeroSection heroTopic={heroTopic} headline={headline} />
       </div>
       <section>
         <h2 className="sr-only">Environmental Topics</h2>
-        <TopicGrid />
+        <TopicList topics={restTopics} />
       </section>
     </div>
   );

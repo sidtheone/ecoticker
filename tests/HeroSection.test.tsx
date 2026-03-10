@@ -78,23 +78,23 @@ describe("HeroSection component", () => {
   });
 
   describe("AC2: Dramatic mode (score >= 30)", () => {
-    test("score uses 40px font size", () => {
+    test("score uses 72px font size", () => {
       const topic = makeTopic({ currentScore: 75 });
       render(<HeroSection heroTopic={topic} />);
       const scoreEl = screen.getByTestId("hero-score");
       expect(scoreEl.className).toMatch(/font-mono/);
-      expect(scoreEl.className).toContain("text-[40px]");
+      expect(scoreEl.className).toContain("text-[72px]");
     });
 
   });
 
   describe("AC3: Calm mode (score < 30)", () => {
-    test("score uses 28px font size", () => {
+    test("score uses 48px font size", () => {
       const topic = makeTopic({ currentScore: 15 });
       render(<HeroSection heroTopic={topic} />);
       const scoreEl = screen.getByTestId("hero-score");
       expect(scoreEl.className).toMatch(/font-mono/);
-      expect(scoreEl.className).toContain("text-[28px]");
+      expect(scoreEl.className).toContain("text-[48px]");
     });
 
     test("stable calm topic shows calm fallback insight", () => {
@@ -102,6 +102,29 @@ describe("HeroSection component", () => {
       render(<HeroSection heroTopic={topic} />);
       // When all topics are stable and low, should show stable message
       expect(screen.getByTestId("insight-headline")).toHaveTextContent("All topics stable today");
+    });
+  });
+
+  describe("Impact summary display", () => {
+    test("renders impact summary with data-testid when impactSummary is non-null", () => {
+      const topic = makeTopic({ impactSummary: "Severe glacier retreat observed across multiple regions" });
+      render(<HeroSection heroTopic={topic} />);
+      expect(screen.getByTestId("impact-summary")).toBeInTheDocument();
+      expect(screen.getByTestId("impact-summary")).toHaveTextContent("Severe glacier retreat observed across multiple regions");
+    });
+
+    test("does not render impact-summary element when impactSummary is null", () => {
+      const topic = makeTopic({ impactSummary: null });
+      render(<HeroSection heroTopic={topic} />);
+      expect(screen.queryByTestId("impact-summary")).not.toBeInTheDocument();
+    });
+
+    test("impact summary text is NOT truncated (full 200-char string appears)", () => {
+      const longSummary = "A".repeat(200);
+      const topic = makeTopic({ impactSummary: longSummary });
+      render(<HeroSection heroTopic={topic} />);
+      const el = screen.getByTestId("impact-summary");
+      expect(el.textContent).toBe(longSummary);
     });
   });
 

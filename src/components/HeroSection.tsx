@@ -5,16 +5,9 @@ import Link from "next/link";
 import type { Topic } from "@/lib/types";
 import UrgencyBadge from "@/components/UrgencyBadge";
 import SeverityGauge from "@/components/SeverityGauge";
-import { computeHeadline, severityColor } from "@/lib/utils";
+import { computeHeadline, severityColor, formatChange, relativeTime } from "@/lib/utils";
 
-function relativeTime(updatedAt: string): string {
-  const hoursAgo = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 3600000);
-  if (hoursAgo < 1) return "just now";
-  if (hoursAgo < 24) return `${hoursAgo}h ago`;
-  return `${Math.floor(hoursAgo / 24)}d ago`;
-}
-
-export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) {
+export default function HeroSection({ heroTopic, headline: headlineProp }: { heroTopic: Topic | null; headline?: string }) {
   const [toast, setToast] = useState(false);
   const toastRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -36,9 +29,8 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
   }
 
   const isDramatic = heroTopic.currentScore >= 30;
-  const headline = computeHeadline([heroTopic]);
+  const headline = headlineProp ?? computeHeadline([heroTopic]);
   const colors = severityColor(heroTopic.currentScore);
-  const change = heroTopic.currentScore - heroTopic.previousScore;
 
   async function handleShare() {
     try {
@@ -54,13 +46,13 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
 
   return (
     <div
-      className="bg-[#f5f0e8] dark:bg-[#24243a] border border-[#e7e0d5] dark:border-[#2e2e48] rounded-lg p-5"
+      className="pl-5 py-2"
       style={{ borderLeft: `4px solid ${colors.border}` }}
     >
       <div className="flex gap-6 items-start">
         <span
           data-testid="hero-score"
-          className={`font-mono font-bold shrink-0 ${isDramatic ? "text-[40px]" : "text-[28px]"}`}
+          className={`font-mono font-bold shrink-0 ${isDramatic ? "text-[72px]" : "text-[48px]"}`}
           style={{ color: colors.badge }}
         >
           {heroTopic.currentScore}
@@ -74,15 +66,20 @@ export default function HeroSection({ heroTopic }: { heroTopic: Topic | null }) 
             </Link>
             <UrgencyBadge score={heroTopic.currentScore} />
             <span className="font-mono text-sm" style={{ color: colors.badge }}>
-              {change > 0 ? `▲ +${change}` : change < 0 ? `▼ ${change}` : "─ 0"}
+              {formatChange(heroTopic.change)}
             </span>
           </div>
           <p className="text-sm sm:text-base text-stone-600 dark:text-gray-300 mt-1" data-testid="insight-headline">
             {headline}
           </p>
+          {heroTopic.impactSummary && (
+            <p className="text-sm sm:text-base text-stone-600 dark:text-gray-300 mt-1" data-testid="impact-summary">
+              {heroTopic.impactSummary}
+            </p>
+          )}
         </div>
       </div>
-      <div className="mt-4 max-w-[400px]">
+      <div className="mt-4">
         <SeverityGauge score={heroTopic.currentScore} />
       </div>
       <div className="flex items-center gap-3 mt-3 text-sm text-stone-400 dark:text-gray-400">

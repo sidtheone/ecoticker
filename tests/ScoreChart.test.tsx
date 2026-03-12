@@ -33,11 +33,28 @@ const mockHistoryWithInsufficientData: ScoreHistoryEntry[] = [
 ];
 
 describe("ScoreChart", () => {
-  test("renders chart with history data", () => {
+  test("renders chart with history data — no internal h3 heading", () => {
     render(<ScoreChart history={mockHistory} />);
     expect(screen.getByTestId("score-chart")).toBeInTheDocument();
-    expect(screen.getByText("Score History")).toBeInTheDocument();
     expect(screen.getByTestId("line-chart").getAttribute("data-count")).toBe("3");
+    // Internal h3 "Score History" heading REMOVED — parent section owns the heading
+    const chart = screen.getByTestId("score-chart");
+    const h3 = chart.querySelector("h3");
+    expect(h3).toBeNull();
+    expect(screen.queryByText("Score History")).not.toBeInTheDocument();
+  });
+
+  test("has NO background fill class", () => {
+    render(<ScoreChart history={mockHistory} />);
+    const chart = screen.getByTestId("score-chart");
+    expect(chart.className).not.toContain("bg-[#f5f0e8]");
+  });
+
+  test("keeps a light border", () => {
+    render(<ScoreChart history={mockHistory} />);
+    const chart = screen.getByTestId("score-chart");
+    // Must still have a border class
+    expect(chart.className).toContain("border");
   });
 
   test("renders only overall line by default", () => {

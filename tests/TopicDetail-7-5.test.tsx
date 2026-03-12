@@ -277,19 +277,22 @@ describe("AC1: Editorial rhythm layout order", () => {
     ).toBeInTheDocument();
   });
 
-  test("action bar displays relative timestamp with 'Updated' label", async () => {
+  test("hero metadata line displays relative timestamp with 'Updated' label", async () => {
     // Pin Date.now to a fixed point so relativeTime gives deterministic output
     const FIXED_NOW = new Date("2026-02-07T10:00:00Z").getTime();
     jest.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
 
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("action-bar")).toBeInTheDocument();
+      expect(screen.getByTestId("score-hero")).toBeInTheDocument();
     });
 
-    // updatedAt "2026-02-07T08:00:00Z" → 2h ago
-    expect(screen.getByTestId("action-bar")).toHaveTextContent("Updated");
-    expect(screen.getByTestId("action-bar")).toHaveTextContent("2h ago");
+    // updatedAt "2026-02-07T08:00:00Z" → 2h ago, shown in hero metadata line
+    const hero = screen.getByTestId("score-hero");
+    expect(hero).toHaveTextContent("Updated");
+    expect(hero).toHaveTextContent("2h ago");
+    // action-bar section removed — timestamp lives in hero metadata line only
+    expect(screen.queryByTestId("action-bar")).not.toBeInTheDocument();
   });
 
   test("back link is present in the DOM (keyboard-accessible)", async () => {
@@ -320,7 +323,7 @@ describe("AC2: Mobile above-the-fold", () => {
 // AC3: Social share arrival severity glance — score is large (font-mono text-4xl)
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AC3: Social share arrival severity glance", () => {
+describe("AC3: Social share arrival severity glance — score-first layout", () => {
   test("detail score has font-mono class for monospace readability", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
@@ -330,13 +333,34 @@ describe("AC3: Social share arrival severity glance", () => {
     expect(screen.getByTestId("detail-score")).toHaveClass("font-mono");
   });
 
-  test("detail score has text-4xl class for 40px size", async () => {
+  test("detail score has dramatic sizing — NOT text-4xl", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
       expect(screen.getByTestId("detail-score")).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("detail-score")).toHaveClass("text-4xl");
+    // Score 85 >= 30 → giant monospace (72px / text-7xl), not old 36px / text-4xl
+    expect(screen.getByTestId("detail-score")).not.toHaveClass("text-4xl");
+  });
+
+  test("detail score is severity-colored via inline style", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("detail-score")).toBeInTheDocument();
+    });
+
+    const score = screen.getByTestId("detail-score");
+    // Score 85 = breaking → severityColor returns badge: "#dc2626"
+    expect(score.style.color).toBe("rgb(220, 38, 38)");
+  });
+
+  test("ScoreInfoIcon is NOT rendered anywhere on the page", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("score-hero")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("score-info-icon")).not.toBeInTheDocument();
   });
 });
 
@@ -344,18 +368,18 @@ describe("AC3: Social share arrival severity glance", () => {
 // AC4: Dimension sub-scores use mini SeverityGauge (compact mode)
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AC4: Dimension sub-scores use mini SeverityGauge", () => {
-  test("each dimension card contains a gauge-bar (SeverityGauge compact)", async () => {
+describe("AC4: Dimension sub-scores use mini SeverityGauge in flat rows", () => {
+  test("each dimension row contains a gauge-bar (SeverityGauge compact)", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
       expect(screen.getByTestId("sub-score-breakdown")).toBeInTheDocument();
     });
 
-    // Each of the 3 dimension cards must contain a [data-testid="gauge-bar"]
+    // Each of the 3 dimension rows must contain a [data-testid="gauge-bar"]
     const dimensionKeys = ["eco", "health", "econ"];
     for (const key of dimensionKeys) {
-      const card = screen.getByTestId(`dimension-card-${key}`);
-      const gauge = card.querySelector('[data-testid="gauge-bar"]');
+      const row = screen.getByTestId(`dimension-row-${key}`);
+      const gauge = row.querySelector('[data-testid="gauge-bar"]');
       expect(gauge).not.toBeNull();
     }
   });
@@ -368,7 +392,7 @@ describe("AC4: Dimension sub-scores use mini SeverityGauge", () => {
 
     const breakdown = screen.getByTestId("sub-score-breakdown");
     const meters = breakdown.querySelectorAll('[role="meter"]');
-    // One per dimension (3 cards)
+    // One per dimension (3 rows)
     expect(meters.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -380,11 +404,11 @@ describe("AC4: Dimension sub-scores use mini SeverityGauge", () => {
 
     // Compact SeverityGauge renders a single div[role="meter"] with data-testid="gauge-bar"
     // Non-compact renders that + a gauge-marker child. The dimension ones must be compact.
-    const ecoCard = screen.getByTestId("dimension-card-eco");
-    const gaugeBar = ecoCard.querySelector('[data-testid="gauge-bar"]');
+    const ecoRow = screen.getByTestId("dimension-row-eco");
+    const gaugeBar = ecoRow.querySelector('[data-testid="gauge-bar"]');
     expect(gaugeBar).not.toBeNull();
     // Compact mode does NOT render gauge-marker
-    const marker = ecoCard.querySelector('[data-testid="gauge-marker"]');
+    const marker = ecoRow.querySelector('[data-testid="gauge-marker"]');
     expect(marker).toBeNull();
   });
 });
@@ -499,11 +523,11 @@ describe("AC6: Graceful empty/null states", () => {
 
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("dimension-card-eco")).toBeInTheDocument();
+      expect(screen.getByTestId("dimension-row-eco")).toBeInTheDocument();
     });
 
-    const ecoCard = screen.getByTestId("dimension-card-eco");
-    const gauge = ecoCard.querySelector('[data-testid="gauge-bar"]');
+    const ecoRow = screen.getByTestId("dimension-row-eco");
+    const gauge = ecoRow.querySelector('[data-testid="gauge-bar"]');
     // Gauge must exist even for score=0
     expect(gauge).not.toBeNull();
   });

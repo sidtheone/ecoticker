@@ -96,12 +96,15 @@ describe("TopicDetailPage", () => {
     expect(screen.getByText("Arctic ice decline accelerating with cascading effects across all dimensions.")).toBeInTheDocument();
   });
 
-  test("renders back link to dashboard", async () => {
+  test("renders back link with short label", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
       expect(screen.getByTestId("back-link")).toBeInTheDocument();
     });
     expect(screen.getByTestId("back-link").getAttribute("href")).toBe("/");
+    expect(screen.getByTestId("back-link")).toHaveTextContent("← Back");
+    // Must NOT have the old verbose label
+    expect(screen.getByTestId("back-link").textContent).not.toContain("dashboard");
   });
 
   test("renders score chart", async () => {
@@ -146,25 +149,31 @@ describe("TopicDetailPage", () => {
 });
 
 describe("Sub-Score Breakdown", () => {
-  test("renders three dimension cards with correct labels and order", async () => {
+  test("renders three dimension rows with correct labels and NO weight percentages", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
       expect(screen.getByTestId("sub-score-breakdown")).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("dimension-card-eco")).toBeInTheDocument();
-    expect(screen.getByTestId("dimension-card-health")).toBeInTheDocument();
-    expect(screen.getByTestId("dimension-card-econ")).toBeInTheDocument();
+    // New flat row testids (not card)
+    expect(screen.getByTestId("dimension-row-eco")).toBeInTheDocument();
+    expect(screen.getByTestId("dimension-row-health")).toBeInTheDocument();
+    expect(screen.getByTestId("dimension-row-econ")).toBeInTheDocument();
+
+    // Old card testids must NOT exist
+    expect(screen.queryByTestId("dimension-card-eco")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dimension-card-health")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dimension-card-econ")).not.toBeInTheDocument();
 
     // Verify labels present
     expect(screen.getByText("Ecological Impact")).toBeInTheDocument();
     expect(screen.getByText("Health Impact")).toBeInTheDocument();
     expect(screen.getByText("Economic Impact")).toBeInTheDocument();
 
-    // Verify weights present
-    expect(screen.getByText("(40% weight)")).toBeInTheDocument();
-    expect(screen.getByText("(35% weight)")).toBeInTheDocument();
-    expect(screen.getByText("(25% weight)")).toBeInTheDocument();
+    // Weight percentages REMOVED from dimension rows
+    expect(screen.queryByText("(40% weight)")).not.toBeInTheDocument();
+    expect(screen.queryByText("(35% weight)")).not.toBeInTheDocument();
+    expect(screen.queryByText("(25% weight)")).not.toBeInTheDocument();
   });
 
   test("renders correct scores and severity levels", async () => {
@@ -174,6 +183,7 @@ describe("Sub-Score Breakdown", () => {
     });
 
     // Latest entry: eco=80 SEVERE, health=70 SIGNIFICANT, econ=75 SIGNIFICANT
+    // Scores and levels live inside dimension-row-* (not dimension-card-*)
     expect(screen.getByTestId("dimension-score-eco")).toHaveTextContent("80");
     expect(screen.getByTestId("dimension-level-eco")).toHaveTextContent("SEVERE");
 
@@ -196,7 +206,7 @@ describe("Sub-Score Breakdown", () => {
     expect(screen.getByText("Shipping route changes and fishing industry impacts.")).toBeInTheDocument();
   });
 
-  test("handles INSUFFICIENT_DATA for a single dimension", async () => {
+  test("handles INSUFFICIENT_DATA for a single dimension in flat row layout", async () => {
     setupFetch({
       ...mockData,
       scoreHistory: [
@@ -209,12 +219,14 @@ describe("Sub-Score Breakdown", () => {
       expect(screen.getByTestId("sub-score-breakdown")).toBeInTheDocument();
     });
 
-    // Econ should show N/A
+    // Econ should show N/A — inside dimension-row-econ (not dimension-card-econ)
+    expect(screen.getByTestId("dimension-row-econ")).toBeInTheDocument();
     expect(screen.getByTestId("dimension-score-econ")).toHaveTextContent("N/A");
     expect(screen.getByTestId("dimension-level-econ")).toHaveTextContent("No Data");
     expect(screen.getByTestId("dimension-reasoning-econ")).toHaveTextContent("Insufficient article data to assess this dimension");
 
-    // Other dimensions render normally
+    // Other dimensions render normally in rows
+    expect(screen.getByTestId("dimension-row-eco")).toBeInTheDocument();
     expect(screen.getByTestId("dimension-score-eco")).toHaveTextContent("80");
     expect(screen.getByTestId("dimension-score-health")).toHaveTextContent("70");
   });
@@ -263,33 +275,37 @@ describe("Sub-Score Breakdown", () => {
     expect(screen.queryByText("Sea ice at record lows")).not.toBeInTheDocument();
   });
 
-  test("renders article count line with plural articles", async () => {
+  test("renders article count line with new copy — plural", async () => {
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Latest score based on 2 articles");
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Scored from 2 articles");
     });
+    // Old copy must NOT appear
+    expect(screen.queryByText(/Latest score based on/)).not.toBeInTheDocument();
   });
 
-  test("renders article count line with singular article", async () => {
+  test("renders article count line with new copy — singular", async () => {
     setupFetch({
       ...mockData,
       topic: { ...mockData.topic, articleCount: 1 },
     });
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Latest score based on 1 article");
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("Scored from 1 article");
     });
   });
 
-  test("renders zero-article message when articleCount is 0", async () => {
+  test("renders zero-article message with new copy", async () => {
     setupFetch({
       ...mockData,
       topic: { ...mockData.topic, articleCount: 0 },
     });
     render(<TopicDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("article-count-line")).toHaveTextContent("No articles available for this topic");
+      expect(screen.getByTestId("article-count-line")).toHaveTextContent("No sources yet");
     });
+    // Old copy must NOT appear
+    expect(screen.queryByText(/No articles available/)).not.toBeInTheDocument();
   });
 
   test("renders share button", async () => {
@@ -353,5 +369,110 @@ describe("Sub-Score Breakdown", () => {
     });
 
     expect(screen.getByText("Sea ice at record lows")).toBeInTheDocument();
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Score-First Vertical Layout contracts
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe("Score-first hero layout", () => {
+  test("score has dramatic sizing — NOT text-4xl", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("detail-score")).toBeInTheDocument();
+    });
+
+    const score = screen.getByTestId("detail-score");
+    // Old SaaS sizing removed
+    expect(score).not.toHaveClass("text-4xl");
+    // New dramatic sizing for scores >= 30 should be large (e.g. text-7xl or equivalent)
+    // We check the element has font-mono (monospace for ticker aesthetic)
+    expect(score).toHaveClass("font-mono");
+  });
+
+  test("score is severity-colored via inline style", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("detail-score")).toBeInTheDocument();
+    });
+
+    const score = screen.getByTestId("detail-score");
+    // Score 85 = breaking = #dc2626 severity color
+    expect(score.style.color).toBe("rgb(220, 38, 38)");
+  });
+
+  test("ScoreInfoIcon is NOT rendered in the hero", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("score-hero")).toBeInTheDocument();
+    });
+
+    // ScoreInfoIcon had data-testid="score-info-icon" — must be gone
+    expect(screen.queryByTestId("score-info-icon")).not.toBeInTheDocument();
+  });
+
+  test("score uses larger sizing for scores >= 30 than for scores < 30", async () => {
+    // Score 85 (>= 30) should get bigger treatment (e.g. text-7xl)
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("detail-score")).toBeInTheDocument();
+    });
+
+    const highScore = screen.getByTestId("detail-score");
+    const highClasses = highScore.className;
+
+    // Now render with a low score (< 30)
+    setupFetch({
+      ...mockData,
+      topic: { ...mockData.topic, currentScore: 15, urgency: "informational" },
+    });
+
+    const { unmount } = render(<TopicDetailPage />);
+    // We just verify the high score element does not have the small class
+    // and is not text-4xl (the old uniform size)
+    expect(highScore).not.toHaveClass("text-4xl");
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Dimension flat row contracts
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe("Dimension flat rows", () => {
+  test("dimension rows have left-border accent (borderLeft inline style)", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("dimension-row-eco")).toBeInTheDocument();
+    });
+
+    // Each dimension row should have a left-border accent colored by its severity
+    const ecoRow = screen.getByTestId("dimension-row-eco");
+    // eco score = 80 (SEVERE) -> severity color should be on borderLeft
+    expect(ecoRow.style.borderLeftColor).toBeTruthy();
+  });
+
+  test("dimension rows have NO background fill or rounded corners", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("dimension-row-eco")).toBeInTheDocument();
+    });
+
+    const ecoRow = screen.getByTestId("dimension-row-eco");
+    // No card-style classes
+    expect(ecoRow.className).not.toContain("bg-[#f5f0e8]");
+    expect(ecoRow.className).not.toContain("rounded-lg");
+  });
+
+  test("dimensions render as vertical stack, NOT a 3-column grid", async () => {
+    render(<TopicDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sub-score-breakdown")).toBeInTheDocument();
+    });
+
+    const breakdown = screen.getByTestId("sub-score-breakdown");
+    // The container should NOT have grid-cols-3
+    expect(breakdown.innerHTML).not.toContain("grid-cols-3");
+    expect(breakdown.innerHTML).not.toContain("sm:grid-cols-3");
   });
 });

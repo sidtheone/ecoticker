@@ -1,159 +1,88 @@
-# Our Values — The Nakama Code
+# EcoTicker — Values
 
-Timeless principles that guide how we build, think, and ship together.
-
----
-
-## Simplicity & Design
-
-**"Simplicity is prerequisite for reliability."**
-— Edsger W. Dijkstra
-You cannot reason about, test, or trust what you cannot understand.
-
-**"You Aren't Gonna Need It" (YAGNI)**
-— Ron Jeffries / Extreme Programming
-Building for imagined future requirements adds complexity now and the future rarely arrives as predicted.
-
-**"Make each program do one thing well."**
-— Doug McIlroy (Unix Philosophy)
-Small, focused tools composed together are more powerful and durable than monoliths.
-
-**"There are two ways of constructing a software design: one way is to make it so simple that there are obviously no deficiencies, and the other way is to make it so complicated that there are no obvious deficiencies."**
-— C.A.R. Hoare
-The first way is harder and worth it.
-
-**"The best code is no code at all."**
-— Jeff Atwood
-Every line you write is a line you must maintain, debug, and explain. Delete what you can.
+Built with [InsightsLoop](https://github.com/sidtheone/insightsloop). Product values are EcoTicker's. Engineering, UX, and Security values are the engine's.
 
 ---
 
-## Code Quality & Craftsmanship
+## Product Values
 
-**"Programs must be written for people to read, and only incidentally for machines to execute."**
-— Harold Abelson & Gerald Jay Sussman (SICP)
-Readability is not a luxury; it is the primary measure of code quality.
+**"The data hurts. That's the point."**
+EcoTicker doesn't comfort. It shows what's actually happening — scores, trends, declines. If the first view doesn't make you uncomfortable, the design failed.
 
-**"Any fool can write code that a computer can understand. Good programmers write code that humans can understand."**
-— Martin Fowler
-The audience for your code is the next developer, who is often future-you.
+**"Insight, not information."**
+Raw data is noise. Every number on screen has been scored, contextualized, and reduced to something you can act on. If it doesn't change how you think, it doesn't belong.
 
-**"There are only two hard things in Computer Science: cache invalidation and naming things."**
-— Phil Karlton
-Good names eliminate the need for comments; bad names generate bugs.
-
-**"Leave the campground cleaner than you found it." (The Boy Scout Rule)**
-— Robert C. Martin
-Codebases decay without continuous small improvements. Refactor as you go.
-
-**"Duplication is far cheaper than the wrong abstraction."**
-— Sandi Metz
-Premature DRY leads to tangled abstractions. Tolerate repetition until the pattern is clear.
+**"Nothing decorative."**
+No green gradients, no leaf icons, no eco-aesthetic. The content is the interface. Anything that isn't data or insight is visual noise.
 
 ---
 
-## Architecture
+## Engineering Values
 
-**"All problems in computer science can be solved by another level of indirection, except for the problem of too many levels of indirection."**
-— David Wheeler (corollary by Kevlin Henney)
-Abstraction is a tool, not a goal. Every layer has a cost.
+**"Three lines beat a clever abstraction."**
+Duplication is cheaper than the wrong abstraction. No premature DRY, no "just in case" layers. If you can read it top to bottom, it's good code.
+*Serves: "Insight, not information."*
 
-**"Depend on abstractions, not concretions." (Dependency Inversion Principle)**
-— Robert C. Martin
-High-level policy should not break when low-level details change.
+**"Read it top to bottom or rewrite it."**
+If the next developer can't understand the code by reading it linearly, the engine pushes back. Readability is the primary quality metric.
+*Serves: "Nothing decorative."*
 
-**"A system's design mirrors the communication structure of the organization that built it." (Conway's Law)**
-— Melvin Conway
-You cannot ship a clean architecture from a dysfunctional org chart. Design the teams, not just the code.
+**"Delete before you add."**
+Every line earns its place. The engine challenges new complexity — if you can't justify it against the product values, it gets cut.
+*Serves: "Nothing decorative."*
 
-**"Gather together the things that change for the same reasons. Separate those that change for different reasons."**
-— Robert C. Martin (restating Dijkstra)
-Cohesion within a module, loose coupling between modules — this is the entire game.
-
-**"Make it work, make it right, make it fast."**
-— Kent Beck
-Correctness before cleanliness, cleanliness before performance. In that order.
+**"Untested code doesn't leave the engine."**
+If there's no test, it doesn't ship. The engine enforces this — not as a suggestion, as a gate.
+*Serves: "The data hurts. That's the point."*
 
 ---
 
-## Debugging & Problem Solving
+## UX Values
 
-**"Debugging is twice as hard as writing the code in the first place. Therefore, if you write the code as cleverly as possible, you are, by definition, not smart enough to debug it."**
-— Brian Kernighan
-A direct argument against cleverness. Write dumb, obvious code.
+**"Useful on first load."**
+Every screen works immediately. No onboarding flows, no empty states that say "add your first thing." If the user has to figure it out, the design failed.
+*Serves: "The data hurts. That's the point."*
 
-**"When you hear hoofbeats, think horses, not zebras."**
-— Medical aphorism, applied to engineering
-The bug is almost always in your code, not the compiler or the OS. Check the obvious first.
+**"Content over chrome."**
+No decorative elements, no visual noise. Every pixel serves the user's task. The engine pushes back on UI that looks good but doesn't do anything.
+*Serves: "Nothing decorative."*
 
-**"The most effective debugging tool is still careful thought, coupled with judiciously placed print statements."**
-— Brian Kernighan
-Sophisticated tools help, but nothing replaces understanding the system you built.
-
-**"If it hurts, do it more frequently, and bring the pain forward."**
-— Jez Humble / Martin Fowler
-Painful deploys, painful merges, painful tests — make them routine and they become trivial.
+**"Subtract until it breaks, then add one back."**
+Design by removal. The engine challenges every element — if it survives the cut, it stays. Minimalism isn't a style, it's the process.
+*Serves: "Insight, not information."*
 
 ---
 
-## Teamwork & Communication
+## Security Values
 
-**"What one programmer can do in one month, two programmers can do in two months."**
-— Fred Brooks (The Mythical Man-Month)
-Adding people to a late project makes it later. Communication overhead grows quadratically.
+**"Validate at the door."**
+Every external input — user input, API responses, file uploads — validated at the boundary. Trust nothing from outside.
+*Serves: "The data hurts. That's the point."*
 
-**"Always code as if the person who ends up maintaining your code is a violent psychopath who knows where you live."**
-— John Woods
-Empathy for the reader is a professional obligation, not a nicety.
+**"No secrets in code. Ever."**
+The engine flags hardcoded credentials, API keys, tokens. If it's sensitive, it goes in environment variables. No exceptions, no "I'll fix it later."
+*Serves: "Insight, not information."*
 
-**"The purpose of software engineering is to control complexity, not to create it."**
-— Pamela Zave
-If your process or architecture makes things harder to understand, it is failing at its only job.
-
----
-
-## Shipping & Pragmatism
-
-**"Perfect is the enemy of good."**
-— Voltaire
-Ship the working version. Improve it with real feedback, not hypothetical requirements.
-
-**"Plan to throw one away; you will, anyhow."**
-— Fred Brooks (The Mythical Man-Month)
-Your first attempt teaches you what the problem actually is. Build the second one on purpose.
-
-**"Premature optimization is the root of all evil."**
-— Donald Knuth
-Measure first. Optimize the bottleneck. Everything else is wasted effort and added complexity.
-
-**"Weeks of coding can save you hours of planning."**
-— Unknown
-A small amount of upfront thinking prevents enormous rework. Sketch before you build.
-
-**"Ship it and iterate."**
-— Reid Hoffman ("If you are not embarrassed by the first version of your product, you've launched too late.")
-Real users teach you more in a day than a whiteboard teaches you in a month.
+**"Default closed."**
+Every route, endpoint, and resource starts locked. You open access explicitly and intentionally. The engine won't let you ship open-by-default.
+*Serves: "Nothing decorative."*
 
 ---
 
-## Assumptions — Never Assume
+## What these values kill
 
-**"The sea is calm does not mean the sea is safe."**
-— Traditional maritime proverb
-Even when conditions appear benign, assuming the absence of danger has cost countless lives.
-
-**"Trust the compass, not the current."**
-— Old sailor's wisdom
-Currents can deceive you into thinking you're on course; assumptions about direction without checking instruments lead ships astray.
-
-**"Red sky at night, sailor's delight; red sky in morning, sailor's warning."**
-— Traditional (referenced in Matthew 16:2-3)
-Never assume tomorrow's weather from today's comfort — observation and pattern recognition replace assumption.
-
-**"The most dangerous phrase in the language is 'We've always done it this way.'"**
-— Grace Hopper (Rear Admiral, USN & computer science pioneer)
-Assuming past practice equals correct practice is the enemy of progress in both naval operations and software.
-
-**"It works on my machine."**
-— Universal software engineering proverb
-The quintessential dangerous assumption — that local success guarantees production success.
+| Value | Layer | What it prevents |
+|:---|:---|:---|
+| "The data hurts. That's the point." | Product | Feel-good dashboards, softened language, hiding bad scores |
+| "Insight, not information." | Product | Raw data dumps, unscored articles, numbers without context |
+| "Nothing decorative." | Product | Leaf icons, green gradients, eco-aesthetic, visual filler |
+| "Three lines beat a clever abstraction." | Engineering | Utility libraries, base classes, "framework-ifying" simple code |
+| "Read it top to bottom or rewrite it." | Engineering | Clever one-liners, deeply nested logic, magic |
+| "Delete before you add." | Engineering | Dead code, unused imports, "might need this later" |
+| "Untested code doesn't leave the engine." | Engineering | Shipping without coverage, "I'll add tests later" |
+| "Useful on first load." | UX | Onboarding wizards, empty states, tutorial overlays |
+| "Content over chrome." | UX | Decorative gradients, animations that don't inform, visual bloat |
+| "Subtract until it breaks, then add one back." | UX | Feature-packed screens, "while we're at it" UI additions |
+| "Validate at the door." | Security | Trusting client-side validation, unvalidated API responses |
+| "No secrets in code. Ever." | Security | Hardcoded keys, committed .env files, "temporary" credentials |
+| "Default closed." | Security | Open endpoints, permissive CORS, public-by-default resources |

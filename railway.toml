@@ -7,8 +7,8 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "node server.js"
-healthcheckPath = "/api/ticker"
-healthcheckTimeout = 10
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
 
 # Environment variables (set in Railway dashboard)
 # GNEWS_API_KEY, OPENROUTER_API_KEY, DATABASE_URL, etc.

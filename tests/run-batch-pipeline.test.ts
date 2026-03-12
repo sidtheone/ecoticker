@@ -347,6 +347,26 @@ describe("runBatchPipeline", () => {
 
       expect(result.topicsProcessed).toBe(1);
     });
+
+    it("uses onConflictDoUpdate when inserting score_history", async () => {
+      const mock = createMockDb();
+      mock.mockForDaily();
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE]))
+        .mockResolvedValueOnce(makeLLMResponse(CLASSIFICATION_RESPONSE))
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE));
+
+      await runBatchPipeline({
+        mode: "daily",
+        db: mock.chain as any,
+      });
+
+      // onConflictDoUpdate is called once for the topic upsert (existing).
+      // It must also be called for the score_history insert (idempotency).
+      // So the total must be >= 2: at least one topic upsert + one score_history.
+      expect(mock.chain.onConflictDoUpdate.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe("backfill-full mode", () => {

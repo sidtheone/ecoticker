@@ -192,6 +192,33 @@ To enable HTTPS with Let's Encrypt:
    ```
 5. Restart: `docker compose restart nginx`
 
+## Schema Migrations
+
+### Adding `uniqueIndex` on `score_history(topic_id, recorded_at)` (run-0003)
+
+This migration makes the batch pipeline idempotent — at most one score_history row per topic per calendar day. **Order matters.** Running steps out of order will either fail or silently have no effect.
+
+```bash
+# Step 1: Preview — verify what duplicates exist (safe, no changes)
+docker compose exec app npx tsx scripts/dedup-score-history.ts --dry-run
+
+# Step 2: Clean — remove duplicate rows, keeping the highest-id row per group
+docker compose exec app npx tsx scripts/dedup-score-history.ts
+
+# Step 3: Constrain — add UNIQUE INDEX (fails if duplicates still exist)
+docker compose exec app npx drizzle-kit push
+
+# Step 4: Deploy — app code with onConflictDoUpdate is now active
+docker compose build && docker compose up -d
+```
+
+**Why this order:**
+- `CREATE UNIQUE INDEX` fails if any `(topic_id, recorded_at)` duplicates remain → dedup must run first
+- `onConflictDoUpdate` in code silently has no effect without the constraint → schema push must precede deploy
+- The dedup script defaults to `--dry-run` — always preview before running live
+
+**Re-running is safe.** If the dedup script fails mid-run, re-run it — already-cleaned groups are now singletons and won't be touched.
+
 ## Common Operations
 
 ```bash

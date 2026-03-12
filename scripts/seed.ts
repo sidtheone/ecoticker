@@ -356,7 +356,7 @@ async function main() {
         rawLlmResponse: null, // Seed data doesn't have LLM responses
         anomalyDetected: false,
         recordedAt,
-      });
+      }).onConflictDoNothing();
       historyCount++;
     }
   }

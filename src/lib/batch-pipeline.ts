@@ -1191,23 +1191,43 @@ export async function runBatchPipeline(
       }
 
       // Insert score history (full rubric audit trail)
-      await db.insert(scoreHistory).values({
-        topicId,
-        score: scoreResult.overallScore,
-        healthScore: scoreResult.healthScore,
-        ecoScore: scoreResult.ecoScore,
-        econScore: scoreResult.econScore,
-        healthLevel: scoreResult.healthLevel,
-        ecoLevel: scoreResult.ecoLevel,
-        econLevel: scoreResult.econLevel,
-        healthReasoning: scoreResult.healthReasoning,
-        ecoReasoning: scoreResult.ecoReasoning,
-        econReasoning: scoreResult.econReasoning,
-        overallSummary: scoreResult.overallSummary,
-        impactSummary: scoreResult.overallSummary,
-        rawLlmResponse: scoreResult.rawLlmResponse,
-        anomalyDetected: scoreResult.anomalyDetected,
-      });
+      await db.insert(scoreHistory)
+        .values({
+          topicId,
+          score: scoreResult.overallScore,
+          healthScore: scoreResult.healthScore,
+          ecoScore: scoreResult.ecoScore,
+          econScore: scoreResult.econScore,
+          healthLevel: scoreResult.healthLevel,
+          ecoLevel: scoreResult.ecoLevel,
+          econLevel: scoreResult.econLevel,
+          healthReasoning: scoreResult.healthReasoning,
+          ecoReasoning: scoreResult.ecoReasoning,
+          econReasoning: scoreResult.econReasoning,
+          overallSummary: scoreResult.overallSummary,
+          impactSummary: scoreResult.overallSummary,
+          rawLlmResponse: scoreResult.rawLlmResponse,
+          anomalyDetected: scoreResult.anomalyDetected,
+        })
+        .onConflictDoUpdate({
+          target: [scoreHistory.topicId, scoreHistory.recordedAt],
+          set: {
+            score: scoreResult.overallScore,
+            healthScore: scoreResult.healthScore,
+            ecoScore: scoreResult.ecoScore,
+            econScore: scoreResult.econScore,
+            healthLevel: scoreResult.healthLevel,
+            ecoLevel: scoreResult.ecoLevel,
+            econLevel: scoreResult.econLevel,
+            healthReasoning: scoreResult.healthReasoning,
+            ecoReasoning: scoreResult.ecoReasoning,
+            econReasoning: scoreResult.econReasoning,
+            overallSummary: scoreResult.overallSummary,
+            impactSummary: scoreResult.overallSummary,
+            rawLlmResponse: scoreResult.rawLlmResponse,
+            anomalyDetected: scoreResult.anomalyDetected,
+          },
+        });
       scoreCount++;
 
       // Insert keywords (dedup)

@@ -92,6 +92,7 @@ export const scoreHistory = pgTable(
   (table) => [
     index("idx_score_history_topic").on(table.topicId),
     index("idx_score_history_date").on(table.recordedAt),
+    uniqueIndex('idx_score_history_topic_date').on(table.topicId, table.recordedAt),
   ]
 );
 

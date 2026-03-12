@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
           econScore: Math.max(0, score - 10),
           impactSummary: topicData.impactSummary,
           recordedAt: recordedAt.toISOString().split("T")[0], // DATE only
-        });
+        }).onConflictDoNothing();
 
         scoreCount++;
       }

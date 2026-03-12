@@ -1,0 +1,8 @@
+# Monkey Finding — Build Step
+
+- Technique: Scale Shift
+- Target: ArticleList.tsx flat rows + unbounded API response in /api/topics/[slug]/route.ts
+- Confidence: 84
+- Survived: yes
+- Observation: The Shipwright stripped card wrappers from ArticleList and replaced them with flat rows at `gap-1` spacing. Meanwhile, the API route fetches ALL articles and ALL scoreHistory entries for a topic with zero LIMIT or pagination. Pre-rebuild, card wrappers with padding/borders/backgrounds provided enough visual separation that moderate article counts (20-30) remained scannable. Post-rebuild, flat rows with 4px vertical gaps become an undifferentiated wall of text at scale. A topic like "Climate Change" aggregating 5 articles/day from multiple sources hits 150+ articles in a month. The page eagerly renders every one as a DOM node — no virtualization, no "show more" cutoff, no pagination. The ScoreChart similarly renders all history points into a single Recharts LineChart that becomes an unreadable hairball after ~60 entries. The flat design amplifies a pre-existing scale problem from "tolerable" to "broken."
+- Consequence: On a 6-month-old topic with 500+ articles, the topic detail page sends a multi-MB JSON payload, renders 500+ DOM nodes in a flat list with no visual rhythm, and draws a chart with 180+ data points crammed into a 256px-tall container. Mobile users on slow connections will see significant load time and scroll fatigue. The flat design that works beautifully at 5-10 items actively harms usability at production scale. A `LIMIT 20` on articles with a "Show more" button, and a `LIMIT 90` (90 days) on scoreHistory, would solve this without touching the design language.

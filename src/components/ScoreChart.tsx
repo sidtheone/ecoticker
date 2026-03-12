@@ -42,8 +42,7 @@ export default function ScoreChart({ history }: { history: ScoreHistoryEntry[] }
   const tooltipLabel = isDark ? "#e5e7eb" : "#44403c";
 
   return (
-    <div data-testid="score-chart" className="bg-[#f5f0e8] dark:bg-gray-900 border border-[#e8dfd3] dark:border-gray-800 rounded-lg p-4">
-      <h3 className="text-sm font-semibold text-stone-600 dark:text-gray-300 mb-3">Score History</h3>
+    <div data-testid="score-chart" className="border border-stone-200 dark:border-gray-800 rounded-lg p-4">
       <div className="h-48 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>

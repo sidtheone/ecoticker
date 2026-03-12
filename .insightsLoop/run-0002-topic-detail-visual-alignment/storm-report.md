@@ -1,0 +1,16 @@
+# Storm Report
+
+## Introduced Issues
+
+| Location | Issue | Severity | Suggestion |
+|----------|-------|----------|------------|
+| `src/app/topic/[slug]/page.tsx` lines 192-194 and 210-218 | **Duplicate "Updated" timestamp.** The score-hero metadata line (line 192) renders `Updated {relativeTime(topic.updatedAt)}`, and the action-bar section (lines 210-218) renders the identical text again. The user sees the same timestamp twice on the page. Scenario: load any topic detail page with a valid `updatedAt` -- "Updated 3h ago" appears once inside the hero and once below the insight lede. | High | Remove one of the two. The score-hero metadata line already shows the timestamp next to the share button. The standalone action-bar section is redundant. |
+| `src/app/topic/[slug]/page.tsx` lines 233-248 | **Insufficient-data dimension row breaks on narrow viewports.** The insufficient-data `<p>` ("Insufficient article data to assess this dimension") is a direct flex child in a `flex items-center` row alongside score, label, badge, and gauge. It has no width constraint, no `shrink-0`, and no responsive hide/show. Scenario: view a topic with one INSUFFICIENT_DATA dimension on a 320px-wide phone -- the reasoning text compresses the score/label/badge into unreadable widths or overflows the row. The valid-score rows handle reasoning responsively (`hidden sm:block` + mobile toggle), but this branch does not. | Medium | Either (a) move the reasoning text below the flex row (e.g. wrap in a flex-col container), or (b) apply the same desktop/mobile responsive pattern used by the valid-score dimension rows. |
+| `src/app/topic/[slug]/page.tsx` lines 210-218 | **Dead "Updated recently" fallback.** `topic.updatedAt` is typed as `string` (required, not optional) in the `Topic` interface. The ternary `topic.updatedAt ? ... : "Updated recently"` always takes the truthy branch since a non-empty string is truthy, and the API always provides a date string. The "Updated recently" branch on line 215-217 is unreachable. | Low | Delete the dead branch. If the action-bar is kept (see issue 1), render unconditionally with `relativeTime(topic.updatedAt)`. If the intent is to handle empty strings, check `topic.updatedAt.length > 0` explicitly. |
+
+## Pre-existing Issues
+
+| Location | Issue | Severity | Suggestion |
+|----------|-------|----------|------------|
+| `src/app/topic/[slug]/page.tsx` lines 15-17 | **`weight` field in DIMENSIONS constant is dead code.** The `weight` property ("40%", "35%", "25%") is defined but never destructured or rendered after this change removed weight display from the dimension rows. Same dead field exists in `src/components/ScoreChart.tsx` line 16-18 (where it IS still used in checkbox labels). | Low | Remove `weight` from the DIMENSIONS constant in `page.tsx` since it is no longer rendered there. Keep it in ScoreChart.tsx where it is still used. |
+| `src/components/ScoreInfoIcon.tsx`, `tests/ScoreInfoIcon.test.tsx` | **Orphaned component.** `ScoreInfoIcon` is no longer imported by any production code after the import was removed from `page.tsx`. The component file and its test file still exist. | Low | Delete both files, or keep intentionally if planned for reuse elsewhere. Violates "Delete before you add." |

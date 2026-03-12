@@ -44,9 +44,21 @@ describe("ArticleList", () => {
     expect(items[0].getAttribute("target")).toBe("_blank");
   });
 
-  test("shows empty state when no articles", () => {
+  test("shows empty state with new copy", () => {
     render(<ArticleList articles={[]} />);
     expect(screen.getByTestId("articles-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("articles-empty")).toHaveTextContent("No sources yet");
+    // Old copy must NOT appear
+    expect(screen.queryByText("No articles yet")).not.toBeInTheDocument();
+  });
+
+  test("article items have NO card-style classes (no bg fill, no rounded-lg)", () => {
+    render(<ArticleList articles={mockArticles} />);
+    const items = screen.getAllByTestId("article-item");
+    for (const item of items) {
+      expect(item.className).not.toContain("bg-[#f5f0e8]");
+      expect(item.className).not.toContain("rounded-lg");
+    }
   });
 });
 

@@ -91,7 +91,7 @@ if (require.main === module) {
     })
     .catch((err) => {
       console.error("fix-article-counts failed:", err);
-      process.exit(1);
+      process.exitCode = 1;
     })
     .finally(() => pool.end());
 }

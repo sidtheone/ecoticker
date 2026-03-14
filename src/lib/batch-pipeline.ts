@@ -13,7 +13,7 @@
 
 import Parser from "rss-parser";
 import slugify from "slugify";
-import { sql, lt } from "drizzle-orm";
+import { sql, lt, inArray } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@/db/schema";
 import {
@@ -1118,6 +1118,26 @@ export async function runBatchPipeline(
             }
           : null;
 
+      // Pre-check: which fetched URLs are genuinely new?
+      // NOTE: This query sees committed rows only. Single-concurrency assumed
+      // (daily cron + rate limit 2/hour). If concurrent runs are ever added,
+      // this needs a SELECT ... FOR UPDATE or advisory lock.
+      const fetchedUrls = topicArticles.map((a) => a.url);
+      const existingRows = await db
+        .select({ url: articles.url })
+        .from(articles)
+        .where(inArray(articles.url, fetchedUrls));
+      const existingUrlSet = new Set(existingRows.map((r) => r.url));
+      const newArticles = topicArticles.filter((a) => !existingUrlSet.has(a.url));
+
+      // Skip entire topic if all articles are duplicates.
+      // This intentionally skips: scoring, topic upsert, score_history, keywords.
+      // No score change, no previousScore rotation, no phantom history row.
+      if (newArticles.length === 0) {
+        console.log(`  ${topicName}: skipped (all ${topicArticles.length} articles are duplicates)`);
+        continue;
+      }
+
       const scoreResult = await scoreTopic(topicName, topicArticles, previousScores);
       const slug = slugify(topicName, { lower: true, strict: true });
       const imageUrl = topicArticles.find((a) => a.urlToImage)?.urlToImage || null;
@@ -1143,7 +1163,7 @@ export async function runBatchPipeline(
           urgency: scoreResult.urgency,
           impactSummary: scoreResult.overallSummary,
           imageUrl,
-          articleCount: topicArticles.length,
+          articleCount: newArticles.length,
           healthScore: scoreResult.healthScore,
           ecoScore: scoreResult.ecoScore,
           econScore: scoreResult.econScore,
@@ -1163,7 +1183,7 @@ export async function runBatchPipeline(
             imageUrl: sql`COALESCE(${imageUrl}, ${topics.imageUrl})`,
             category: scoreResult.category,
             region: scoreResult.region,
-            articleCount: sql`${topics.articleCount} + ${topicArticles.length}`,
+            articleCount: sql`${topics.articleCount} + ${newArticles.length}`,
             updatedAt: sql`CURRENT_TIMESTAMP`,
           },
         })
@@ -1172,8 +1192,9 @@ export async function runBatchPipeline(
       topicCount++;
       const topicId = inserted[0].id;
 
-      // Insert articles (dedup by URL)
-      for (const a of topicArticles) {
+      // Insert only genuinely new articles (pre-filtered above).
+      // onConflictDoNothing retained as safety net — should be a no-op.
+      for (const a of newArticles) {
         await db
           .insert(articles)
           .values({
@@ -1187,8 +1208,8 @@ export async function runBatchPipeline(
             publishedAt: a.publishedAt ? new Date(a.publishedAt) : null,
           })
           .onConflictDoNothing({ target: articles.url });
-        articleCount++;
       }
+      articleCount += newArticles.length;
 
       // Insert score history (full rubric audit trail)
       await db.insert(scoreHistory)

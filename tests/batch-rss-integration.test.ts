@@ -144,9 +144,9 @@ function setupDb(existingTopics: unknown[] = []) {
   mockDb.mockSelect(existingTopics);
   // Topic upsert uses .returning({ id: topics.id })
   mockDb.chain.returning.mockResolvedValue([{ id: 1 }]);
-  // GDPR audit log delete returns rowCount
+  // GDPR audit log delete — chain.where() returns chain (default),
+  // await resolves to [] via mockSelect. purgeResult.rowCount || 0 = 0.
   mockDb.chain.delete.mockReturnValue(mockDb.chain);
-  mockDb.chain.where.mockResolvedValue({ rowCount: 0 });
   // COUNT queries for summary (thenable chain resolves to count)
   mockDb.chain.limit.mockResolvedValue([{ count: 1 }]);
 }

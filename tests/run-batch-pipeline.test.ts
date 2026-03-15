@@ -10,6 +10,7 @@
  * - GDPR audit log purge
  * - classification fallback to "Environmental News"
  * - clamping warning threshold
+ * - ghost scoring prevention (all-dupe skip, partial-dupe count, articlesAdded accuracy)
  */
 
 // Set env vars BEFORE any module load
@@ -23,6 +24,7 @@ import {
   type BatchPipelineOptions,
   type BatchPipelineResult,
 } from "@/lib/batch-pipeline";
+import { articles as articlesTable, topics as topicsTable } from "@/db/schema";
 
 // Mock rss-parser before batch-pipeline imports it
 jest.mock("rss-parser", () => {
@@ -32,6 +34,11 @@ jest.mock("rss-parser", () => {
 });
 
 // ─── Mock DB Builder ──────────────────────────────────────────────
+
+interface MockForDailyOptions {
+  existingTopics?: any[];
+  existingArticleUrls?: string[];
+}
 
 function createMockDb() {
   const insertedValues: any[] = [];
@@ -84,23 +91,55 @@ function createMockDb() {
     insertedValues,
     /**
      * Configure the mock to return specific data for SELECT queries.
-     * First call returns existingTopics, subsequent calls return counts.
+     * Discriminates by table reference passed to from():
+     * - from(topics) on first call → existingTopics
+     * - from(articles) with where (URL pre-query) → matching existing URLs
+     * - COUNT queries (topics/articles) → [{ count: 5 }]
      */
-    mockForDaily(existingTopics: any[] = []) {
-      let selectCallCount = 0;
+    mockForDaily({
+      existingTopics = [],
+      existingArticleUrls = [],
+    }: MockForDailyOptions = {}) {
+      let topicsSelectDone = false;
       chain.select.mockImplementation(() => {
-        selectCallCount++;
-        // Reset thenable for each select chain
         const selectChain = { ...chain };
-        selectChain.then = (resolve: any) => {
-          // 1st select: existing topics with keywords (groupBy)
-          if (selectCallCount === 1) {
-            return Promise.resolve(existingTopics).then(resolve);
+
+        // from() captures the table reference to decide what to return
+        selectChain.from = jest.fn().mockImplementation((tableRef: any) => {
+          // URL pre-query: SELECT url FROM articles WHERE url IN (...)
+          // Identified by from(articles) when articles have a url column
+          if (tableRef === articlesTable) {
+            selectChain.where = jest.fn().mockReturnValue(selectChain);
+            selectChain.then = (resolve: any) => {
+              // Return only the URLs that match our "existing" set
+              const matchingUrls = existingArticleUrls.map((url) => ({ url }));
+              return Promise.resolve(matchingUrls).then(resolve);
+            };
+            return selectChain;
           }
-          // Later selects: COUNT queries → [{ count: 5 }]
-          return Promise.resolve([{ count: 5 }]).then(resolve);
-        };
-        selectChain.from = jest.fn().mockReturnValue(selectChain);
+
+          // Topics query (first call with topics table or groupBy/leftJoin)
+          if (tableRef === topicsTable && !topicsSelectDone) {
+            topicsSelectDone = true;
+            selectChain.leftJoin = jest.fn().mockReturnValue(selectChain);
+            selectChain.groupBy = jest.fn().mockReturnValue(selectChain);
+            selectChain.where = jest.fn().mockReturnValue(selectChain);
+            selectChain.then = (resolve: any) => {
+              return Promise.resolve(existingTopics).then(resolve);
+            };
+            return selectChain;
+          }
+
+          // All other selects: COUNT queries → [{ count: 5 }]
+          selectChain.where = jest.fn().mockReturnValue(selectChain);
+          selectChain.leftJoin = jest.fn().mockReturnValue(selectChain);
+          selectChain.groupBy = jest.fn().mockReturnValue(selectChain);
+          selectChain.then = (resolve: any) => {
+            return Promise.resolve([{ count: 5 }]).then(resolve);
+          };
+          return selectChain;
+        });
+
         selectChain.leftJoin = jest.fn().mockReturnValue(selectChain);
         selectChain.groupBy = jest.fn().mockReturnValue(selectChain);
         selectChain.where = jest.fn().mockReturnValue(selectChain);
@@ -323,17 +362,19 @@ describe("runBatchPipeline", () => {
 
     it("uses previous scores for anomaly detection on existing topics", async () => {
       const mock = createMockDb();
-      mock.mockForDaily([
-        {
-          id: 1,
-          name: "Climate Crisis",
-          currentScore: 50,
-          healthScore: 40,
-          ecoScore: 60,
-          econScore: 30,
-          keywords: "climate,warming",
-        },
-      ]);
+      mock.mockForDaily({
+        existingTopics: [
+          {
+            id: 1,
+            name: "Climate Crisis",
+            currentScore: 50,
+            healthScore: 40,
+            ecoScore: 60,
+            econScore: 30,
+            keywords: "climate,warming",
+          },
+        ],
+      });
 
       global.fetch = jest.fn()
         .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE]))
@@ -366,6 +407,147 @@ describe("runBatchPipeline", () => {
       // It must also be called for the score_history insert (idempotency).
       // So the total must be >= 2: at least one topic upsert + one score_history.
       expect(mock.chain.onConflictDoUpdate.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // ── Ghost scoring prevention (lens: stateful) ──────────────────
+
+  describe("ghost scoring prevention", () => {
+    it("skips topic entirely when all fetched articles are duplicates", async () => {
+      const mock = createMockDb();
+      // The fetched URL already exists in the articles table
+      mock.mockForDaily({
+        existingArticleUrls: [GNEWS_ARTICLE.url],
+      });
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE])) // GNews
+        .mockResolvedValueOnce(makeLLMResponse(CLASSIFICATION_RESPONSE)) // classify
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE)); // score (should NOT be called)
+
+      const result = await runBatchPipeline({
+        mode: "daily",
+        db: mock.chain as any,
+      });
+
+      // Topic must be skipped — no scoring, no inserts, no score history
+      expect(result.topicsProcessed).toBe(0);
+      expect(result.articlesAdded).toBe(0);
+      expect(result.scoresRecorded).toBe(0);
+      // Verify no topic or article inserts were made
+      expect(mock.insertedValues).toHaveLength(0);
+
+      // Finding 2: Verify the scoring LLM call was NOT made.
+      // fetch should be called exactly 2 times: GNews + classify. NOT 3 (no scoring).
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+
+      // Finding 4: AC-1 requires console log with "skipped" and "duplicates"
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining("skipped")
+      );
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining("duplicates")
+      );
+    });
+
+    it("increments articleCount only by genuinely new articles when some are duplicates", async () => {
+      const mock = createMockDb();
+      const secondArticle = {
+        ...GNEWS_ARTICLE,
+        title: "Second article — new",
+        url: "https://reuters.com/new-article",
+      };
+      // First URL already exists, second is new
+      mock.mockForDaily({
+        existingArticleUrls: [GNEWS_ARTICLE.url],
+      });
+
+      const twoArticleClassification = {
+        classifications: [
+          { articleIndex: 0, topicName: "Climate Crisis", isNew: true },
+          { articleIndex: 1, topicName: "Climate Crisis", isNew: true },
+        ],
+        rejected: [],
+        rejectionReasons: [],
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE, secondArticle]))
+        .mockResolvedValueOnce(makeLLMResponse(twoArticleClassification))
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE));
+
+      await runBatchPipeline({
+        mode: "daily",
+        db: mock.chain as any,
+      });
+
+      // The topic upsert's articleCount should use newArticles.length (1),
+      // not topicArticles.length (2)
+      const topicInsert = mock.insertedValues.find(
+        (v) => v.name === "Climate Crisis"
+      );
+      expect(topicInsert).toBeDefined();
+      expect(topicInsert.articleCount).toBe(1);
+
+      // Finding 3: Verify the onConflictDoUpdate SET clause also uses
+      // newArticles.length (1), not topicArticles.length (2).
+      // The SET clause is passed as an argument to onConflictDoUpdate().
+      // For the conflict path, the articleCount increment must reflect
+      // only genuinely new articles.
+      expect(mock.chain.onConflictDoUpdate).toHaveBeenCalled();
+      const conflictCalls = mock.chain.onConflictDoUpdate.mock.calls;
+      // Find the topic upsert's onConflictDoUpdate call (has set.articleCount)
+      const topicConflictCall = conflictCalls.find(
+        ([arg]: [any]) => arg?.set?.articleCount !== undefined
+      );
+      expect(topicConflictCall).toBeDefined();
+      // The SQL template for articleCount should reference newArticles.length (1).
+      // Drizzle's sql`` stores params in queryChunks. The numeric value (1 or 2)
+      // appears as a raw element in the chunks array.
+      const articleCountSql = topicConflictCall[0].set.articleCount;
+      expect(articleCountSql).toBeDefined();
+      // Extract numeric values from the SQL object's queryChunks
+      const numericChunks = articleCountSql.queryChunks.filter(
+        (chunk: any) => typeof chunk === "number"
+      );
+      // Must contain 1 (newArticles.length), must NOT contain 2 (topicArticles.length)
+      expect(numericChunks).toContain(1);
+      expect(numericChunks).not.toContain(2);
+    });
+
+    it("articlesAdded reflects actual DB inserts, not fetched count", async () => {
+      const mock = createMockDb();
+      const secondArticle = {
+        ...GNEWS_ARTICLE,
+        title: "Second article — new",
+        url: "https://reuters.com/new-article",
+      };
+      // First URL already exists, second is new
+      mock.mockForDaily({
+        existingArticleUrls: [GNEWS_ARTICLE.url],
+      });
+
+      const twoArticleClassification = {
+        classifications: [
+          { articleIndex: 0, topicName: "Climate Crisis", isNew: true },
+          { articleIndex: 1, topicName: "Climate Crisis", isNew: true },
+        ],
+        rejected: [],
+        rejectionReasons: [],
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(makeGNewsResponse([GNEWS_ARTICLE, secondArticle]))
+        .mockResolvedValueOnce(makeLLMResponse(twoArticleClassification))
+        .mockResolvedValueOnce(makeLLMResponse(SCORING_RESPONSE));
+
+      const result = await runBatchPipeline({
+        mode: "daily",
+        db: mock.chain as any,
+      });
+
+      // 2 fetched, 1 is a dupe → only 1 actually inserted
+      expect(result.articlesAdded).toBe(1);
     });
   });
 

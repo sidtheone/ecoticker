@@ -3,10 +3,10 @@ import { db } from "@/db";
 import { topics } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export const runtime = "nodejs";
 export const alt = "EcoTicker Topic";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const revalidate = 43200; // Cache for 12 hours (scores update twice daily)
 
 const urgencyConfig: Record<string, { color: string; label: string }> = {
   breaking: { color: "#dc2626", label: "BREAKING" },

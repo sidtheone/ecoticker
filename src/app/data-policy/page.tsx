@@ -11,14 +11,12 @@ export const metadata: Metadata = {
       "What data EcoTicker collects, how it's used, and your rights under GDPR.",
     url: "/data-policy",
     siteName: "EcoTicker",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Data Policy — EcoTicker",
     description:
       "What data EcoTicker collects, how it's used, and your rights under GDPR.",
-    images: ["/og-default.png"],
   },
 };
 

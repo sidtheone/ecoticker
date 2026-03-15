@@ -90,7 +90,7 @@ ecoticker/
 │   ├── deployment/             # Deployment guides
 │   └── plans/                  # Feature planning docs
 ├── public/                     # Static assets
-├── _gsd-output/                # GSD planning/implementation artifacts
+├── _bmad-output/                # BMAD planning/implementation artifacts
 ├── .github/
 │   └── workflows/
 │       └── security.yml        # CI: audit, lint, test
@@ -141,10 +141,10 @@ ecoticker/
 - Contains: 39 test suites covering API routes, components, lib functions, scripts
 - Key files: Named by convention `{feature}.test.ts` or `{Component}.test.tsx`
 
-**`_gsd-output/`:**
-- Purpose: GSD framework planning and implementation artifacts
+**`_bmad-output/`:**
+- Purpose: BMAD framework planning and implementation artifacts
 - Contains: Planning documents, research, implementation test specs
-- Generated: Partially (by GSD methodology)
+- Generated: Partially (by BMAD methodology)
 - Committed: Yes
 
 ## Key File Locations
@@ -247,13 +247,13 @@ ecoticker/
 
 ## Special Directories
 
-**`_gsd-output/`:**
-- Purpose: GSD framework planning and implementation artifacts
-- Generated: By GSD methodology
+**`_bmad-output/`:**
+- Purpose: BMAD framework planning and implementation artifacts
+- Generated: By BMAD methodology
 - Committed: Yes
 
 **`.planning/`:**
-- Purpose: Codebase analysis documents for GSD automation
+- Purpose: Codebase analysis documents for BMAD automation
 - Generated: By codebase mapping agents
 - Committed: Yes
 

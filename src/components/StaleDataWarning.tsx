@@ -59,7 +59,7 @@ export default function StaleDataWarning() {
         className="bg-stone-100 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-700 rounded-lg px-4 py-3 text-stone-600 dark:text-stone-400 text-sm mb-4"
       >
         We&apos;re monitoring the environment. Scores will appear after the next
-        batch run (every 4 hours).
+        batch run (twice daily).
       </div>
     );
   }
@@ -75,7 +75,7 @@ export default function StaleDataWarning() {
       data-testid="stale-data-warning"
       className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 text-amber-800 dark:text-amber-200 text-sm mb-4"
     >
-      Data may be outdated — last updated {relativeTime}. Batches run every 4 hours.
+      Data may be outdated — last updated {relativeTime}. Batches run twice daily.
     </div>
   );
 }

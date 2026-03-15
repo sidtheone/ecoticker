@@ -8,9 +8,9 @@ import { max } from "drizzle-orm";
 // Success response shape: { lastBatchAt: string | null, isStale: boolean }
 // Error response shape:   { error: string } with HTTP 500
 //
-// Staleness note: recordedAt is DATE type (day-level granularity, not timestamp).
-// AC2 mentions "18 hours" but the implementation uses day comparison:
-// isStale = true if lastBatchDate < today (UTC). Acceptable for MVP — batch runs daily at 6 AM UTC.
+// Staleness note: recordedAt is DATE type (day-level granularity).
+// Stale = last batch date is more than 1 day behind today (UTC).
+// With twice-daily batches (6 AM / 6 PM UTC), same-day data is always fresh.
 export async function GET(): Promise<NextResponse> {
   try {
     const result = await db
@@ -20,11 +20,14 @@ export async function GET(): Promise<NextResponse> {
     // MAX on empty table returns [{ lastBatchAt: null }]; result can also be []
     const lastBatchAt = result[0]?.lastBatchAt ?? null;
 
-    // UTC date string: "YYYY-MM-DD" — must use UTC to align with 6 AM UTC batch schedule
-    const todayUtc = new Date().toISOString().slice(0, 10);
-
-    // Stale if no data or last batch date is before today in UTC
-    const isStale = lastBatchAt === null || lastBatchAt < todayUtc;
+    // Stale if no data or last batch is more than 1 day old
+    let isStale = lastBatchAt === null;
+    if (lastBatchAt !== null) {
+      const now = new Date();
+      const last = new Date(lastBatchAt + "T00:00:00Z");
+      const diffMs = now.getTime() - last.getTime();
+      isStale = diffMs > 24 * 60 * 60 * 1000;
+    }
 
     return NextResponse.json({ lastBatchAt, isStale });
   } catch (err) {

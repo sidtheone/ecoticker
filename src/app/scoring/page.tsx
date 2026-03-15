@@ -11,14 +11,12 @@ export const metadata: Metadata = {
       "How EcoTicker calculates environmental impact severity scores.",
     url: "/scoring",
     siteName: "EcoTicker",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Scoring Methodology — EcoTicker",
     description:
       "How EcoTicker calculates environmental impact severity scores.",
-    images: ["/og-default.png"],
   },
 };
 

@@ -213,14 +213,14 @@ const mockParseURL = jest.fn()
 
 ### References
 
-- [Source: _gsd-output/planning-artifacts/epic-4.md — Story 4.4 AC and Dev Notes]
+- [Source: _bmad-output/planning-artifacts/epic-4.md — Story 4.4 AC and Dev Notes]
 - [Source: scripts/rss.ts — current fetchRssFeeds() implementation (lines 48-86)]
 - [Source: scripts/batch.ts — RSS integration at lines 618-665]
 - [Source: src/app/api/batch/route.ts — inlined fetchRssFeeds() at lines 269-307, caller at lines 617-663]
 - [Source: tests/rss.test.ts — 11 existing RSS tests]
 - [Source: tests/batch-rss-integration.test.ts — 5 batch+RSS integration tests]
 - [Source: tests/api-batch-gnews.test.ts — route.ts tests including RSS integration]
-- [Source: _gsd-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md — Previous story: sourceMap pattern, SYNC comments, test mock patterns]
+- [Source: _bmad-output/implementation-artifacts/4-2-integrate-rss-batch-pipeline.md — Previous story: sourceMap pattern, SYNC comments, test mock patterns]
 
 ## Dev Agent Record
 

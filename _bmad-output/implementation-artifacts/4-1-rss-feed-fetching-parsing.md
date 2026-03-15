@@ -164,8 +164,8 @@ Use `Promise.allSettled()` (not `Promise.all()`) so one feed failure doesn't abo
 
 ### References
 
-- [Source: _gsd-output/planning-artifacts/epic-4.md — Story 4.1]
-- [Source: _gsd-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md — Feed URLs, rss-parser API]
+- [Source: _bmad-output/planning-artifacts/epic-4.md — Story 4.1]
+- [Source: _bmad-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md — Feed URLs, rss-parser API]
 - [Source: scripts/batch.ts — NewsArticle interface (~line 46), fetchNews() pattern, BATCH_KEYWORDS default pattern (~line 23)]
 - [Source: src/db/schema.ts — articles table, sourceType column]
 - [Source: src/lib/types.ts — Article interface with sourceType field]

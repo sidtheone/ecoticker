@@ -7,8 +7,7 @@
 - **Pause at checkpoints.** During iterative design work, stop after each change and show the result. Do NOT proceed to the next step until approved.
 - **Read VALUES.md.** Our shared principles live in `VALUES.md` at repo root. Consult it for quality standards and philosophy.
 - **Use `/feature-dev` for features.** Default workflow for new features and improvements. Provides explore → clarify → design → build → review flow.
-- **Use GSD for multi-phase epics only.** Planning and implementation artifacts live in `_gsd-output/`. Reserve GSD for large, multi-phase work — not single features.
-- **Building our own `/nakama` skill.** Both frameworks are placeholders until we codify our own workflow. Keep it simple.
+- **Use BMAD for multi-phase epics only.** Planning and implementation artifacts live in `_bmad-output/`. Reserve BMAD for large, multi-phase work — not single features.
 - **TDD.** Write tests first, then implement. Every new feature or file must have corresponding tests written before the implementation code.
 
 ## Project Overview

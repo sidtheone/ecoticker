@@ -8,7 +8,7 @@
 ## Architecture & Design
 
 - **[2026-02-12-postgresql-drizzle-design.md](./2026-02-12-postgresql-drizzle-design.md)** - PostgreSQL + Drizzle ORM migration design (Phase 0)
-- **[2026-02-12-user-stories-v2.md](./2026-02-12-user-stories-v2.md)** - Deep revision: 21 stories with personas + journeys (SUPERSEDED by GSD epics in `_gsd-output/planning-artifacts/`)
+- **[2026-02-12-user-stories-v2.md](./2026-02-12-user-stories-v2.md)** - Deep revision: 21 stories with personas + journeys (SUPERSEDED by BMM epics in `_bmad-output/planning-artifacts/`)
 - **[2026-02-22-architecture-audit-ux-spec.md](./2026-02-22-architecture-audit-ux-spec.md)** - Architecture audit: UX spec vs codebase (67% aligned, 7 gaps → Epic 7)
 
 ## Completed Phase Workflows

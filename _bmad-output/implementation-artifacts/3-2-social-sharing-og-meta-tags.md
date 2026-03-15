@@ -96,7 +96,7 @@ so that **my audience can immediately understand the environmental severity befo
 
 ### References
 
-- [Source: _gsd-output/planning-artifacts/epic-3.md#Story 3.2]
+- [Source: _bmad-output/planning-artifacts/epic-3.md#Story 3.2]
 - [Source: docs/plans/2026-02-13-us6.1-workflow.md] — Full implementation workflow with code examples
 - [Source: src/app/topic/[slug]/page.tsx] — Current topic detail page (252 lines, "use client")
 - [Source: src/db/schema.ts] — Topics table schema with impactSummary, scoreReasoning fields

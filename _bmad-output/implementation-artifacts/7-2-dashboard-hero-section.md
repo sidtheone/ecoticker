@@ -185,11 +185,11 @@ The current InsightHeadline subscribes to `eventBus` for `ui-refresh` events. Th
 ### References
 
 - [Source: docs/plans/2026-02-22-architecture-audit-ux-spec.md] — Gap #2 (Hero section), weighted score formula, layout modes
-- [Source: _gsd-output/planning-artifacts/epic-7.md#Story 7.2] — Full AC and dev notes
+- [Source: _bmad-output/planning-artifacts/epic-7.md#Story 7.2] — Full AC and dev notes
 - [Source: src/components/InsightHeadline.tsx] — Current component to evolve
 - [Source: src/app/page.tsx] — Dashboard page layout
 - [Source: src/app/topic/[slug]/page.tsx:53] — Clipboard copy pattern
-- [Source: _gsd-output/implementation-artifacts/7-1-severity-gauge-color-utility.md] — Dependency: SeverityGauge + severityColor
+- [Source: _bmad-output/implementation-artifacts/7-1-severity-gauge-color-utility.md] — Dependency: SeverityGauge + severityColor
 
 ## Dev Agent Record
 

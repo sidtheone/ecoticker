@@ -16,14 +16,12 @@ export const metadata: Metadata = {
     description:
       "Real-time AI-scored severity tracking for environmental news.",
     url: "/",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "EcoTicker — Environmental Impact Tracker",
     description:
       "Real-time AI-scored severity tracking for environmental news.",
-    images: ["/og-default.png"],
   },
 };
 

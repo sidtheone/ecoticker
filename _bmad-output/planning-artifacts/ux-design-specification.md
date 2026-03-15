@@ -1,10 +1,10 @@
 ---
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 inputDocuments:
-  - '_gsd-output/planning-artifacts/prd.md'
-  - '_gsd-output/planning-artifacts/prd-validation-report.md'
-  - '_gsd-output/prd-session-context.md'
-  - '_gsd-output/project-context.md'
+  - '_bmad-output/planning-artifacts/prd.md'
+  - '_bmad-output/planning-artifacts/prd-validation-report.md'
+  - '_bmad-output/prd-session-context.md'
+  - '_bmad-output/project-context.md'
   - 'docs/plans/2026-02-12-user-stories-v2/index.md'
   - 'docs/plans/index.md'
 ---

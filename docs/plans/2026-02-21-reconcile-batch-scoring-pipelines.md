@@ -119,5 +119,5 @@ Extract `fetchNews()`, `classifyArticles()`, `scoreTopic()`, `processScoreResult
 - `scripts/batch.ts:167-505` — Full US-1.0 scoring pipeline (source of truth)
 - `src/app/api/batch/route.ts:136-267` — Current simplified pipeline (target)
 - `src/lib/scoring.ts` — Shared scoring utilities (validateScore, computeOverallScore, deriveUrgency, detectAnomaly)
-- `_gsd-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md` — Review follow-up item
+- `_bmad-output/implementation-artifacts/emergency-replace-newsapi-with-gnews.md` — Review follow-up item
 - `docs/plans/2026-02-09-llm-scoring-research.md` — Original scoring research

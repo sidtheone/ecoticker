@@ -1,15 +1,15 @@
 ---
 stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-03-success', 'step-01b-continue', 'step-04-journeys', 'step-05-domain', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish']
 inputDocuments:
-  - '_gsd-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md'
+  - '_bmad-output/planning-artifacts/research/domain-rss-environmental-news-feeds-research-2026-02-17.md'
   - 'docs/plans/2026-02-09-llm-scoring-research.md'
-  - '_gsd-output/project-context.md'
+  - '_bmad-output/project-context.md'
   - 'docs/plans/2026-02-12-user-stories-v2.md'
   - 'docs/plans/2026-02-09-business-panel-analysis.md'
   - 'docs/plans/2026-02-12-postgresql-drizzle-design.md'
   - 'docs/plans/2026-02-13-phase0-workflow.md'
   - 'docs/index.md'
-  - '_gsd-output/planning-artifacts/index.md'
+  - '_bmad-output/planning-artifacts/index.md'
 workflowType: 'prd'
 briefCount: 0
 researchCount: 2

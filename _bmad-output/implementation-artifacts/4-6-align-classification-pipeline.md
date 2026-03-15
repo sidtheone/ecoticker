@@ -173,12 +173,12 @@ route.ts line 481 has: `console.log("LLM Classification Response:", response.sub
 
 ### References
 
-- [Source: _gsd-output/planning-artifacts/epic-4.md — Story 4.6 AC and Dev Notes]
+- [Source: _bmad-output/planning-artifacts/epic-4.md — Story 4.6 AC and Dev Notes]
 - [Source: docs/plans/2026-02-21-reconcile-batch-scoring-pipelines.md — Full problem analysis, divergence table]
 - [Source: scripts/batch.ts:228-310 — Gold standard classifyArticles() with newsworthiness test + rejection logging]
 - [Source: src/app/api/batch/route.ts:443-496 — Current simplified classifyArticles() (target)]
 - [Source: tests/api-batch-gnews.test.ts — Existing tests, makeClassificationResponse helper]
-- [Source: _gsd-output/implementation-artifacts/4-5-align-scoring-pipeline.md — Previous story: callLLM settings, H3 fix (no response_format for classification)]
+- [Source: _bmad-output/implementation-artifacts/4-5-align-scoring-pipeline.md — Previous story: callLLM settings, H3 fix (no response_format for classification)]
 
 ## Dev Agent Record
 

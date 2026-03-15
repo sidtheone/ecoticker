@@ -219,7 +219,7 @@ No external library needed. Matches the "Updated Xh ago" format from the UX spec
 
 ### References
 
-- [Source: _gsd-output/planning-artifacts/epic-7.md#Story 7.4] — Full AC and dev notes
+- [Source: _bmad-output/planning-artifacts/epic-7.md#Story 7.4] — Full AC and dev notes
 - [Source: docs/plans/2026-02-22-architecture-audit-ux-spec.md] — Graduated visual weight principle
 - [Source: src/components/TopicCard.tsx] — Current component implementation
 - [Source: src/components/SeverityGauge.tsx] — Gauge component (compact mode)

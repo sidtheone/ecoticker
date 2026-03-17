@@ -247,37 +247,37 @@ export default function TopicDetailPage() {
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-3 px-3 py-2"
+                  className="flex flex-col"
                   data-testid={`dimension-row-${key}`}
                   style={{ borderLeft: `4px solid ${dimensionColors.border}` }}
                 >
-                  <span className="font-mono font-bold text-sm w-8 shrink-0 text-right" style={{ color: dimensionColors.badge }} data-testid={`dimension-score-${key}`}>{score}</span>
-                  <span className="flex-1 text-sm font-medium text-stone-800 dark:text-gray-200">{label}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${dimensionColors.badge}1a`, color: dimensionColors.badge }} data-testid={`dimension-level-${key}`}>{levelText}</span>
-                  <div className="w-16 shrink-0">
-                    <SeverityGauge score={score} compact />
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <span className="font-mono font-bold text-sm w-8 shrink-0 text-right" style={{ color: dimensionColors.badge }} data-testid={`dimension-score-${key}`}>{score}</span>
+                    <span className="flex-1 text-sm font-medium text-stone-800 dark:text-gray-200">{label}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${dimensionColors.badge}1a`, color: dimensionColors.badge }} data-testid={`dimension-level-${key}`}>{levelText}</span>
+                    <div className="w-16 shrink-0">
+                      <SeverityGauge score={score} compact />
+                    </div>
+                    {reasoning && (
+                      <button
+                        onClick={() => toggleReasoning(key)}
+                        className="sm:hidden text-xs text-stone-400 dark:text-gray-500 hover:text-stone-600 dark:hover:text-gray-300"
+                        data-testid={`reasoning-toggle-${key}`}
+                      >
+                        {expanded ? "▲" : "▼"}
+                      </button>
+                    )}
                   </div>
                   {reasoning && (
                     <>
-                      {/* Desktop: always visible */}
-                      <p className="hidden sm:block text-xs text-stone-500 dark:text-gray-400" data-testid={`dimension-reasoning-${key}`}>
+                      <p className="hidden sm:block text-xs text-stone-500 dark:text-gray-400 px-3 pb-2" data-testid={`dimension-reasoning-${key}`}>
                         {reasoning}
                       </p>
-                      {/* Mobile: toggle */}
-                      <div className="sm:hidden">
-                        <button
-                          onClick={() => toggleReasoning(key)}
-                          className="text-xs text-stone-400 dark:text-gray-500 hover:text-stone-600 dark:hover:text-gray-300"
-                          data-testid={`reasoning-toggle-${key}`}
-                        >
-                          {expanded ? "▲" : "▼"}
-                        </button>
-                        {expanded && (
-                          <p className="text-xs text-stone-500 dark:text-gray-400 mt-1" data-testid={`dimension-reasoning-mobile-${key}`}>
-                            {reasoning}
-                          </p>
-                        )}
-                      </div>
+                      {expanded && (
+                        <p className="sm:hidden text-xs text-stone-500 dark:text-gray-400 px-3 pb-2" data-testid={`dimension-reasoning-mobile-${key}`}>
+                          {reasoning}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

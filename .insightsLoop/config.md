@@ -9,7 +9,7 @@ Tunables for the engine. Read by devloop/devloopfast at Phase 0. Change values h
 <!-- Theme file loaded from: .insightsLoop/themes/{setting}.md -->
 
 ## Monkey
-- findings_per_step: 3
+- findings_per_vertical: 3
 
 ## Confidence (devloopfast only)
 - threshold: 80
